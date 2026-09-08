@@ -31,6 +31,12 @@ Driver-supported CUDA version is not the installed compiler. Preserve the functi
 
 Read-only follow-up should sample sensors serially (one IPMI session at a time), correlate SEL timestamps, identify fan headers and physical modules from the server documentation, and inspect physical airflow. Do not clear SEL, suppress thresholds, or apply guessed raw BMC fan commands. The user may need to inspect/reseat/replace fans or verify a sensor/control issue.
 
+### Policy correction, 2026-09-08
+
+The primary identified cause was the active custom monitor's intentionally quiet configuration: it held both BMC fan zones at 20% PWM when GPUs were cool. Its full-speed policy is now 100% PWM in both zones at idle, load, and emergency temperatures; it also serializes daemon/request-hook write cycles through a lock. The post-restart status was `cap:100`, manual/full BMC mode, 100/100 zone PWM, all FAN1–FAN8 sensors `ok`, and idle P40 temperatures of 32–33°C. The [configuration record](results/2026-09-08-fan-policy.md) has exact files, verification and backup suffix.
+
+This clears the known software under-PWM cause, not the full thermal gate. The BMC had prior intermittent raw-response warnings, and the corrected policy has not yet completed the five-minute observation, physical airflow inspection, or guarded load-canary requirements below.
+
 ## Proposed conservative test policy
 
 These thresholds are project choices, not NVIDIA specifications. Store them in versioned benchmark configuration; never silently raise them to get a run to pass.
