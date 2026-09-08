@@ -1,0 +1,27 @@
+{
+  "schema_version": "p40-qwen-canary-guard-v1",
+  "task": "T04A",
+  "status": "pass",
+  "run_id": "t04a-local-mock-acceptance-2026-09-08",
+  "command": ["python3", "-m", "unittest", "discover", "-s", "tests", "-v"],
+  "scope": "CPU-only mocked guard acceptance; no SSH, CUDA, model load, benchmark, or server change",
+  "cuda_initialized": false,
+  "fixed_profile": {
+    "engine": "/home/jordanculver/p40-native-research/colibri-engine/c/qwen36",
+    "model_snapshot": "/mnt/ai-ssd/huggingface/hub/models--Kreuzzelg--qwen36-35b-a3b-colibri-i4/snapshots/9ccfbfa09bc55410a9c9102558ee63077d8a477d",
+    "gpus": [0, 1],
+    "power_cap_w": 125,
+    "output_tokens": 16,
+    "watchdog_seconds": 1800,
+    "cooldown_seconds": 300
+  },
+  "evidence": {
+    "tests": "50 tests passed",
+    "request_surface": "only a JSON dry_run boolean is accepted",
+    "argv": "fixed env -i, pinned experimental binary/model/prompt, two GPUs, and fixed profile settings",
+    "mocked_cleanup": "both GPU power caps are applied and restored; output capture is bounded and durable",
+    "failure_gates": ["hot start telemetry", "new fan-critical event", "watchdog", "process-group termination"]
+  },
+  "failure_reason": null,
+  "next_eligible_task": "deploy and dry-run the separate forced-command Qwen guard; then run one 16-output, 125W dual-P40 canary only if remote preflight remains cool and idle"
+}
