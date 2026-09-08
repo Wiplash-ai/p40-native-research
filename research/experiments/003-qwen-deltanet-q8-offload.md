@@ -119,6 +119,14 @@ precision alone, caused T05D's failure; it does not clear the 15% performance
 threshold. T05F will replace only the shared-memory final reduction with an
 equivalent warp-shuffle tree. See [T05E evidence](../results/T05E-dn-out-cpuorder.md).
 
+## T05F result: kill isolated out-projection tuning
+
+The warp-shuffle variant retained bit identity but measured 0.1245 ms GPU
+versus 0.1161 ms CPU. The small CPU control is cache-sensitive, and neither
+exact isolated variant clears the keep threshold. Stop single-out tuning.
+T05G will apply the exact-order kernel to the full 30-layer Q8 working set,
+where cache behavior is representative. See [T05F evidence](../results/T05F-dn-out-shuffle.md).
+
 ## What a T05A pass does and does not show
 
 A pass shows that one cached Q8/FP32 projection benefits from the P40. It does

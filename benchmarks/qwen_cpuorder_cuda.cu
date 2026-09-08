@@ -43,34 +43,31 @@ bool reserve(float** pointer, size_t* capacity, size_t bytes) {
 }
 
 // One warp maps to one output row. Each lane performs the same serial FMA
-// stream as one AVX lane in qwen36.c:matmul_q: columns lane + 32*k. Lane zero
-// then executes the CPU's fixed 4x8-vector reduction tree in the same order.
+// stream as one AVX lane in qwen36.c:matmul_q: columns lane + 32*k. Warp
+// shuffles then execute the CPU's fixed 4x8-vector reduction tree in the same
+// order, avoiding the shared-memory store and full-warp barrier.
 __global__ void qwen_cpuorder_q8_matvec(float* output, const float* input,
                                          const int8_t* weights,
                                          const float* scales, int width) {
   const int row = static_cast<int>(blockIdx.x);
   const int lane = static_cast<int>(threadIdx.x);
-  __shared__ float partial[32];
   const int8_t* weight = weights + static_cast<size_t>(row) * width;
   float accumulator = 0.0f;
   for (int column = lane; column < width; column += 32) {
     accumulator = __fmaf_rn(input[column], static_cast<float>(weight[column]), accumulator);
   }
-  partial[lane] = accumulator;
-  __syncthreads();
+  const unsigned mask = 0xffffffffu;
+  // Every lane executes every shuffle. Only lanes 0..7 contribute to the
+  // final result, so masked source indices for lanes 24..31 are harmless.
+  const float first = accumulator + __shfl_sync(mask, accumulator, (lane + 8) & 31);
+  const float second = __shfl_sync(mask, accumulator, (lane + 16) & 31) +
+                       __shfl_sync(mask, accumulator, (lane + 24) & 31);
+  const float vector_lane = first + second;
+  const float pair = vector_lane + __shfl_sync(mask, vector_lane, (lane + 4) & 31);
+  const float quad = pair + __shfl_sync(mask, pair, (lane + 2) & 31);
+  const float total = quad + __shfl_sync(mask, quad, (lane + 1) & 31);
   if (lane == 0) {
-    float lanes[8];
-    #pragma unroll
-    for (int index = 0; index < 8; ++index) {
-      const float first = partial[index] + partial[index + 8];
-      const float second = partial[index + 16] + partial[index + 24];
-      lanes[index] = first + second;
-    }
-    const float r0 = lanes[0] + lanes[4];
-    const float r1 = lanes[1] + lanes[5];
-    const float r2 = lanes[2] + lanes[6];
-    const float r3 = lanes[3] + lanes[7];
-    output[row] = ((r0 + r2) + (r1 + r3)) * scales[row];
+    output[row] = total * scales[row];
   }
 }
 

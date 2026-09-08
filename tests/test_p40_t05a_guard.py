@@ -68,6 +68,18 @@ assert CPUORDER_CLIENT_SPEC and CPUORDER_CLIENT_SPEC.loader
 sys.modules[CPUORDER_CLIENT_SPEC.name] = cpuorder_client
 CPUORDER_CLIENT_SPEC.loader.exec_module(cpuorder_client)
 
+SHUFFLE_SPEC = importlib.util.spec_from_file_location("p40_t05f_shuffle_guard", ROOT / "remote/p40-t05f-shuffle-guard.py")
+shuffle = importlib.util.module_from_spec(SHUFFLE_SPEC)
+assert SHUFFLE_SPEC and SHUFFLE_SPEC.loader
+sys.modules[SHUFFLE_SPEC.name] = shuffle
+SHUFFLE_SPEC.loader.exec_module(shuffle)
+
+SHUFFLE_CLIENT_SPEC = importlib.util.spec_from_file_location("p40_t05f_client", ROOT / "scripts/p40_t05f_shuffle_client.py")
+shuffle_client = importlib.util.module_from_spec(SHUFFLE_CLIENT_SPEC)
+assert SHUFFLE_CLIENT_SPEC and SHUFFLE_CLIENT_SPEC.loader
+sys.modules[SHUFFLE_CLIENT_SPEC.name] = shuffle_client
+SHUFFLE_CLIENT_SPEC.loader.exec_module(shuffle_client)
+
 
 class T05AGuardTests(unittest.TestCase):
     def test_dry_run_never_initializes_cuda(self):
@@ -122,6 +134,14 @@ class T05AGuardTests(unittest.TestCase):
         self.assertIn("dn-out-cpuorder-4096x2048", cpuorder.t05a.FIXED_ARGUMENTS)
         identity = Path("/tmp/p40-t05e-test-key")
         self.assertEqual(cpuorder_client.ssh_argv("host", identity)[-1], "p40-t05e-cpuorder")
+
+    def test_shuffle_identity_pins_the_optimized_exact_order_binary(self):
+        self.assertEqual(shuffle.t05a.EXPECTED_ORIGINAL_COMMAND, "p40-t05f-shuffle")
+        self.assertEqual(shuffle.t05a.PROFILE_ID, "t05f-dn-out-cpuorder-shuffle-4096x2048")
+        self.assertEqual(shuffle.t05a.BENCHMARK_SHA256, "c2b2873420ac96a57d21f5a04ae1cdc1221c127642e2cf25cee175f2f8dc5e64")
+        self.assertIn("qwen_dn_out_cpuorder_control", str(shuffle.t05a.BENCHMARK))
+        identity = Path("/tmp/p40-t05f-test-key")
+        self.assertEqual(shuffle_client.ssh_argv("host", identity)[-1], "p40-t05f-shuffle")
 
     def test_mocked_run_caps_restores_and_records_output(self):
         class FinishedProcess:

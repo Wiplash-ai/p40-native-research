@@ -285,3 +285,21 @@ ID, status, hypothesis, prediction, exact change, source/binary/model/prompt ide
   plus barrier to a warp-shuffle tree with the exact same arithmetic order.
   It must retain bit identity and meet the speed threshold before chain work.
 - Evidence: [T05E record](../results/T05E-dn-out-cpuorder.md).
+
+## T05F — exact-order warp-shuffle out projection
+
+- Date: 2026-09-08.
+- Status: rejected for the isolated projection.
+- Exact change: replaced T05E's shared-memory final reduction and barrier
+  with the equivalent warp-shuffle reduction tree; FMA streams and input,
+  weights, scales, guard, and CPU control were unchanged.
+- Result: bit-identical output. CPU median 0.1161 ms/call; GPU complete median
+  0.1245 ms/call; 0.932x observed ratio.
+- Decision: stop tuning the isolated 8 MiB out projection. Its CPU control is
+  cache-sensitive and no longer answers the product question. T05G applies the
+  exact-order kernel across the 30-layer, 90-projection, 960 MiB Q8 sweep. It
+  must retain exact parity and exceed the 15% keep threshold; otherwise reject
+  direct Q8 projection offload.
+- Safety: GPU0 peak 34 C; all fans 2,000–2,100 RPM; no fault; five-minute
+  cooldown; no retained VRAM; cap restored.
+- Evidence: [T05F record](../results/T05F-dn-out-shuffle.md).
