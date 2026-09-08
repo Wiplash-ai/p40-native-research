@@ -32,7 +32,8 @@ MAX_MEMORY_CAP_MIB = 1024
 SAFE_POWER_W = 125
 TEMP_LIMIT_C = 65.0
 COOLDOWN_LIMIT_C = 40.0
-COOLDOWN_SECONDS = 300
+MIN_COOLDOWN_SECONDS = 300
+MAX_COOLDOWN_SECONDS = 900
 
 
 class UnsafeRequest(ValueError):
@@ -166,7 +167,7 @@ def terminate(process: subprocess.Popen[str]) -> list[str]:
 
 
 def cool_down(samples: list[dict], baseline_events: set[str]) -> str | None:
-    deadline = time.monotonic() + COOLDOWN_SECONDS
+    started = time.monotonic()
     while True:
         gpus, fans = gpu_state(), fan_state()
         reason = unsafe_reason(gpus, fans, require_idle=False)
@@ -175,8 +176,11 @@ def cool_down(samples: list[dict], baseline_events: set[str]) -> str | None:
             return reason
         if new_critical_events(baseline_events, critical_fan_events()):
             return "new_fan_critical_event"
-        if time.monotonic() >= deadline:
-            return None if all(gpu["temperature_c"] <= COOLDOWN_LIMIT_C for gpu in gpus) else "cooldown_timeout"
+        elapsed = time.monotonic() - started
+        if elapsed >= MIN_COOLDOWN_SECONDS and all(gpu["temperature_c"] <= COOLDOWN_LIMIT_C for gpu in gpus):
+            return None
+        if elapsed >= MAX_COOLDOWN_SECONDS:
+            return "cooldown_timeout"
         time.sleep(5)
 
 

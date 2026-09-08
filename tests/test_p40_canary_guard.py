@@ -3,6 +3,7 @@ import json
 import sys
 import unittest
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 REMOTE = ROOT / "remote/p40-canary-guard.py"
@@ -58,3 +59,26 @@ class CanaryGuardTests(unittest.TestCase):
         gpus = [{"temperature_c": 41, "memory_used_mib": 0}]
         fans = [{"rpm": 2000} for _ in range(8)]
         self.assertEqual(guard.unsafe_reason(gpus, fans, require_idle=True), "not_cool_or_idle")
+
+    def test_cooldown_requires_minimum_time_and_temperature_recovery(self):
+        hot = [{"index": 0, "temperature_c": 41.0, "memory_used_mib": 0.0}]
+        cool = [{"index": 0, "temperature_c": 40.0, "memory_used_mib": 0.0}]
+        fans = [{"rpm": 2000} for _ in range(8)]
+        samples = []
+        with mock.patch.object(guard, "gpu_state", side_effect=[hot, cool]), \
+             mock.patch.object(guard, "fan_state", return_value=fans), \
+             mock.patch.object(guard, "critical_fan_events", return_value=set()), \
+             mock.patch.object(guard.time, "monotonic", side_effect=[0.0, 300.0, 301.0]), \
+             mock.patch.object(guard.time, "sleep"):
+            self.assertIsNone(guard.cool_down(samples, set()))
+        self.assertEqual(len(samples), 2)
+
+    def test_cooldown_times_out_only_at_extended_deadline(self):
+        hot = [{"index": 0, "temperature_c": 41.0, "memory_used_mib": 0.0}]
+        fans = [{"rpm": 2000} for _ in range(8)]
+        with mock.patch.object(guard, "gpu_state", return_value=hot), \
+             mock.patch.object(guard, "fan_state", return_value=fans), \
+             mock.patch.object(guard, "critical_fan_events", return_value=set()), \
+             mock.patch.object(guard.time, "monotonic", side_effect=[0.0, 900.0]), \
+             mock.patch.object(guard.time, "sleep"):
+            self.assertEqual(guard.cool_down([], set()), "cooldown_timeout")

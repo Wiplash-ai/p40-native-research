@@ -129,3 +129,13 @@ ID, status, hypothesis, prediction, exact change, source/binary/model/prompt ide
 - Safety: GPU peaks were 42°C/43°C and 7,895 MiB/card; every fan remained 2,000–2,100 RPM; no fresh fan-critical SEL appeared; GPUs were empty after execution and the guard restored both 250 W limits after its five-minute cooldown.
 - Decision: the evidence shifts the next optimization target to a measured CPU-owned phase (DeltaNet first, LM head second), not higher expert residency or generic CUDA flags. First add a separate fixed 64-output control guard under the same 125 W safety policy, then advance deliberately toward the 512-output repetitions.
 - Evidence: [T04 record](../results/T04-Qwen-16-dual-p40-125w.md).
+
+## T04 — 64-output control cooldown gate
+
+- Date: 2026-09-08.
+- Status: failed cooldown gate; do not promote its performance data to a baseline.
+- Result: the fixed 64-output control generated successfully at 1.50 engine-reported output tok/s (1.58 decode tok/s over 63 steps). DeltaNet remained the largest measured phase at 333.38 ms/token, ahead of LM head at 147.48 and MoE at 66.62. Peak samples were 47°C/49°C and no fan or device fault occurred.
+- Failure: the old executor checked for <=40°C exactly at its five-minute deadline. GPU1 was still 42°C, triggering `cooldown_timeout` even though it cooled to 40°C about three minutes later. Cleanup nevertheless released both GPUs and restored both 250 W limits.
+- Exact correction: change cooldown semantics from "five minutes then <=40°C" to "at least five minutes and <=40°C", with a conservative 15-minute cap. Unit tests cover continuing after the five-minute mark and failing only at the extended maximum.
+- Decision: deploy the corrected base guard and repeat this identical 64-output control. Do not run 512 outputs or vary settings first.
+- Evidence: [control record](../results/T04-control-64-dual-p40-125w.md).
