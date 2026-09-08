@@ -18,6 +18,12 @@ assert CONTROL_SPEC and CONTROL_SPEC.loader
 sys.modules[CONTROL_SPEC.name] = control
 CONTROL_SPEC.loader.exec_module(control)
 
+CONTROL_256_SPEC = importlib.util.spec_from_file_location("p40_qwen_control_256", ROOT / "remote/p40-qwen-control-256.py")
+control_256 = importlib.util.module_from_spec(CONTROL_256_SPEC)
+assert CONTROL_256_SPEC and CONTROL_256_SPEC.loader
+sys.modules[CONTROL_256_SPEC.name] = control_256
+CONTROL_256_SPEC.loader.exec_module(control_256)
+
 CLIENT_SPEC = importlib.util.spec_from_file_location("p40_qwen_control_client", ROOT / "scripts/p40_qwen_control_client.py")
 client = importlib.util.module_from_spec(CLIENT_SPEC)
 assert CLIENT_SPEC and CLIENT_SPEC.loader
@@ -59,9 +65,17 @@ class QwenCanaryGuardTests(unittest.TestCase):
         self.assertIn("N_NEW=64", control.qwen.model_argv())
         self.assertEqual(control.qwen.parse_request('{"dry_run": true}'), {"dry_run": True})
 
+    def test_plateau_profile_has_a_distinct_fixed_256_output_identity(self):
+        self.assertEqual(control_256.EXPECTED_ORIGINAL_COMMAND, "p40-qwen-control-256")
+        self.assertEqual(control_256.qwen.OUTPUT_TOKENS, 256)
+        self.assertEqual(control_256.qwen.PROFILE_ID, "control-256")
+        self.assertEqual(control_256.qwen.SCHEMA_VERSION, "p40-qwen-control-256-v1")
+        self.assertIn("N_NEW=256", control_256.qwen.model_argv())
+
     def test_client_only_selects_forced_profile_commands(self):
         identity = Path("/tmp/p40-test-key")
         self.assertEqual(client.ssh_argv("host", identity, "control-64")[-1], "p40-qwen-control-64")
+        self.assertEqual(client.ssh_argv("host", identity, "control-256")[-1], "p40-qwen-control-256")
         self.assertEqual(client.ssh_argv("host", identity, "canary-16", read_results=True)[-1], "p40-qwen-canary-results")
 
     def test_mocked_run_caps_and_restores_both_gpus_and_records_output(self):

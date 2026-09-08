@@ -12,6 +12,7 @@ from pathlib import Path
 PROFILES = {
     "canary-16": ("p40-qwen-canary", "p40-qwen-canary-results"),
     "control-64": ("p40-qwen-control-64", "p40-qwen-control-64-results"),
+    "control-256": ("p40-qwen-control-256", "p40-qwen-control-256-results"),
 }
 # 1,800 s server watchdog plus mandatory 300 s cooldown and SSH slack. The
 # server, not this client, owns termination and recovery.
