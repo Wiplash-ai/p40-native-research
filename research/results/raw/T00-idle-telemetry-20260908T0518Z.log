@@ -1,0 +1,132 @@
+sh: 1: printf: Illegal option --
+2026-09-08T05:17:43+00:00
+0, 34, 10.64 W, 250.00 W, 0 %, 0 MiB, 24576 MiB, P8
+1, 35, 10.05 W, 250.00 W, 0 %, 0 MiB, 24576 MiB, P8
+FAN1 | 2000.000 | RPM
+FAN2 | 2000.000 | RPM
+FAN3 | 2100.000 | RPM
+FAN4 | 2000.000 | RPM
+FAN5 | 2100.000 | RPM
+FAN6 | 2100.000 | RPM
+FAN7 | 2100.000 | RPM
+FAN8 | 2100.000 | RPM
+2001 | 09/08/26 | 04:12:07 UTC | Fan FAN2 | Lower Critical going low  | Asserted | Reading 400 < Threshold 500 RPM
+2002 | 09/08/26 | 04:12:08 UTC | Fan FAN3 | Lower Critical going low  | Asserted | Reading 400 < Threshold 500 RPM
+2003 | 09/08/26 | 04:12:11 UTC | Fan FAN2 | Lower Critical going low  | Deasserted | Reading 2000 > Threshold 500 RPM
+2004 | 09/08/26 | 04:12:11 UTC | Fan FAN3 | Lower Critical going low  | Deasserted | Reading 2000 > Threshold 500 RPM
+2005 | 09/08/26 | 04:12:19 UTC | Fan FAN2 | Lower Critical going low  | Asserted | Reading 400 < Threshold 500 RPM
+2006 | 09/08/26 | 04:12:20 UTC | Fan FAN3 | Lower Critical going low  | Asserted | Reading 400 < Threshold 500 RPM
+2007 | 09/08/26 | 04:12:23 UTC | Fan FAN2 | Lower Critical going low  | Deasserted | Reading 2000 > Threshold 500 RPM
+2008 | 09/08/26 | 04:12:24 UTC | Fan FAN3 | Lower Critical going low  | Deasserted | Reading 2100 > Threshold 500 RPM
+2009 | 09/08/26 | 04:12:34 UTC | Fan FAN3 | Lower Critical going low  | Asserted | Reading 400 < Threshold 500 RPM
+200a | 09/08/26 | 04:12:39 UTC | Fan FAN3 | Lower Critical going low  | Deasserted | Reading 2100 > Threshold 500 RPM
+sh: 1: printf: Illegal option --
+2026-09-08T05:18:51+00:00
+0, 34, 10.55 W, 250.00 W, 0 %, 0 MiB, 24576 MiB, P8
+1, 35, 11.53 W, 250.00 W, 0 %, 0 MiB, 24576 MiB, P8
+FAN1 | 2000.000 | RPM
+FAN2 | 2000.000 | RPM
+FAN3 | 2100.000 | RPM
+FAN4 | 2000.000 | RPM
+FAN5 | 2100.000 | RPM
+FAN6 | 2100.000 | RPM
+FAN7 | 2100.000 | RPM
+FAN8 | 2100.000 | RPM
+2001 | 09/08/26 | 04:12:07 UTC | Fan FAN2 | Lower Critical going low  | Asserted | Reading 400 < Threshold 500 RPM
+2002 | 09/08/26 | 04:12:08 UTC | Fan FAN3 | Lower Critical going low  | Asserted | Reading 400 < Threshold 500 RPM
+2003 | 09/08/26 | 04:12:11 UTC | Fan FAN2 | Lower Critical going low  | Deasserted | Reading 2000 > Threshold 500 RPM
+2004 | 09/08/26 | 04:12:11 UTC | Fan FAN3 | Lower Critical going low  | Deasserted | Reading 2000 > Threshold 500 RPM
+2005 | 09/08/26 | 04:12:19 UTC | Fan FAN2 | Lower Critical going low  | Asserted | Reading 400 < Threshold 500 RPM
+2006 | 09/08/26 | 04:12:20 UTC | Fan FAN3 | Lower Critical going low  | Asserted | Reading 400 < Threshold 500 RPM
+2007 | 09/08/26 | 04:12:23 UTC | Fan FAN2 | Lower Critical going low  | Deasserted | Reading 2000 > Threshold 500 RPM
+2008 | 09/08/26 | 04:12:24 UTC | Fan FAN3 | Lower Critical going low  | Deasserted | Reading 2100 > Threshold 500 RPM
+2009 | 09/08/26 | 04:12:34 UTC | Fan FAN3 | Lower Critical going low  | Asserted | Reading 400 < Threshold 500 RPM
+200a | 09/08/26 | 04:12:39 UTC | Fan FAN3 | Lower Critical going low  | Deasserted | Reading 2100 > Threshold 500 RPM
+sh: 1: printf: Illegal option --
+2026-09-08T05:19:59+00:00
+0, 34, 10.55 W, 250.00 W, 0 %, 0 MiB, 24576 MiB, P8
+1, 35, 10.15 W, 250.00 W, 0 %, 0 MiB, 24576 MiB, P8
+FAN1 | 2000.000 | RPM
+FAN2 | 2000.000 | RPM
+FAN3 | 2100.000 | RPM
+FAN4 | 2000.000 | RPM
+FAN5 | 2100.000 | RPM
+FAN6 | 2100.000 | RPM
+FAN7 | 2100.000 | RPM
+FAN8 | 2100.000 | RPM
+2001 | 09/08/26 | 04:12:07 UTC | Fan FAN2 | Lower Critical going low  | Asserted | Reading 400 < Threshold 500 RPM
+2002 | 09/08/26 | 04:12:08 UTC | Fan FAN3 | Lower Critical going low  | Asserted | Reading 400 < Threshold 500 RPM
+2003 | 09/08/26 | 04:12:11 UTC | Fan FAN2 | Lower Critical going low  | Deasserted | Reading 2000 > Threshold 500 RPM
+2004 | 09/08/26 | 04:12:11 UTC | Fan FAN3 | Lower Critical going low  | Deasserted | Reading 2000 > Threshold 500 RPM
+2005 | 09/08/26 | 04:12:19 UTC | Fan FAN2 | Lower Critical going low  | Asserted | Reading 400 < Threshold 500 RPM
+2006 | 09/08/26 | 04:12:20 UTC | Fan FAN3 | Lower Critical going low  | Asserted | Reading 400 < Threshold 500 RPM
+2007 | 09/08/26 | 04:12:23 UTC | Fan FAN2 | Lower Critical going low  | Deasserted | Reading 2000 > Threshold 500 RPM
+2008 | 09/08/26 | 04:12:24 UTC | Fan FAN3 | Lower Critical going low  | Deasserted | Reading 2100 > Threshold 500 RPM
+2009 | 09/08/26 | 04:12:34 UTC | Fan FAN3 | Lower Critical going low  | Asserted | Reading 400 < Threshold 500 RPM
+200a | 09/08/26 | 04:12:39 UTC | Fan FAN3 | Lower Critical going low  | Deasserted | Reading 2100 > Threshold 500 RPM
+sh: 1: printf: Illegal option --
+2026-09-08T05:21:07+00:00
+0, 34, 10.45 W, 250.00 W, 0 %, 0 MiB, 24576 MiB, P8
+1, 35, 10.44 W, 250.00 W, 0 %, 0 MiB, 24576 MiB, P8
+FAN1 | 2000.000 | RPM
+FAN2 | 2000.000 | RPM
+FAN3 | 2100.000 | RPM
+FAN4 | 2000.000 | RPM
+FAN5 | 2100.000 | RPM
+FAN6 | 2100.000 | RPM
+FAN7 | 2100.000 | RPM
+FAN8 | 2100.000 | RPM
+2001 | 09/08/26 | 04:12:07 UTC | Fan FAN2 | Lower Critical going low  | Asserted | Reading 400 < Threshold 500 RPM
+2002 | 09/08/26 | 04:12:08 UTC | Fan FAN3 | Lower Critical going low  | Asserted | Reading 400 < Threshold 500 RPM
+2003 | 09/08/26 | 04:12:11 UTC | Fan FAN2 | Lower Critical going low  | Deasserted | Reading 2000 > Threshold 500 RPM
+2004 | 09/08/26 | 04:12:11 UTC | Fan FAN3 | Lower Critical going low  | Deasserted | Reading 2000 > Threshold 500 RPM
+2005 | 09/08/26 | 04:12:19 UTC | Fan FAN2 | Lower Critical going low  | Asserted | Reading 400 < Threshold 500 RPM
+2006 | 09/08/26 | 04:12:20 UTC | Fan FAN3 | Lower Critical going low  | Asserted | Reading 400 < Threshold 500 RPM
+2007 | 09/08/26 | 04:12:23 UTC | Fan FAN2 | Lower Critical going low  | Deasserted | Reading 2000 > Threshold 500 RPM
+2008 | 09/08/26 | 04:12:24 UTC | Fan FAN3 | Lower Critical going low  | Deasserted | Reading 2100 > Threshold 500 RPM
+2009 | 09/08/26 | 04:12:34 UTC | Fan FAN3 | Lower Critical going low  | Asserted | Reading 400 < Threshold 500 RPM
+200a | 09/08/26 | 04:12:39 UTC | Fan FAN3 | Lower Critical going low  | Deasserted | Reading 2100 > Threshold 500 RPM
+sh: 1: printf: Illegal option --
+2026-09-08T05:22:15+00:00
+0, 34, 10.64 W, 250.00 W, 0 %, 0 MiB, 24576 MiB, P8
+1, 35, 10.25 W, 250.00 W, 0 %, 0 MiB, 24576 MiB, P8
+FAN1 | 2000.000 | RPM
+FAN2 | 2000.000 | RPM
+FAN3 | 2100.000 | RPM
+FAN4 | 2000.000 | RPM
+FAN5 | 2100.000 | RPM
+FAN6 | 2100.000 | RPM
+FAN7 | 2100.000 | RPM
+FAN8 | 2100.000 | RPM
+2001 | 09/08/26 | 04:12:07 UTC | Fan FAN2 | Lower Critical going low  | Asserted | Reading 400 < Threshold 500 RPM
+2002 | 09/08/26 | 04:12:08 UTC | Fan FAN3 | Lower Critical going low  | Asserted | Reading 400 < Threshold 500 RPM
+2003 | 09/08/26 | 04:12:11 UTC | Fan FAN2 | Lower Critical going low  | Deasserted | Reading 2000 > Threshold 500 RPM
+2004 | 09/08/26 | 04:12:11 UTC | Fan FAN3 | Lower Critical going low  | Deasserted | Reading 2000 > Threshold 500 RPM
+2005 | 09/08/26 | 04:12:19 UTC | Fan FAN2 | Lower Critical going low  | Asserted | Reading 400 < Threshold 500 RPM
+2006 | 09/08/26 | 04:12:20 UTC | Fan FAN3 | Lower Critical going low  | Asserted | Reading 400 < Threshold 500 RPM
+2007 | 09/08/26 | 04:12:23 UTC | Fan FAN2 | Lower Critical going low  | Deasserted | Reading 2000 > Threshold 500 RPM
+2008 | 09/08/26 | 04:12:24 UTC | Fan FAN3 | Lower Critical going low  | Deasserted | Reading 2100 > Threshold 500 RPM
+2009 | 09/08/26 | 04:12:34 UTC | Fan FAN3 | Lower Critical going low  | Asserted | Reading 400 < Threshold 500 RPM
+200a | 09/08/26 | 04:12:39 UTC | Fan FAN3 | Lower Critical going low  | Deasserted | Reading 2100 > Threshold 500 RPM
+sh: 1: printf: Illegal option --
+2026-09-08T05:23:23+00:00
+0, 34, 10.45 W, 250.00 W, 0 %, 0 MiB, 24576 MiB, P8
+1, 35, 10.15 W, 250.00 W, 0 %, 0 MiB, 24576 MiB, P8
+FAN1 | 2000.000 | RPM
+FAN2 | 2000.000 | RPM
+FAN3 | 2100.000 | RPM
+FAN4 | 2000.000 | RPM
+FAN5 | 2100.000 | RPM
+FAN6 | 2100.000 | RPM
+FAN7 | 2100.000 | RPM
+FAN8 | 2100.000 | RPM
+2001 | 09/08/26 | 04:12:07 UTC | Fan FAN2 | Lower Critical going low  | Asserted | Reading 400 < Threshold 500 RPM
+2002 | 09/08/26 | 04:12:08 UTC | Fan FAN3 | Lower Critical going low  | Asserted | Reading 400 < Threshold 500 RPM
+2003 | 09/08/26 | 04:12:11 UTC | Fan FAN2 | Lower Critical going low  | Deasserted | Reading 2000 > Threshold 500 RPM
+2004 | 09/08/26 | 04:12:11 UTC | Fan FAN3 | Lower Critical going low  | Deasserted | Reading 2000 > Threshold 500 RPM
+2005 | 09/08/26 | 04:12:19 UTC | Fan FAN2 | Lower Critical going low  | Asserted | Reading 400 < Threshold 500 RPM
+2006 | 09/08/26 | 04:12:20 UTC | Fan FAN3 | Lower Critical going low  | Asserted | Reading 400 < Threshold 500 RPM
+2007 | 09/08/26 | 04:12:23 UTC | Fan FAN2 | Lower Critical going low  | Deasserted | Reading 2000 > Threshold 500 RPM
+2008 | 09/08/26 | 04:12:24 UTC | Fan FAN3 | Lower Critical going low  | Deasserted | Reading 2100 > Threshold 500 RPM
+2009 | 09/08/26 | 04:12:34 UTC | Fan FAN3 | Lower Critical going low  | Asserted | Reading 400 < Threshold 500 RPM
+200a | 09/08/26 | 04:12:39 UTC | Fan FAN3 | Lower Critical going low  | Deasserted | Reading 2100 > Threshold 500 RPM

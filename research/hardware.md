@@ -37,6 +37,16 @@ The primary identified cause was the active custom monitor's intentionally quiet
 
 This clears the known software under-PWM cause, not the full thermal gate. The BMC had prior intermittent raw-response warnings, and the corrected policy has not yet completed the five-minute observation, physical airflow inspection, or guarded load-canary requirements below.
 
+### T00 idle-observation result, 2026-09-08
+
+The five-minute idle observation is now recorded in
+[T00 thermal investigation](results/T00-thermal-investigation.md). Six serial
+samples over 340 seconds found both P40s at 34–35°C, zero application VRAM,
+and all eight fans at 2000–2100 RPM, with no new SEL record after the corrected
+service started. This passes the no-load portion of the gate only. The first
+one-GPU, 125 W canaries and their five-minute cooldowns remain mandatory before
+any model run or long comparison.
+
 ## Proposed conservative test policy
 
 These thresholds are project choices, not NVIDIA specifications. Store them in versioned benchmark configuration; never silently raise them to get a run to pass.
