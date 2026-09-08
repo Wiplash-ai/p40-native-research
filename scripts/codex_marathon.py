@@ -362,37 +362,6 @@ class AppServer:
             if params.get("threadId") == thread_id and turn.get("id") == turn_id:
                 return turn
 
-    def start_turn(self, thread_id: str, task: Task) -> str:
-        result = self._request(
-            "turn/start",
-            {
-                "threadId": thread_id,
-                "input": [{"type": "text", "text": task.prompt}],
-                "effort": "medium",
-            },
-            60,
-        )
-        turn = result.get("turn", result)
-        turn_id = turn.get("id") if isinstance(turn, dict) else None
-        if not turn_id:
-            raise RuntimeError("Codex did not return a turn id")
-        return str(turn_id)
-
-    def wait_for_turn(self, thread_id: str, turn_id: str, timeout: int) -> dict[str, Any]:
-        deadline = time.monotonic() + timeout
-        while True:
-            remaining = int(deadline - time.monotonic())
-            if remaining <= 0:
-                raise TimeoutError(f"Codex turn {turn_id} exceeded {timeout} seconds")
-            message = self._read(min(60, max(1, remaining)))
-            if message.get("method") != "turn/completed":
-                continue
-            params = message.get("params", {})
-            turn = params.get("turn", {})
-            if params.get("threadId") == thread_id and turn.get("id") == turn_id:
-                return turn
-
-
 @contextlib.contextmanager
 def controller_lock() -> Any:
     MARATHON.mkdir(parents=True, exist_ok=True)

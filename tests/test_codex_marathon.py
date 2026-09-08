@@ -69,6 +69,20 @@ class MarathonTests(unittest.TestCase):
     def test_auto_selects_first_incomplete_task(self) -> None:
         self.assertEqual(MARATHON.select_task("auto", {"completed": ["T01"]}).id, "T03")
 
+    def test_start_turn_uses_configured_reasoning_effort(self) -> None:
+        calls = []
+        server = object.__new__(MARATHON.AppServer)
+
+        def request(method, params, timeout):
+            calls.append((method, params, timeout))
+            return {"turn": {"id": "turn-1"}}
+
+        server._request = request
+        task = MARATHON.Task("T01", "workspace-write", "marker.json", "prompt")
+        self.assertEqual(server.start_turn("thread-1", task), "turn-1")
+        self.assertEqual(calls[0][0], "turn/start")
+        self.assertEqual(calls[0][1]["effort"], MARATHON.EFFORT)
+
 
 if __name__ == "__main__":
     unittest.main()
