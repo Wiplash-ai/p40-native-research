@@ -324,7 +324,21 @@ class AppServer:
             remaining = int(deadline - time.monotonic())
             if remaining <= 0:
                 raise TimeoutError(f"Codex turn {turn_id} exceeded {timeout} seconds")
-            message = self._read(min(60, max(1, remaining)))
+            # Some app-server builds do not emit terminal notifications to a
+            # stdio client while code-mode is active. Poll the authoritative
+            # turn list after short quiet windows instead of killing valid work.
+            try:
+                message = self._read(min(10, max(1, remaining)))
+            except TimeoutError:
+                result = self._request(
+                    "thread/turns/list",
+                    {"threadId": thread_id, "limit": 10, "itemsView": "summary"},
+                    30,
+                )
+                for turn in result.get("data", []):
+                    if turn.get("id") == turn_id and turn.get("status") != "inProgress":
+                        return turn
+                continue
             if message.get("method") != "turn/completed":
                 continue
             params = message.get("params", {})
