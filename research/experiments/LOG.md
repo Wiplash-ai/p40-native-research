@@ -51,3 +51,14 @@ ID, status, hypothesis, prediction, exact change, source/binary/model/prompt ide
 - What was measured: local parser and manifest behavior only. No Colibri source, CUDA context, GPU event, model, benchmark, SSH target, or production checkout was touched.
 - Blocker: T03's runtime acceptance requires optional CUDA-event timing on a tiny guarded fixture after T00 passes. The user prohibited CUDA initialization/model execution in this assignment, and T00 has not unlocked that fixture. Instrumentation-off output equivalence likewise requires a separate experimental source worktree and CPU fixture; this assignment authorized only proposed patch boundaries.
 - Decision: record `blocked`, not `pass`; preserve the acceptance gap rather than inferring runtime behavior from static tests. Next eligible action is T00 completion; after its gate and explicit authorization, finish T03's isolated experimental-source and guarded-fixture acceptance before T04.
+
+## T02 / P01 — first guarded device-copy canary
+
+- Date: 2026-09-08.
+- Status: pass (one-second GPU0 canary only; 5- and 10-second gates remain).
+- Hypothesis: the corrected full-speed fan policy and server-side process/power guard can execute a bounded P40 memory primitive without heat soak, retained VRAM, fresh BMC fault, or lost cleanup state.
+- Prediction: a 64 MiB FP32 device copy at a 125 W cap stays well below the 65°C abort threshold and returns both devices to <=40°C through a five-minute cooldown.
+- Exact change: added an isolated `sm_61` P01/P03 benchmark binary, root-owned BMC serialization helper, forced-command canary executor, temporary 125 W cap/restore path, and durable server result persistence.
+- Result: P01 GPU0 copied two 64 MiB arrays for 2,176 iterations in 1,004.7 ms, reporting 290.691 GB/s algorithmic read+write bandwidth and exact copy verification. GPU0 was 35°C at start and 34–36°C during the five-minute cooldown; both GPUs finished at 0 MiB and 250 W, all eight fans read 2000–2100 RPM, and no new critical SEL event appeared.
+- Evidence: [P01 record](../results/T02-P01-gpu0-64m-1s.md) and [raw durable JSON](../results/raw/T02-P01-gpu0-64m-1s-5c7dac13.json).
+- Decision: do not extrapolate this to Qwen or peak bandwidth. Advance only to 5- then 10-second P01 canaries under the same 125 W policy; P03 follows only if both cool-down gates pass.
