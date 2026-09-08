@@ -1,0 +1,22 @@
+{
+  "schema_version": "p40-result-v1",
+  "task": "T01",
+  "status": "pass",
+  "run_id": "t01-local-mock-acceptance-2026-09-08",
+  "command": ["python3", "-m", "unittest", "discover", "-s", "tests", "-v"],
+  "snapshot": {
+    "mode": "CPU-only mocked acceptance",
+    "gpu": "not queried; no CUDA initialization"
+  },
+  "telemetry": [],
+  "cleanup": {
+    "status": "complete",
+    "actions": ["mock process-group TERM/KILL tested", "mock power restoration tested"]
+  },
+  "failure_reason": null,
+  "evidence": {
+    "tests": "21 tests passed",
+    "dry_run": "explicit matrix printed argv/config with cuda_initialized=false",
+    "covered_failures": ["rising temperature", "stale polling", "fan critical", "device error", "subprocess failure", "watchdog timeout", "lock contention", "failed power restore", "disconnect cleanup", "unrelated process protection"]
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "P40 native benchmark result",
+  "type": "object",
+  "required": ["schema_version", "task", "status", "run_id", "command", "snapshot", "cleanup"],
+  "properties": {
+    "schema_version": {"const": "p40-result-v1"},
+    "task": {"type": "string", "pattern": "^T[0-9]{2}$"},
+    "status": {"enum": ["pass", "fail", "blocked", "thermal_abort", "unsupported", "inconclusive", "not_measured"]},
+    "run_id": {"type": "string", "minLength": 1},
+    "command": {"type": "array", "items": {"type": "string"}},
+    "snapshot": {"type": "object"},
+    "telemetry": {"type": "array", "items": {"type": "object"}},
+    "cleanup": {"type": "object", "required": ["status", "actions"]},
+    "failure_reason": {"type": ["string", "null"]}
+  },
+  "additionalProperties": true
+}
