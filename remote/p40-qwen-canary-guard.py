@@ -41,6 +41,8 @@ OUTPUT_TOKENS = 16
 SAFE_POWER_W = 125
 WATCHDOG_SECONDS = 1800
 OUTPUT_TAIL_BYTES = 64 * 1024
+PROFILE_ID = "canary-16"
+SCHEMA_VERSION = "p40-qwen-canary-v1"
 
 
 class UnsafeRequest(ValueError):
@@ -97,7 +99,7 @@ def output_summary(path: Path) -> dict:
 
 
 def run(request: dict) -> dict:
-    result = {"schema_version": "p40-qwen-canary-v1", "run_id": str(uuid.uuid4()), "request": request,
+    result = {"schema_version": SCHEMA_VERSION, "profile_id": PROFILE_ID, "run_id": str(uuid.uuid4()), "request": request,
               "command": model_argv(), "started_at": dt.datetime.now(dt.timezone.utc).isoformat(), "status": "fail",
               "failure_reason": None, "telemetry": [], "cleanup": {"actions": [], "power_restored": False}}
     if request["dry_run"]:

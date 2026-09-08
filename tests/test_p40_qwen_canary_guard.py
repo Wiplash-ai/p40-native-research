@@ -12,6 +12,12 @@ assert SPEC and SPEC.loader
 sys.modules[SPEC.name] = guard
 SPEC.loader.exec_module(guard)
 
+CONTROL_SPEC = importlib.util.spec_from_file_location("p40_qwen_control_64", ROOT / "remote/p40-qwen-control-64.py")
+control = importlib.util.module_from_spec(CONTROL_SPEC)
+assert CONTROL_SPEC and CONTROL_SPEC.loader
+sys.modules[CONTROL_SPEC.name] = control
+CONTROL_SPEC.loader.exec_module(control)
+
 
 class QwenCanaryGuardTests(unittest.TestCase):
     def test_base_guard_prefers_the_root_owned_install_name(self):
@@ -38,6 +44,14 @@ class QwenCanaryGuardTests(unittest.TestCase):
         self.assertIn(str(guard.ENGINE), argv)
         self.assertIn(f"SNAP={guard.MODEL}", argv)
         self.assertNotIn("sh", argv)
+
+    def test_control_profile_has_a_distinct_fixed_64_output_identity(self):
+        self.assertEqual(control.EXPECTED_ORIGINAL_COMMAND, "p40-qwen-control-64")
+        self.assertEqual(control.qwen.OUTPUT_TOKENS, 64)
+        self.assertEqual(control.qwen.PROFILE_ID, "control-64")
+        self.assertEqual(control.qwen.SCHEMA_VERSION, "p40-qwen-control-64-v1")
+        self.assertIn("N_NEW=64", control.qwen.model_argv())
+        self.assertEqual(control.qwen.parse_request('{"dry_run": true}'), {"dry_run": True})
 
     def test_mocked_run_caps_and_restores_both_gpus_and_records_output(self):
         class FinishedProcess:
