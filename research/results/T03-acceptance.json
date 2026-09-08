@@ -1,0 +1,25 @@
+{
+  "task": "T03",
+  "status": "blocked",
+  "evidence": {
+    "local_tests": "python3 -m unittest discover -s tests -v: 33 tests passed",
+    "static_artifacts": [
+      "research/capabilities/qwen36-colibri-1.10.1.json",
+      "scripts/colibri_t03.py",
+      "tests/test_t03_capabilities.py",
+      "research/instrumentation/T03-colibri-patch-boundaries.md"
+    ],
+    "verified": [
+      "43 examined settings are classified as engine-read, launcher-only, backend-reached, or unsupported",
+      "generic Qwen no-op flags have regression guards",
+      "simulated direct-output counters have count/byte units and timers reject negative nanoseconds",
+      "overlap timer records are excluded from additive totals"
+    ],
+    "not_executed": [
+      "experimental Colibri instrumentation patch",
+      "instrumentation-off output equivalence fixture",
+      "guarded CUDA-event timing fixture"
+    ],
+    "blocker": "T00 thermal gate and the assignment's explicit prohibition on CUDA initialization, model load, benchmark, SSH, and production-source modification."
+  }
+}
