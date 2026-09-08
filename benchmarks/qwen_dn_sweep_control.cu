@@ -3,7 +3,13 @@
 // This fixture deliberately owns 30 distinct (qkv, z, out) Q8 projection
 // triplets: the same count and 32 MiB/layer Q8 working set as Qwen3.6's 30
 // DeltaNet layers.  It is still synthetic and does not parse model weights.
+#ifdef CPUORDER
+#include "qwen_cpuorder_cuda.h"
+using MatrixTensor = P40CpuOrderTensor;
+#else
 #include "backend_cuda.h"
+using MatrixTensor = ColiCudaTensor;
+#endif
 
 #include <immintrin.h>
 #include <omp.h>
@@ -26,6 +32,11 @@ constexpr int kConv = 8192;
 constexpr int kValue = 4096;
 constexpr int kLayers = 30;
 constexpr const char* kProfile = "dn-sweep-30x-triplet-2048-8192-4096";
+#ifdef CPUORDER
+constexpr const char* kSchema = "t05g-cpuorder-sweep-v1";
+#else
+constexpr const char* kSchema = "t05c-q8-sweep-v1";
+#endif
 constexpr double kAbsoluteTolerance = 1e-4;
 constexpr double kRelativeTolerance = 1e-4;
 
@@ -46,7 +57,7 @@ struct Projection {
   std::vector<float> scales;
   std::vector<float> cpu;
   std::vector<float> gpu;
-  ColiCudaTensor* tensor = nullptr;
+  MatrixTensor* tensor = nullptr;
 
   Projection(int input_width, int output_width)
       : input(input_width), output(output_width),
@@ -184,10 +195,19 @@ void cpu_sweep(std::vector<Layer>* layers, const std::vector<float>& hidden,
 }
 
 bool gpu_projection(Projection* projection, const float* input, int device, bool cached) {
+#ifdef CPUORDER
+  (void)cached;
+  (void)device;
+  return p40_cpuorder_upload(&projection->tensor, projection->weights.data(),
+                              projection->scales.data(), projection->input,
+                              projection->output) &&
+         p40_cpuorder_matvec(projection->tensor, projection->gpu.data(), input);
+#else
   return coli_cuda_matmul(&projection->tensor, projection->gpu.data(), input,
                            cached ? nullptr : projection->weights.data(),
                            cached ? nullptr : projection->scales.data(),
                            1, 1, projection->input, projection->output, device, 0) != 0;
+#endif
 }
 
 bool gpu_sweep(std::vector<Layer>* layers, const std::vector<float>& hidden,
@@ -278,7 +298,11 @@ int run(const Options& options) {
   }
 
   const int device = options.gpu;
+#ifdef CPUORDER
+  if (!p40_cpuorder_init(device)) {
+#else
   if (!coli_cuda_init(&device, 1)) {
+#endif
     std::fprintf(stderr, "T05C CUDA initialization failed\\n");
     return 1;
   }
@@ -315,18 +339,34 @@ int run(const Options& options) {
   }
   size_t tensor_count = 0;
   size_t tensor_bytes = 0;
+#ifdef CPUORDER
+  tensor_count = static_cast<size_t>(kLayers) * 3U;
+  tensor_bytes = q8_bytes + static_cast<size_t>(kLayers) *
+      static_cast<size_t>(kConv + kValue + kHidden) * sizeof(float);
+#else
   coli_cuda_stats(device, &tensor_count, &tensor_bytes);
+#endif
   for (Layer& layer : layers) {
+#ifdef CPUORDER
+    p40_cpuorder_tensor_free(layer.qkv.tensor);
+    p40_cpuorder_tensor_free(layer.z.tensor);
+    p40_cpuorder_tensor_free(layer.out.tensor);
+#else
     coli_cuda_tensor_free(layer.qkv.tensor);
     coli_cuda_tensor_free(layer.z.tensor);
     coli_cuda_tensor_free(layer.out.tensor);
+#endif
   }
+#ifdef CPUORDER
+  p40_cpuorder_shutdown();
+#else
   coli_cuda_shutdown();
+#endif
 
   const double cpu_median = median(cpu_samples);
   const double gpu_median = gpu_samples.empty() ? 0.0 : median(gpu_samples);
   const bool correct = first_ok && cached_ok && error.correct;
-  std::cout << "{\"schema_version\":\"t05c-q8-sweep-v1\",\"profile\":\"" << kProfile
+  std::cout << "{\"schema_version\":\"" << kSchema << "\",\"profile\":\"" << kProfile
             << "\",\"cuda_initialized\":true,\"gpu\":" << device
             << ",\"layers\":" << kLayers << ",\"q8_weight_bytes\":" << q8_bytes
             << ",\"host_accounted_bytes\":" << host_bytes
@@ -363,7 +403,7 @@ int run(const Options& options) {
 int main(int argc, char** argv) {
   const Options options = parse_options(argc, argv);
   if (options.dry_run) {
-    std::cout << "{\"schema_version\":\"t05c-q8-sweep-v1\",\"profile\":\"" << kProfile
+    std::cout << "{\"schema_version\":\"" << kSchema << "\",\"profile\":\"" << kProfile
               << "\",\"cuda_initialized\":false}" << std::endl;
     return 0;
   }

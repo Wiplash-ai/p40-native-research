@@ -12,3 +12,7 @@ in the individual result files. The longest accepted Qwen control is the
 baseline, not an optimized configuration. Hardware observations and historical
 user measurements are separately labeled in `../hardware.md` and
 `../experiments/LOG.md`.
+
+`T05G-dn-full-sweep-cpuorder.md` is an exact, transfer-inclusive synthetic
+Q8 DeltaNet-projection sweep. It clears its projection-phase performance and
+numerical gates; it is not an end-to-end Qwen result.

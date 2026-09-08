@@ -42,5 +42,9 @@ qwen_dn_out_cpuorder_control: qwen_dn_out_cpuorder_control.cpp qwen_cpuorder_cud
 	$(CXX) -std=c++17 -O3 -mavx2 -mfma -fopenmp -Wall -Wextra -Werror \
 		$< qwen_cpuorder_cuda.o -o $@ -L$(CUDA_LIBDIR) -Wl,-rpath,$(CUDA_LIBDIR) -lcudart -ldl -lpthread -lm
 
+qwen_dn_sweep_cpuorder_control: qwen_dn_sweep_control.cu qwen_cpuorder_cuda.h qwen_cpuorder_cuda.o
+	$(CXX) -x c++ -DCPUORDER -std=c++17 -O3 -mavx2 -mfma -fopenmp -Wall -Wextra -Werror \
+		$< -x none qwen_cpuorder_cuda.o -o $@ -L$(CUDA_LIBDIR) -Wl,-rpath,$(CUDA_LIBDIR) -lcudart -ldl -lpthread -lm
+
 clean:
-	rm -f p40_bench qwen_dn_q8_control qwen_dn_triplet_control qwen_dn_sweep_control qwen_cpuorder_cuda.o qwen_dn_out_cpuorder_control
+	rm -f p40_bench qwen_dn_q8_control qwen_dn_triplet_control qwen_dn_sweep_control qwen_cpuorder_cuda.o qwen_dn_out_cpuorder_control qwen_dn_sweep_cpuorder_control

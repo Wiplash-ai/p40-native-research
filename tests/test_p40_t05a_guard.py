@@ -80,6 +80,18 @@ assert SHUFFLE_CLIENT_SPEC and SHUFFLE_CLIENT_SPEC.loader
 sys.modules[SHUFFLE_CLIENT_SPEC.name] = shuffle_client
 SHUFFLE_CLIENT_SPEC.loader.exec_module(shuffle_client)
 
+FULL_SWEEP_SPEC = importlib.util.spec_from_file_location("p40_t05g_full_sweep_guard", ROOT / "remote/p40-t05g-full-sweep-guard.py")
+full_sweep = importlib.util.module_from_spec(FULL_SWEEP_SPEC)
+assert FULL_SWEEP_SPEC and FULL_SWEEP_SPEC.loader
+sys.modules[FULL_SWEEP_SPEC.name] = full_sweep
+FULL_SWEEP_SPEC.loader.exec_module(full_sweep)
+
+FULL_SWEEP_CLIENT_SPEC = importlib.util.spec_from_file_location("p40_t05g_client", ROOT / "scripts/p40_t05g_full_sweep_client.py")
+full_sweep_client = importlib.util.module_from_spec(FULL_SWEEP_CLIENT_SPEC)
+assert FULL_SWEEP_CLIENT_SPEC and FULL_SWEEP_CLIENT_SPEC.loader
+sys.modules[FULL_SWEEP_CLIENT_SPEC.name] = full_sweep_client
+FULL_SWEEP_CLIENT_SPEC.loader.exec_module(full_sweep_client)
+
 
 class T05AGuardTests(unittest.TestCase):
     def test_dry_run_never_initializes_cuda(self):
@@ -142,6 +154,14 @@ class T05AGuardTests(unittest.TestCase):
         self.assertIn("qwen_dn_out_cpuorder_control", str(shuffle.t05a.BENCHMARK))
         identity = Path("/tmp/p40-t05f-test-key")
         self.assertEqual(shuffle_client.ssh_argv("host", identity)[-1], "p40-t05f-shuffle")
+
+    def test_full_sweep_identity_pins_the_exact_30_layer_binary(self):
+        self.assertEqual(full_sweep.t05a.EXPECTED_ORIGINAL_COMMAND, "p40-t05g-full-sweep")
+        self.assertEqual(full_sweep.t05a.PROFILE_ID, "t05g-dn-cpuorder-30x-triplet-2048-8192-4096")
+        self.assertEqual(full_sweep.t05a.BENCHMARK_SHA256, "b1d9dcbad1d2efb008a851782bace32707f620bc752bf3cbd8ad6d5b2f248a9e")
+        self.assertIn("qwen_dn_sweep_cpuorder_control", str(full_sweep.t05a.BENCHMARK))
+        identity = Path("/tmp/p40-t05g-test-key")
+        self.assertEqual(full_sweep_client.ssh_argv("host", identity)[-1], "p40-t05g-full-sweep")
 
     def test_mocked_run_caps_restores_and_records_output(self):
         class FinishedProcess:

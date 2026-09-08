@@ -303,3 +303,26 @@ ID, status, hypothesis, prediction, exact change, source/binary/model/prompt ide
 - Safety: GPU0 peak 34 C; all fans 2,000–2,100 RPM; no fault; five-minute
   cooldown; no retained VRAM; cap restored.
 - Evidence: [T05F record](../results/T05F-dn-out-shuffle.md).
+
+## T05G — exact-order full Q8 DeltaNet sweep
+
+- Date: 2026-09-08.
+- Status: pass for synthetic Q8 projection offload; no Qwen integration claim.
+- Hypothesis: the exact arithmetic kernel can retain bit identity and clear
+  the 15% performance gate when measured across Qwen's cache-resistant,
+  30-DeltaNet-layer Q8 working set.
+- Exact profile: GPU0 only at 125 W; 30 distinct `qkv` (2048x8192), `z`
+  (2048x4096), and `out` (4096x2048) Q8 projections; 24-thread CPU control;
+  three CPU and GPU sweeps; transfer-inclusive cached GPU timing; exact
+  CPU-order CUDA kernel.
+- Result: bit-identical output, 36.6309 ms CPU median versus 13.1462 ms GPU
+  median (2.786x). The first initialized/uploaded sweep took 148.572 ms; 90
+  tensors accounted for 1,008,353,280 cached bytes.
+- Safety: sampled peak 34 C on GPU0, 35 C on GPU1; all fans 2,000–2,100 RPM;
+  no cleanup action; independent post-run check confirmed empty cards and
+  restored 250 W caps.
+- Decision: advance to one opt-in, experimental-source integration canary.
+  Preserve fallback and prove byte-identical fixed-output behavior before any
+  64-output performance comparison. Do not combine this with FP32 DeltaNet,
+  expert, attention, or multi-GPU changes.
+- Evidence: [T05G record](../results/T05G-dn-full-sweep-cpuorder.md).

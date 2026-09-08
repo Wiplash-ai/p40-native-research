@@ -1,8 +1,7 @@
 # E003 / T05 — Qwen DeltaNet Q8-weight GPU offload control
 
-Status: T05A numerical/GPU-latency pass; T05B performance result inconclusive;
-T05C failed the numerical gate; T05D diagnostic sweep is next. The controls
-use no model load and no kernel modification.
+Status: T05G exact, cache-aware Q8 sweep pass. The controls use no model load
+and no production-kernel modification.
 
 ## Why this is next
 
@@ -126,6 +125,18 @@ versus 0.1161 ms CPU. The small CPU control is cache-sensitive, and neither
 exact isolated variant clears the keep threshold. Stop single-out tuning.
 T05G will apply the exact-order kernel to the full 30-layer Q8 working set,
 where cache behavior is representative. See [T05F evidence](../results/T05F-dn-out-shuffle.md).
+
+## T05G result: exact full sweep clears the keep gate
+
+T05G ran the T05E exact CPU-order kernel over all 90 Q8 projections in the
+30-layer synthetic working set. It was bit-identical at every attribution
+point and end-to-end, while its complete cached GPU median was 13.1462 ms
+against 36.6309 ms CPU (2.786x). The first sweep including initialization and
+about 960 MiB of transfer was 148.572 ms. This passes the numerical and 15%
+performance gates for the Q8 projection phase. It is still not an end-to-end
+Qwen result: `dn_b`/`dn_a`, recurrent state, and host control remain outside
+the fixture. T06 is an opt-in, source-isolated integration canary with an
+exact-output comparison before a 64-output timing run. See [T05G evidence](../results/T05G-dn-full-sweep-cpuorder.md).
 
 ## What a T05A pass does and does not show
 

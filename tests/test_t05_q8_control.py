@@ -57,6 +57,9 @@ class T05Q8ControlSourceTests(unittest.TestCase):
         self.assertIn('boundary_propagation', sweep)
         self.assertIn('options.memory_cap_mib < 1024 || options.memory_cap_mib > 1088', sweep)
         self.assertIn('qwen_dn_sweep_control: qwen_dn_sweep_control.cu', MAKEFILE)
+        self.assertIn('#ifdef CPUORDER', sweep)
+        self.assertIn('p40_cpuorder_matvec', sweep)
+        self.assertIn('qwen_dn_sweep_cpuorder_control:', MAKEFILE)
 
     def test_cpuorder_out_control_is_standalone_and_uses_the_fixed_reduction_tree(self):
         kernel = (ROOT / "benchmarks" / "qwen_cpuorder_cuda.cu").read_text()
