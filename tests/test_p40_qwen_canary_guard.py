@@ -18,6 +18,12 @@ assert CONTROL_SPEC and CONTROL_SPEC.loader
 sys.modules[CONTROL_SPEC.name] = control
 CONTROL_SPEC.loader.exec_module(control)
 
+CLIENT_SPEC = importlib.util.spec_from_file_location("p40_qwen_control_client", ROOT / "scripts/p40_qwen_control_client.py")
+client = importlib.util.module_from_spec(CLIENT_SPEC)
+assert CLIENT_SPEC and CLIENT_SPEC.loader
+sys.modules[CLIENT_SPEC.name] = client
+CLIENT_SPEC.loader.exec_module(client)
+
 
 class QwenCanaryGuardTests(unittest.TestCase):
     def test_base_guard_prefers_the_root_owned_install_name(self):
@@ -52,6 +58,11 @@ class QwenCanaryGuardTests(unittest.TestCase):
         self.assertEqual(control.qwen.SCHEMA_VERSION, "p40-qwen-control-64-v1")
         self.assertIn("N_NEW=64", control.qwen.model_argv())
         self.assertEqual(control.qwen.parse_request('{"dry_run": true}'), {"dry_run": True})
+
+    def test_client_only_selects_forced_profile_commands(self):
+        identity = Path("/tmp/p40-test-key")
+        self.assertEqual(client.ssh_argv("host", identity, "control-64")[-1], "p40-qwen-control-64")
+        self.assertEqual(client.ssh_argv("host", identity, "canary-16", read_results=True)[-1], "p40-qwen-canary-results")
 
     def test_mocked_run_caps_and_restores_both_gpus_and_records_output(self):
         class FinishedProcess:
