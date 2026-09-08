@@ -175,3 +175,24 @@ ID, status, hypothesis, prediction, exact change, source/binary/model/prompt ide
   prove one operator's parity and complete transfer-inclusive latency before
   connecting it to Qwen or testing DP4A activation quantization.
 - Evidence: [256-output record](../results/T04-control-256-dual-p40-125w.md).
+
+## T05A — DeltaNet Q8-weight GPU offload control
+
+- Date: 2026-09-08.
+- Status: designed, source-inspected, not run.
+- Hypothesis: the existing CUDA format-1 operator can accelerate Qwen's
+  measured DeltaNet projection bottleneck without changing its Q8-weight,
+  FP32-activation representation.
+- Source finding: Qwen's x86 `matmul_q()` is FP32 activation times a
+  per-output scaled int8 weight row. It does **not** quantize activations in
+  the normal AVX2 decode path. `coli_cuda_matmul()` already caches the same
+  format-1 weights/scales and transfers host FP32 input/output around a GPU
+  reduction kernel. Qwen does not currently call that general API.
+- Smallest test: a synthetic, deterministic, GPU0-only 2048x8192 control,
+  with the two other DeltaNet shapes (2048x4096 and 4096x2048), CPU-equivalent
+  reference, numerical gate, cached steady-state timing, separate upload
+  timing, and the existing 125 W server guard.
+- Decision: build/test the fixture and its dry-run guard before any CUDA
+  workload. Do not touch the dirty remote backend worktree, load Qwen, or
+  promote a projection microbenchmark to an end-to-end speed claim.
+- Design: [T05 experiment](003-qwen-deltanet-q8-offload.md).

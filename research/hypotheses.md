@@ -3,7 +3,7 @@
 | ID | Hypothesis and prediction | Smallest test | Falsification / next decision |
 |---|---|---|---|
 | H01 | Qwen's serial CPU trunk dominates reported low GPU-active time | COLI_TIMERS plus actual issue/take events on16/64-token guarded canary | If GPU execution/sync dominates, optimize that measured stage instead |
-| H02 | Output head or dense projections have a profitable resident GPU path without changing activation precision | One representative Q8A32 GEMV including activation/result transfer | Reject that placement if complete stage loses; test recurrence/projections next |
+| H02 | DeltaNet Q8-weight/FP32-activation projections have a profitable resident GPU path without changing activation precision | T05A: one representative cached Q8A32 GEMV including activation/result transfer | Reject that placement if complete stage loses; test LM head or a different primitive next |
 | H03 | Full expert residency is already achievable, and more budget yields no gain | Header accounting then startup actual resident/hit/alloc counters | Model accounting already supports it; check runtime success before treating100% projected as measured |
 | H04 | Warp-level row reduction beats256-thread shared reduction at expert widths512/2048 | Same W4A32 inputs, one operator, block vs warp tiles | Reject if small row tiles hurt bandwidth or change numerics beyond accepted tolerance |
 | H05 | DP4A saves useful time even after dynamic activation quantization | W4A8/W8A8 full operator vs W4A32/Q8A32 at S1/4/8 | Reject at S1 if quantization/packing eats gain; keep possible batching result separate |
