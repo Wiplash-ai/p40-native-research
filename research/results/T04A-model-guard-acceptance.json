@@ -16,7 +16,7 @@
     "cooldown_seconds": 300
   },
   "evidence": {
-    "tests": "50 tests passed",
+    "tests": "51 tests passed",
     "request_surface": "only a JSON dry_run boolean is accepted",
     "argv": "fixed env -i, pinned experimental binary/model/prompt, two GPUs, and fixed profile settings",
     "mocked_cleanup": "both GPU power caps are applied and restored; output capture is bounded and durable",

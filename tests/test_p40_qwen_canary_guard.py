@@ -18,6 +18,8 @@ class QwenCanaryGuardTests(unittest.TestCase):
         self.assertEqual(guard.SOURCE.name, "p40-canary-guard.py")
         installed_source = (ROOT / "remote/p40-qwen-canary-guard.py").with_name("p40-canary-guard")
         self.assertEqual(installed_source.name, "p40-canary-guard")
+        extensionless_loader = guard.SourceFileLoader("p40_primitive_guard", str(installed_source))
+        self.assertIsNotNone(importlib.util.spec_from_loader("p40_primitive_guard", extensionless_loader))
 
     def test_dry_run_never_initializes_cuda(self):
         result = guard.run(guard.parse_request(json.dumps({"dry_run": True})))
