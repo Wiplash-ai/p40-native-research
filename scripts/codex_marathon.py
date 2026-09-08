@@ -32,8 +32,9 @@ LOG_DIR = MARATHON / "logs"
 QUEUE_DIR = MARATHON / "queue"
 QUEUE_PATH = QUEUE_DIR / "trigger.json"
 MIN_REMAINING = float(os.environ.get("P40_MARATHON_MIN_FIVE_HOUR_REMAINING_PERCENT", "10"))
-MODEL = os.environ.get("P40_MARATHON_MODEL", "gpt-5.6-luna")
-MAX_TURN_SECONDS = int(os.environ.get("P40_MARATHON_MAX_TURN_SECONDS", "9000"))
+MODEL = os.environ.get("P40_MARATHON_MODEL", "gpt-5.6-terra")
+EFFORT = os.environ.get("P40_MARATHON_REASONING_EFFORT", "low")
+MAX_TURN_SECONDS = int(os.environ.get("P40_MARATHON_MAX_TURN_SECONDS", "1800"))
 
 
 @dataclass(frozen=True)
@@ -49,12 +50,15 @@ TASKS: tuple[Task, ...] = (
         "T01",
         "workspace-write",
         "research/results/T01-acceptance.json",
-        """Implement T01 only in this repository. Read AGENTS.md if present, EXECUTION_PLAN.md,
-DELEGATION_BRIEF.md, research/hardware.md, and research/experiments/001-primitives.md first.
-Build the mock-tested guarded benchmark harness: safe snapshot, durable result schema, telemetry
-parsing, host-wide lock, child process cleanup, cooling/watchdog checks, a dry-run matrix, and a
-fixed prompt fixture. Do not SSH, initialize CUDA, load a model, change fans/BMC settings, alter
-production Colibri, or begin T00/T02/T03. Run local tests. End by writing
+        """Implement T01 only in this repository. Read AGENTS.md and the T01 section of
+EXECUTION_PLAN.md, then begin coding immediately; do not spend this bounded turn re-summarizing
+the wider research programme. Use Python standard library only and work only in task-scoped
+scripts/, tests/, fixtures/ and research/ paths. Build the mock-tested guarded benchmark harness:
+safe snapshot, durable result schema, telemetry parsing, host-wide lock, child process cleanup,
+cooling/watchdog checks, a dry-run matrix, and a fixed prompt fixture. Prioritize a working,
+tested minimal end-to-end harness over prose or speculative extensions. Do not SSH, initialize
+CUDA, load a model, change fans/BMC settings, alter production Colibri, or begin T00/T02/T03.
+Run local tests. End by writing
 research/results/T01-acceptance.json containing at least {"task":"T01","status":"pass"}
 only if the stated acceptance criteria are actually met; otherwise use status "fail" or "blocked"
 and explain why. Commit only task-scoped files and record the acceptance evidence in the experiment
@@ -229,7 +233,7 @@ def rate_summary(payload: dict[str, Any]) -> dict[str, Any]:
 class AppServer:
     def __init__(self) -> None:
         self.process = subprocess.Popen(
-            ["codex", "app-server", "--stdio"],
+            ["codex", "-c", f'model_reasoning_effort="{EFFORT}"', "app-server", "--stdio"],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -292,6 +296,11 @@ class AppServer:
         if not thread_id:
             raise RuntimeError("Codex did not return a native thread id")
         self._request(
+            "thread/settings/update",
+            {"threadId": thread_id, "model": MODEL, "effort": EFFORT},
+            30,
+        )
+        self._request(
             "thread/goal/set",
             {
                 "threadId": thread_id,
@@ -308,7 +317,7 @@ class AppServer:
             {
                 "threadId": thread_id,
                 "input": [{"type": "text", "text": task.prompt}],
-                "effort": "medium",
+                "effort": EFFORT,
             },
             60,
         )

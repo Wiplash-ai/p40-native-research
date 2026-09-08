@@ -25,4 +25,4 @@ scripts/codex_marathon.py prepare
 P40_MARATHON_HOST_RUNNER=1 scripts/codex_marathon.py host-run
 ```
 
-Only `host-run` may consume Codex usage. It is run by the installed user-level systemd path/service pair, after Wiphand atomically writes its queue record.
+Only `host-run` may consume Codex usage. It is run by the installed user-level systemd path/service pair, after Wiphand atomically writes its queue record. The current bounded implementation lane uses `gpt-5.6-terra` with low reasoning effort and a 30-minute per-turn cap.
