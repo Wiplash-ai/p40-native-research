@@ -139,3 +139,13 @@ ID, status, hypothesis, prediction, exact change, source/binary/model/prompt ide
 - Exact correction: change cooldown semantics from "five minutes then <=40°C" to "at least five minutes and <=40°C", with a conservative 15-minute cap. Unit tests cover continuing after the five-minute mark and failing only at the extended maximum.
 - Decision: deploy the corrected base guard and repeat this identical 64-output control. Do not run 512 outputs or vary settings first.
 - Evidence: [control record](../results/T04-control-64-dual-p40-125w.md).
+
+## T04 — 64-output corrected-policy repeat
+
+- Date: 2026-09-08.
+- Status: pass.
+- Exact profile: unchanged fixed Qwen 64-output, two-P40, 125 W profile; only the corrected post-run condition (at least five minutes and <=40°C, max 15 minutes) differed from the prior attempt.
+- Result: 1.52 engine-reported output tok/s (1.58 decode tok/s over 63 steps), TTFT 2.28 s, and 630.92 ms/token total decode. Phase values were stable: DeltaNet 330.63, LM head 146.83, attention 85.89, MoE 67.57 ms/token. Expert events were H2D 186, kernels 2,458, D2H 64 ms over 6,226 groups/24,960 experts.
+- Safety: peak samples 47°C/48°C and 7,895 MiB/card; fans 2,000–2,100 RPM; no fresh critical event; 8.8-minute cooldown to <=40°C; both GPUs empty and original 250 W limits restored.
+- Decision: establish this as the first sustained model control. The next workload-bearing gate is a separate 256-output fixed plateau, not a performance knob sweep or 512-output baseline. The warm page cache/load time is a remaining confounder for startup metrics.
+- Evidence: [passing control record](../results/T04-control-64-dual-p40-125w.md).
