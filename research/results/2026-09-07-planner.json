@@ -1,0 +1,129 @@
+{
+  "model": {
+    "path": "/mnt/ai-ssd/huggingface/hub/models--Kreuzzelg--qwen36-35b-a3b-colibri-i4/snapshots/9ccfbfa09bc55410a9c9102558ee63077d8a477d",
+    "shards": 41,
+    "model_bytes": 21130957832,
+    "dense_bytes": 4896711936,
+    "dense_disk_bytes": 4896711936,
+    "expert_fixed_bytes": 0,
+    "expert_bytes": 16231956480,
+    "expert_count": 10240,
+    "expert_layers": 40,
+    "typical_expert_bytes": 1585152,
+    "max_expert_bytes": 1585152,
+    "expert_bytes_by_layer": {
+      "0": 1585152,
+      "1": 1585152,
+      "2": 1585152,
+      "3": 1585152,
+      "4": 1585152,
+      "5": 1585152,
+      "6": 1585152,
+      "7": 1585152,
+      "8": 1585152,
+      "9": 1585152,
+      "10": 1585152,
+      "11": 1585152,
+      "12": 1585152,
+      "13": 1585152,
+      "14": 1585152,
+      "15": 1585152,
+      "16": 1585152,
+      "17": 1585152,
+      "18": 1585152,
+      "19": 1585152,
+      "20": 1585152,
+      "21": 1585152,
+      "22": 1585152,
+      "23": 1585152,
+      "24": 1585152,
+      "25": 1585152,
+      "26": 1585152,
+      "27": 1585152,
+      "28": 1585152,
+      "29": 1585152,
+      "30": 1585152,
+      "31": 1585152,
+      "32": 1585152,
+      "33": 1585152,
+      "34": 1585152,
+      "35": 1585152,
+      "36": 1585152,
+      "37": 1585152,
+      "38": 1585152,
+      "39": 1585152
+    },
+    "per_cap_bytes": 63406080,
+    "family_id": "qwen36",
+    "model_type": "qwen3_5_moe_text",
+    "configured_experts": 256
+  },
+  "tiers": {
+    "disk": {
+      "role": "cold-backing",
+      "model_bytes": 21130957832,
+      "available_bytes": 197770383360,
+      "cold_expert_bytes": 0
+    },
+    "ram": {
+      "role": "resident+warm-experts",
+      "available_bytes": 535506558976,
+      "budget_bytes": 471245771898,
+      "dense_bytes": 4896711936,
+      "runtime_bytes": 4035085568,
+      "expert_fixed_bytes": 0,
+      "sequence_state_bytes": 167772160,
+      "fixed_state_bytes": 65863680,
+      "workspace_bytes": 0,
+      "expert_cache_bytes": 462313974394,
+      "warm_expert_bytes": 0,
+      "cache_slots_per_layer": 256
+    },
+    "vram": {
+      "role": "hot-experts",
+      "devices": [
+        {
+          "index": 0,
+          "name": "Tesla P40",
+          "total_bytes": 25769803776,
+          "free_bytes": 25626148864,
+          "unified_memory": false,
+          "reserve_bytes": 2000000000,
+          "usable_bytes": 23626148864
+        },
+        {
+          "index": 1,
+          "name": "Tesla P40",
+          "total_bytes": 25769803776,
+          "free_bytes": 25626148864,
+          "unified_memory": false,
+          "reserve_bytes": 2000000000,
+          "usable_bytes": 23626148864
+        }
+      ],
+      "budget_bytes": 16231956480,
+      "hot_expert_bytes": 16231956480,
+      "expert_capacity": 10240,
+      "requires_host_backing": false
+    }
+  },
+  "expected_bottleneck": "GPU compute and interconnect",
+  "projected_hit_rate": 1,
+  "tune": {
+    "DRAFT": {
+      "value": "0",
+      "reason": "compute-bound: MTP batch overhead exceeds yield"
+    },
+    "COLI_CUDA_PIPE": {
+      "value": "2",
+      "reason": "multi-GPU: residual stays on-device across layers"
+    },
+    "COLI_NUMA": {
+      "value": "1",
+      "reason": "multi-socket + GPU: interleave expert slabs, protect DMA buffers"
+    }
+  },
+  "warnings": [
+    "VRAM tier was clamped by free VRAM, shared memory, or model expert size"
+  ]
+}

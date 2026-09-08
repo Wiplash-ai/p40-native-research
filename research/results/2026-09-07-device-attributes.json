@@ -1,0 +1,43 @@
+{
+  "collected_at_utc": "2026-09-07T23:00:00Z",
+  "method": "CUDA driver device-attribute query only; no CUDA context, allocation, transfer, or kernel launch was performed.",
+  "host": "excalibur",
+  "devices": [
+    {
+      "ordinal": 0,
+      "name": "Tesla P40",
+      "compute_capability": "6.1",
+      "multiprocessors": 30,
+      "warp_size": 32,
+      "clock_rate_khz": 1531000,
+      "memory_clock_rate_khz": 3615000,
+      "global_memory_bus_width_bits": 384,
+      "l2_cache_bytes": 3145728,
+      "max_shared_memory_per_block_bytes": 49152,
+      "max_shared_memory_per_multiprocessor_bytes": 98304,
+      "max_registers_per_block": 65536,
+      "max_registers_per_multiprocessor": 65536,
+      "max_threads_per_multiprocessor": 2048,
+      "async_engine_count": 2,
+      "peer_access_to_other_p40": true
+    },
+    {
+      "ordinal": 1,
+      "name": "Tesla P40",
+      "compute_capability": "6.1",
+      "multiprocessors": 30,
+      "warp_size": 32,
+      "clock_rate_khz": 1531000,
+      "memory_clock_rate_khz": 3615000,
+      "global_memory_bus_width_bits": 384,
+      "l2_cache_bytes": 3145728,
+      "max_shared_memory_per_block_bytes": 49152,
+      "max_shared_memory_per_multiprocessor_bytes": 98304,
+      "max_registers_per_block": 65536,
+      "max_registers_per_multiprocessor": 65536,
+      "max_threads_per_multiprocessor": 2048,
+      "async_engine_count": 2,
+      "peer_access_to_other_p40": true
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+build/
+.venv/
+__pycache__/
+*.pyc
+*.o
+*.cubin
+*.pt
+*.pth
+*.safetensors
+*.nsys-rep
+*.ncu-rep
+*.nvvp
+checkouts/
+datasets/
+models/
