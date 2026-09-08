@@ -1,7 +1,7 @@
 # E003 / T05 — Qwen DeltaNet Q8-weight GPU offload control
 
-Status: designed; source inspection complete; no CUDA context, model load, or
-kernel modification has occurred for this experiment.
+Status: T05A pass; T05B three-projection control is next. T05A used no model
+load and no kernel modification.
 
 ## Why this is next
 
@@ -67,11 +67,22 @@ Otherwise reject direct per-projection offload and move to the LM-head control
 or a different mathematical primitive; do not compensate by silently
 quantizing activations.
 
-## What a T05A pass would and would not show
+## T05A result
+
+The guarded GPU0 control passed on 2026-09-08. Its 2048x8192 `dn_qkv`
+projection measured 4.645 ms/call on the matching CPU operator and 0.335
+ms/call through the cached, transfer-inclusive GPU API: **13.86x**. Maximum
+absolute and relative errors were 1.526e-5 and 5.965e-6, within the declared
+per-element gate. Its first call, which includes CUDA initialization and the
+16 MiB Q8 upload, took 21.228 ms; that is not the steady-state metric.
+GPU0 sampled at <=36 C and recovered under the required five-minute gate.
+See [T05A evidence](../results/T05A-dn-qkv-2048x8192.md).
+
+## What a T05A pass does and does not show
 
 A pass shows that one cached Q8/FP32 projection benefits from the P40. It does
 not prove an end-to-end Qwen speedup: one decoded token has 90 such calls,
-and Qwen's recurrent/state work remains on the CPU. T05B would therefore add
+and Qwen's recurrent/state work remains on the CPU. T05B will therefore add
 only the three-projection DeltaNet call chain, preserve CPU fallback, measure
 host-device transfers, and compare fixed Qwen output/logits before any full
 generation claim. Tensor placement would initially alternate whole DeltaNet

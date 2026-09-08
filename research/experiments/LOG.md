@@ -196,3 +196,23 @@ ID, status, hypothesis, prediction, exact change, source/binary/model/prompt ide
   workload. Do not touch the dirty remote backend worktree, load Qwen, or
   promote a projection microbenchmark to an end-to-end speed claim.
 - Design: [T05 experiment](003-qwen-deltanet-q8-offload.md).
+
+## T05A — cached `dn_qkv` Q8 GPU control
+
+- Date: 2026-09-08.
+- Status: pass for one isolated 2048x8192 DeltaNet projection.
+- Exact profile: synthetic deterministic Q8 weights / per-row scales and FP32
+  activation; Qwen-equivalent AVX2/FMA CPU control; one cached GPU0 generic
+  format-1 tensor; 5 samples of 8 calls; 125 W GPU0 guard.
+- Result: CPU median 4.645 ms/call; transfer-inclusive cached GPU median
+  0.335 ms/call; 13.86x CPU/GPU speedup. First call with CUDA init/weight
+  upload was 21.228 ms. Max absolute error 1.526e-5 and max relative error
+  5.965e-6; the declared per-element FP32 gate passed.
+- Safety: GPU0 sampled peak 36 C, GPU1 37 C; all fans 2,000–2,100 RPM; no new
+  fault; minimum five-minute cooldown; GPU0 250 W cap restored. The work
+  completed between telemetry polls, so fixture cached-tensor byte accounting
+  is the residency evidence.
+- Decision: direct offload clears the 15% keep threshold. Do not alter the
+  generic kernel yet. Build a three-projection (`dn_qkv`, `dn_z`, `dn_out`)
+  host-boundary control before touching model execution.
+- Evidence: [T05A record](../results/T05A-dn-qkv-2048x8192.md).
