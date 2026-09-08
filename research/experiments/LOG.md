@@ -62,3 +62,14 @@ ID, status, hypothesis, prediction, exact change, source/binary/model/prompt ide
 - Result: P01 GPU0 copied two 64 MiB arrays for 2,176 iterations in 1,004.7 ms, reporting 290.691 GB/s algorithmic read+write bandwidth and exact copy verification. GPU0 was 35°C at start and 34–36°C during the five-minute cooldown; both GPUs finished at 0 MiB and 250 W, all eight fans read 2000–2100 RPM, and no new critical SEL event appeared.
 - Evidence: [P01 record](../results/T02-P01-gpu0-64m-1s.md) and [raw durable JSON](../results/raw/T02-P01-gpu0-64m-1s-5c7dac13.json).
 - Decision: do not extrapolate this to Qwen or peak bandwidth. Advance only to 5- then 10-second P01 canaries under the same 125 W policy; P03 follows only if both cool-down gates pass.
+
+## T02 / P01 — five-second guarded device-copy canary
+
+- Date: 2026-09-08.
+- Status: pass (five-second GPU0 gate; ten-second gate remains).
+- Hypothesis: five seconds of sustained memory traffic at the same conservative cap remains thermally stable after a full heat-soak hold.
+- Prediction: the 64 MiB P01 copy remains below the 65°C abort threshold, leaves no GPU allocation, introduces no fresh fan-critical SEL event, and restores GPU0 to its original 250 W cap.
+- Exact command: `p40_bench --primitive P01-copy --gpu 0 --bytes 67108864 --duration 5 --memory-cap-mib 256 --seed 1`, invoked only by the forced-command server guard.
+- Result: 10,848 iterations in 5,009.64 ms; 290.638 GB/s algorithmic read+write bandwidth; exact copy check passed. GPU0 started at 35°C, reached a sampled 39°C during the work, then remained at 36°C through the five-minute cooldown. Both GPUs ended empty and at 250 W; all eight fans were 2000–2100 RPM; no new critical SEL record occurred.
+- Evidence: [P01 five-second record](../results/T02-P01-gpu0-64m-5s.md) and [raw durable JSON](../results/raw/T02-P01-gpu0-64m-5s-5d5c8c2e.json).
+- Decision: bandwidth is within 0.02% of the one-second result. Advance only to the identical 10-second P01 gate under the same 125 W policy; do not infer model-inference performance.
