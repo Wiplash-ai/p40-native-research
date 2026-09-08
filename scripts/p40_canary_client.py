@@ -9,6 +9,12 @@ import sys
 from pathlib import Path
 
 
+# A 10 s profile includes a mandatory five-minute BMC-backed cooldown.  Allow
+# enough client time for serialized IPMI reads and final power restoration; the
+# server still owns the actual thermal and watchdog limits.
+CANARY_TIMEOUT_SECONDS = 480
+
+
 def request_from_args(args: argparse.Namespace) -> dict:
     return {
         "primitive": args.primitive,
@@ -46,7 +52,11 @@ def main() -> int:
             print(completed.stderr, end="", file=sys.stderr)
         return completed.returncode
     completed = subprocess.run(
-        ssh_argv(args.host, args.identity), input=json.dumps(request_from_args(args)), text=True, capture_output=True, timeout=380
+        ssh_argv(args.host, args.identity),
+        input=json.dumps(request_from_args(args)),
+        text=True,
+        capture_output=True,
+        timeout=CANARY_TIMEOUT_SECONDS,
     )
     if completed.stdout:
         print(completed.stdout, end="")

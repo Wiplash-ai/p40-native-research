@@ -73,3 +73,15 @@ ID, status, hypothesis, prediction, exact change, source/binary/model/prompt ide
 - Result: 10,848 iterations in 5,009.64 ms; 290.638 GB/s algorithmic read+write bandwidth; exact copy check passed. GPU0 started at 35°C, reached a sampled 39°C during the work, then remained at 36°C through the five-minute cooldown. Both GPUs ended empty and at 250 W; all eight fans were 2000–2100 RPM; no new critical SEL record occurred.
 - Evidence: [P01 five-second record](../results/T02-P01-gpu0-64m-5s.md) and [raw durable JSON](../results/raw/T02-P01-gpu0-64m-5s-5d5c8c2e.json).
 - Decision: bandwidth is within 0.02% of the one-second result. Advance only to the identical 10-second P01 gate under the same 125 W policy; do not infer model-inference performance.
+
+## T02 / P01 — ten-second guarded device-copy canary
+
+- Date: 2026-09-08.
+- Status: pass (P01 duration-gate sequence complete).
+- Hypothesis: a final ten-second, 125 W saturated memory-traffic workload remains thermally safe through the full server-controlled cooldown.
+- Prediction: P01 stays below its 65°C abort threshold, produces no fresh fan-critical event, leaves no allocation, and restores the original GPU power limit.
+- Exact command: `p40_bench --primitive P01-copy --gpu 0 --bytes 67108864 --duration 10 --memory-cap-mib 256 --seed 1`, invoked only by the forced-command server guard.
+- Result: 21,664 iterations in 10,005.1 ms; 290.620 GB/s algorithmic read+write bandwidth; exact copy check passed. GPU0 began at 35°C, reached a sampled 41°C peak, and was 36°C after cooldown. Both GPUs ended empty and at 250 W; all eight fans were 2000–2100 RPM; no new critical SEL event occurred.
+- Evidence: [P01 ten-second record](../results/T02-P01-gpu0-64m-10s.md) and [raw durable JSON](../results/raw/T02-P01-gpu0-64m-10s-37f975ae.json).
+- Tooling correction: the local client timed out at 380 seconds while the server completed its valid final BMC checks; increased its display timeout to 480 seconds. This does not alter server guard limits.
+- Decision: P01 is stable only for this bounded, 125 W primitive. Begin P03 DP4A GEMV at one second under the same guard; do not load Colibri or extrapolate to inference yet.
