@@ -6,4 +6,9 @@
 
 `2026-09-08-fan-policy.md` records the server-side correction from a 20% quiet fan cap to persistent 100% BMC-zone PWM. It verifies configuration application and idle telemetry only; T00's full thermal acceptance gate remains open.
 
-No microbenchmark, inference timing, training result or best configuration has been generated in this project yet. Hardware observations and historical user measurements are separately labeled in `../hardware.md` and `../experiments/LOG.md`.
+The guarded primitive controls and fixed Qwen decode controls are now recorded
+in the individual result files. The longest accepted Qwen control is the
+256-output thermal plateau in `T04-control-256-dual-p40-125w.md`; it is a
+baseline, not an optimized configuration. Hardware observations and historical
+user measurements are separately labeled in `../hardware.md` and
+`../experiments/LOG.md`.

@@ -149,3 +149,29 @@ ID, status, hypothesis, prediction, exact change, source/binary/model/prompt ide
 - Safety: peak samples 47°C/48°C and 7,895 MiB/card; fans 2,000–2,100 RPM; no fresh critical event; 8.8-minute cooldown to <=40°C; both GPUs empty and original 250 W limits restored.
 - Decision: establish this as the first sustained model control. The next workload-bearing gate is a separate 256-output fixed plateau, not a performance knob sweep or 512-output baseline. The warm page cache/load time is a remaining confounder for startup metrics.
 - Evidence: [passing control record](../results/T04-control-64-dual-p40-125w.md).
+
+## T04 — 256-output fixed thermal plateau
+
+- Date: 2026-09-08.
+- Status: pass as a single fixed-profile control; do not extend the
+  output-length ladder under this thermal profile.
+- Hypothesis: the accepted 64-output Qwen timing split and full expert
+  residency remain stable over a longer decode without crossing the guarded
+  thermal/fan/cleanup requirements.
+- Exact profile: unchanged experimental binary, pinned Kreuzzelg snapshot,
+  fixed 15-token public prompt, GPUs 0 and 1, `CUDA_EXPERT_GB=auto`,
+  `COLI_DENSE_I8=1`, timers and async profile enabled, 125 W/card; 256 outputs.
+- Result: 1.54 engine output tok/s (1.56 decode tok/s over 255 steps), TTFT
+  2.59 s. DeltaNet remained 337.99 ms/token, including 234.7 ms/token in its
+  projections; LM head was 146.91, attention 88.27, and MoE 67.15. All
+  10,240 experts stayed resident with zero CPU misses and no swaps.
+- Safety: sampled peaks were 55 C / 57 C and 7,895 MiB/card. Fans stayed
+  2,000–2,100 RPM, no fresh fault appeared, allocations were released, and
+  250 W limits were restored. The <=40 C recovery point arrived at the end of
+  the 15-minute maximum cooldown.
+- Decision: a 512-output control cannot answer a new performance question and
+  adds unacceptable heat-soak time. Stop the length ladder. Advance to a
+  source-isolated T05 Q8-weight/FP32-activation DeltaNet projection control;
+  prove one operator's parity and complete transfer-inclusive latency before
+  connecting it to Qwen or testing DP4A activation quantization.
+- Evidence: [256-output record](../results/T04-control-256-dual-p40-125w.md).
