@@ -241,7 +241,14 @@ class AppServer:
             bufsize=1,
         )
         self.next_id = 1
-        self._request("initialize", {"clientInfo": {"name": "p40-marathon", "version": "1"}}, 30)
+        self._request(
+            "initialize",
+            {
+                "clientInfo": {"name": "p40-marathon", "version": "1"},
+                "capabilities": {"experimentalApi": True},
+            },
+            30,
+        )
 
     def close(self) -> None:
         if self.process.poll() is None:
