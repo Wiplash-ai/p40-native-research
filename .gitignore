@@ -13,3 +13,7 @@ __pycache__/
 checkouts/
 datasets/
 models/
+marathon/state.json
+marathon/quota.json
+marathon/lock
+marathon/logs/

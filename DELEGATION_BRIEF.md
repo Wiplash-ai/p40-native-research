@@ -4,7 +4,7 @@ This is a staged research programme, not a single implementation ticket. Delegat
 
 ## Current gate
 
-The latest read-only check found both GPUs idle (30°C and 28°C, no application VRAM), but IPMI still reports **FAN3 at 400 RPM, Lower Critical**. GPU, model, CUDA-kernel, and training workloads are blocked until T00 records a stable explanation and five clean idle minutes. Do not silence sensor thresholds, clear the SEL, or issue raw BMC fan commands.
+The former quiet-mode fan cap was corrected to persistent 100% BMC-zone PWM on 2026-09-08; all chassis fans then reported roughly 2,000 RPM. This is a configuration correction, not a thermal acceptance result. GPU, model, CUDA-kernel, and training workloads remain blocked until T00 records five clean idle minutes, a stable sensor explanation, and any needed physical airflow follow-up. Do not silence sensor thresholds, clear the SEL, or issue raw BMC fan commands.
 
 ## Ready now: three bounded assignments
 
