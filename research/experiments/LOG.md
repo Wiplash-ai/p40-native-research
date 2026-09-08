@@ -118,3 +118,14 @@ ID, status, hypothesis, prediction, exact change, source/binary/model/prompt ide
 - Evidence: [source-only acceptance](../results/T04A-model-guard-acceptance.json).
 - Confounders: the model binary, model snapshot, GPU state, BMC state, process, and cooldown were mocked. This is not a Qwen benchmark and establishes no runtime timing or performance result.
 - Decision: deploy the guard under a new restricted SSH key, first run its dry-run path, inspect the fixed `env -i` binary loader path without a model, then execute exactly one 16-output dual-P40 125 W canary only if live preflight is cool and idle.
+
+## T04 — first guarded Qwen decode canary
+
+- Date: 2026-09-08.
+- Status: pass for the fixed 16-output canary; not yet a 512-output control or a best-setting result.
+- Hypothesis: the real Qwen async expert-event counters work on Pascal and a short, fully resident two-P40 decode can run through a mandatory cooldown without thermal or fan faults.
+- Exact profile: experimental binary SHA-256 `d7e8a284a4f864faddd4df6c16c1fbd3c8176222375fb23725af53c453f69051`; pinned Kreuzzelg snapshot; fixed 15-token public prompt; 16 outputs; GPUs 0,1; `CUDA_EXPERT_GB=auto`; `COLI_DENSE_I8=1`; `COLI_TIMERS=1`; `COLI_CUDA_PROFILE=1`; 125 W per GPU.
+- Result: TTFT 2.60 s. Fifteen decode steps took 10.113 s (1.48 tok/s); engine-reported end-to-end output rate was 1.26 tok/s (12.7 s for 16). Real group counters were H2D 62 ms, kernels 934 ms, D2H 25 ms across 2,397 groups/9,600 experts. Decode phase wall time was led by DeltaNet at 354.79 ms/token and LM head at 156.84 ms/token; MoE total was 71.71 ms/token.
+- Safety: GPU peaks were 42°C/43°C and 7,895 MiB/card; every fan remained 2,000–2,100 RPM; no fresh fan-critical SEL appeared; GPUs were empty after execution and the guard restored both 250 W limits after its five-minute cooldown.
+- Decision: the evidence shifts the next optimization target to a measured CPU-owned phase (DeltaNet first, LM head second), not higher expert residency or generic CUDA flags. First add a separate fixed 64-output control guard under the same 125 W safety policy, then advance deliberately toward the 512-output repetitions.
+- Evidence: [T04 record](../results/T04-Qwen-16-dual-p40-125w.md).
