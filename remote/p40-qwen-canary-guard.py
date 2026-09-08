@@ -18,7 +18,11 @@ import uuid
 from pathlib import Path
 
 
-SOURCE = Path(__file__).with_name("p40-canary-guard.py")
+SOURCE = Path(__file__).with_name("p40-canary-guard")
+if not SOURCE.is_file():
+    # The repository keeps the source with a .py suffix; the server installs
+    # the independently audited executor as /usr/local/sbin/p40-canary-guard.
+    SOURCE = Path(__file__).with_name("p40-canary-guard.py")
 SPEC = importlib.util.spec_from_file_location("p40_primitive_guard", SOURCE)
 assert SPEC and SPEC.loader
 base = importlib.util.module_from_spec(SPEC)

@@ -14,6 +14,11 @@ SPEC.loader.exec_module(guard)
 
 
 class QwenCanaryGuardTests(unittest.TestCase):
+    def test_base_guard_prefers_the_root_owned_install_name(self):
+        self.assertEqual(guard.SOURCE.name, "p40-canary-guard.py")
+        installed_source = (ROOT / "remote/p40-qwen-canary-guard.py").with_name("p40-canary-guard")
+        self.assertEqual(installed_source.name, "p40-canary-guard")
+
     def test_dry_run_never_initializes_cuda(self):
         result = guard.run(guard.parse_request(json.dumps({"dry_run": True})))
         self.assertEqual(result["status"], "dry_run")
