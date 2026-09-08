@@ -1,0 +1,72 @@
+--- a/c/backend_cuda.cu
++++ b/c/backend_cuda.cu
+@@ -91,2 +91,4 @@
+     cudaEvent_t ev_done; int ev_done_ok;        /* resident-group issue completion (#431 PR-C0) */
++    cudaEvent_t group_profile_ev[4];
++    int group_profile_ready, group_profile_pending;  /* one async group per device */
+     void *group_desc; size_t group_desc_cap;
+@@ -144,2 +146,32 @@
+ 
++/* Qwen decode uses issue/take rather than expert_group_impl, so the latter's
++ * temporary profile events cannot account for the work that is actually
++ * asynchronous here. Each context permits only one outstanding group. */
++static int async_group_profile_prepare(DeviceContext *ctx) {
++    const char *value = std::getenv("COLI_CUDA_PROFILE");
++    if (!value || !std::atoi(value)) return 0;
++    if (ctx->group_profile_ready) return 1;
++    for (int i = 0; i < 4; ++i) {
++        if (!cuda_ok(cudaEventCreate(&ctx->group_profile_ev[i]), "async profile event")) {
++            for (int j = 0; j < i; ++j) cudaEventDestroy(ctx->group_profile_ev[j]);
++            ctx->group_profile_ready = 0;
++            return 0;
++        }
++    }
++    ctx->group_profile_ready = 1;
++    return 1;
++}
++
++static void async_group_profile_add(DeviceContext *ctx) {
++    float h2d = 0, kernel = 0, d2h = 0;
++    if (!cuda_ok(cudaEventElapsedTime(&h2d, ctx->group_profile_ev[0], ctx->group_profile_ev[1]), "async profile H2D") ||
++        !cuda_ok(cudaEventElapsedTime(&kernel, ctx->group_profile_ev[1], ctx->group_profile_ev[2]), "async profile kernel") ||
++        !cuda_ok(cudaEventElapsedTime(&d2h, ctx->group_profile_ev[2], ctx->group_profile_ev[3]), "async profile D2H")) return;
++    std::lock_guard<std::mutex> lock(g_group_stats_mu);
++    int index = (int)(ctx - g_ctx);
++    g_group_h2d_ms += h2d; g_group_kernel_ms += kernel; g_group_d2h_ms += d2h;
++    g_device_group_h2d_ms[index] += h2d; g_device_group_kernel_ms[index] += kernel;
++    g_device_group_d2h_ms[index] += d2h;
++}
++
+ static DeviceContext *find_ctx(int device) {
+@@ -1294,2 +1326,3 @@
+         if (ctx->host_kv) cudaFreeHost(ctx->host_kv);
++        if (ctx->group_profile_ready) for (int e = 0; e < 4; ++e) cudaEventDestroy(ctx->group_profile_ev[e]);
+         if (ctx->stream) cudaStreamDestroy(ctx->stream);
+@@ -2100,2 +2133,4 @@
+     std::memcpy(ctx->host_x,x,xb);
++    int profile = async_group_profile_prepare(ctx);
++    if (profile && !cuda_ok(cudaEventRecord(ctx->group_profile_ev[0], ctx->stream), "async profile start")) profile = 0;
+     if(!cuda_ok(cudaMemcpyAsync(ctx->group_desc,host,(size_t)count*sizeof(GroupDesc),
+@@ -2105,2 +2140,3 @@
+                 "expert group issue upload")) return 0;
++    if (profile && !cuda_ok(cudaEventRecord(ctx->group_profile_ev[1], ctx->stream), "async profile upload done")) profile = 0;
+     if(all_e8){
+@@ -2162,5 +2198,8 @@
+     }}
+-    if(!cuda_ok(cudaGetLastError(),"expert group issue launch")||
+-       !cuda_ok(cudaMemcpyAsync(ctx->host_y,ctx->y,xb,cudaMemcpyDeviceToHost,ctx->stream),
++    if(!cuda_ok(cudaGetLastError(),"expert group issue launch")) return 0;
++    if (profile && !cuda_ok(cudaEventRecord(ctx->group_profile_ev[2], ctx->stream), "async profile kernel done")) profile = 0;
++    if(!cuda_ok(cudaMemcpyAsync(ctx->host_y,ctx->y,xb,cudaMemcpyDeviceToHost,ctx->stream),
+                 "expert group issue download")) return 0;
++    if (profile && !cuda_ok(cudaEventRecord(ctx->group_profile_ev[3], ctx->stream), "async profile download done")) profile = 0;
++    ctx->group_profile_pending = profile;
+     ctx->group_pending=1; ctx->group_pending_bytes=xb;
+@@ -2178,4 +2217,7 @@
+     ctx->group_pending=0;
++    int profile = ctx->group_profile_pending;
++    ctx->group_profile_pending=0;
+     if(!select_ctx(ctx)) return nullptr;
+     if(!cuda_ok(cudaStreamSynchronize(ctx->stream),"expert group take")) return nullptr;
++    if (profile) async_group_profile_add(ctx);
+     return ctx->host_y;

@@ -97,3 +97,13 @@ ID, status, hypothesis, prediction, exact change, source/binary/model/prompt ide
 - Evidence: [P03 record](../results/T02-P03-gpu0-1s.md) and [raw durable JSON](../results/raw/T02-P03-gpu0-1s-c5cf3200.json). Source SASS inspection directly identified `IDP.4A.S8.S8`.
 - Interpretation: this fixed small-GEMV kernel is deliberately a thermal/correctness baseline. Two DP4A loop iterations per thread, per-output reduction overhead, and poor input reuse explain why 179.637 GOP/s cannot be compared with large-GEMM theoretical peaks.
 - Decision: preserve P03 as control. Design a bounded, tiled comparison with exact reference and byte accounting before expanding the canary allowlist. Do not infer Qwen or Kimi performance from this result.
+
+## T03 — asynchronous Qwen expert-event instrumentation build
+
+- Date: 2026-09-08.
+- Status: build pass; runtime measurement pending.
+- Hypothesis: Qwen's actual async expert issue/take path needs its own CUDA-event accounting; the prior synchronous-wrapper instrumentation cannot reveal expert H2D, kernel, and D2H time in Qwen decode.
+- Exact change: experimental-only patch adds four persistent events per device to bracket issue upload, kernels, and download, then records their elapsed time only after the existing take-side stream synchronization. `COLI_CUDA_PROFILE=1` remains opt-in; profile failures disable only metrics, never expert execution or fallback.
+- Validation: generated unified diff validated against the pinned remote source; patch applied only to `/home/jordanculver/p40-native-research/colibri-engine`; `make -C c qwen36 CUDA=1 CUDA_ARCH=sm_61 NVCC=/usr/bin/nvcc` passed. The experimental binary exits with expected launcher guidance when no model is supplied. No model, CUDA context, or inference workload was run.
+- Evidence: [build record](../results/T03-async-profile-build.md) and [patch](../../patches/0001-qwen36-async-expert-profile.patch).
+- Decision: prepare a separately allowlisted, short guarded model canary. Do not classify event timing as working until a model run produces nonzero timings and completes all thermal/cleanup checks.
