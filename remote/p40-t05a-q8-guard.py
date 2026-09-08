@@ -44,6 +44,17 @@ FIXED_ARGUMENTS = (
     "--profile", "dn_qkv-2048x8192", "--gpu", "0", "--repetitions", "5",
     "--calls-per-sample", "8", "--memory-cap-mib", "64", "--seed", "1",
 )
+# Match the accepted Qwen controls.  These controls must not inherit the
+# caller's OpenMP policy: an unpinned synthetic CPU reference can otherwise
+# produce a misleading CPU/GPU ratio.
+RUN_ENV = {
+    "PATH": "/usr/bin:/bin",
+    "OMP_NUM_THREADS": "24",
+    "OMP_DYNAMIC": "FALSE",
+    "OMP_WAIT_POLICY": "PASSIVE",
+    "OMP_PROC_BIND": "close",
+    "OMP_PLACES": "cores",
+}
 
 
 class UnsafeRequest(ValueError):
@@ -131,7 +142,7 @@ def run(request: dict) -> dict:
         stdout_handle = stdout_path.open("w", encoding="utf-8")
         stderr_handle = stderr_path.open("w", encoding="utf-8")
         process = subprocess.Popen(benchmark_argv(), start_new_session=True, text=True,
-                                   stdout=stdout_handle, stderr=stderr_handle)
+                                   stdout=stdout_handle, stderr=stderr_handle, env=RUN_ENV)
         deadline, next_bmc = time.monotonic() + WATCHDOG_SECONDS, time.monotonic()
         while process.poll() is None:
             gpus, fans = base.gpu_state(), base.fan_state()

@@ -179,7 +179,7 @@ ID, status, hypothesis, prediction, exact change, source/binary/model/prompt ide
 ## T05A — DeltaNet Q8-weight GPU offload control
 
 - Date: 2026-09-08.
-- Status: designed, source-inspected, not run.
+- Status: superseded by the later executed records below.
 - Hypothesis: the existing CUDA format-1 operator can accelerate Qwen's
   measured DeltaNet projection bottleneck without changing its Q8-weight,
   FP32-activation representation.
@@ -200,19 +200,88 @@ ID, status, hypothesis, prediction, exact change, source/binary/model/prompt ide
 ## T05A — cached `dn_qkv` Q8 GPU control
 
 - Date: 2026-09-08.
-- Status: pass for one isolated 2048x8192 DeltaNet projection.
+- Status: numerical and GPU-latency pass; CPU/GPU speed ratio not promotable.
 - Exact profile: synthetic deterministic Q8 weights / per-row scales and FP32
   activation; Qwen-equivalent AVX2/FMA CPU control; one cached GPU0 generic
   format-1 tensor; 5 samples of 8 calls; 125 W GPU0 guard.
 - Result: CPU median 4.645 ms/call; transfer-inclusive cached GPU median
-  0.335 ms/call; 13.86x CPU/GPU speedup. First call with CUDA init/weight
+  0.335 ms/call; observed 13.86x CPU/GPU ratio. First call with CUDA init/weight
   upload was 21.228 ms. Max absolute error 1.526e-5 and max relative error
   5.965e-6; the declared per-element FP32 gate passed.
 - Safety: GPU0 sampled peak 36 C, GPU1 37 C; all fans 2,000–2,100 RPM; no new
   fault; minimum five-minute cooldown; GPU0 250 W cap restored. The work
   completed between telemetry polls, so fixture cached-tensor byte accounting
   is the residency evidence.
-- Decision: direct offload clears the 15% keep threshold. Do not alter the
-  generic kernel yet. Build a three-projection (`dn_qkv`, `dn_z`, `dn_out`)
-  host-boundary control before touching model execution.
+- Correction: the initial fixture inherited OpenMP policy and reused one
+  16 MiB weight tensor, so the CPU control can be cache-hot and does not match
+  Qwen's 30-layer working set. The GPU number and numerical gate remain valid,
+  but the ratio does not clear the 15% threshold.
+- Decision: pin a Qwen-like 24-thread OpenMP environment in the guard. T05B
+  demonstrated the cache effect and is performance-inconclusive; proceed to
+  T05C, a 30-layer (about 960 MB Q8) cache-aware triplet sweep before touching
+  model execution.
 - Evidence: [T05A record](../results/T05A-dn-qkv-2048x8192.md).
+
+## T05C — cache-aware 30-layer Q8 DeltaNet sweep
+
+- Date: 2026-09-08.
+- Status: rejected on the numerical gate; performance result not promotable.
+- Hypothesis: the apparent single-projection CUDA benefit survives Qwen's
+  full 30-DeltaNet-layer Q8 working set, which is about 960 MiB and cannot
+  remain in the host's 60 MiB per-socket L3 cache.
+- Exact profile: GPU0 only at 125 W; 30 distinct qkv (2048x8192), z
+  (2048x4096), and out (4096x2048) Q8 projections; fixed 24-thread OpenMP
+  environment; three CPU and GPU sweeps; generic cached format-1 API.
+- Result: CPU median 38.785 ms/sweep; GPU complete median 17.910 ms/sweep;
+  observed 2.166x ratio. First sweep including initialization and about 960
+  MiB upload was 162.836 ms. All 90 tensors were cached (1,008,353,280 bytes).
+  The output failed the per-element FP32 gate: maximum absolute error
+  9.155e-4, relative error 4.286e-4.
+- Safety: preflight 33 C / 35 C; GPU0 sampled peak 34 C, all fans
+  2,000–2,100 RPM; no fresh fault; minimum five-minute cooldown; zero retained
+  GPU allocation and 250 W cap restored.
+- Decision: reject the numerical control. T05D changes diagnostics only:
+  separately record qkv, z, out reduction, and host-boundary propagation
+  errors. Do not touch Qwen integration or infer end-to-end speed. The source
+  inspection also shows DeltaNet includes two FP32 b/a projections outside
+  this Q8 sweep, so even a future pass is a partial-phase result.
+- Evidence: [T05C record](../results/T05C-dn-sweep-30x-triplet.md).
+
+## T05D — error attribution for the rejected Q8 sweep
+
+- Date: 2026-09-08.
+- Status: generic format-1 CUDA dense matvec rejected for strict Qwen
+  DeltaNet integration.
+- Exact change: no GPU computation change from T05C. Added CPU-only
+  attribution of qkv, z, out-with-identical-input, and boundary-propagation
+  error after the first sweep.
+- Result: qkv (2.289e-5 absolute / 1.296e-5 relative) and z
+  (1.907e-5 / 1.580e-5) passed. The direct out kernel with the same
+  GPU-derived input failed (9.155e-4 / 3.022e-4); CPU computation with a
+  GPU-derived qkv/z boundary also failed (7.324e-4 / 5.817e-4).
+- Interpretation: the generic GPU 256-thread reduction order itself is out of
+  tolerance, and independently small earlier differences propagate through the
+  host boundary. Do not loosen the numerical threshold or integrate this path.
+- Safety: 125 W GPU0 guard, peak 34 C, all fans 2,000–2,100 RPM, no new fault,
+  five-minute cooldown, zero retained VRAM, and cap restored to 250 W.
+- Decision: T05E is a standalone custom Q8 out-projection kernel that mirrors
+  Qwen's 32-lane AVX accumulator/reduction order. It needs a parity result
+  before a 30-layer test, production-source patch, or end-to-end claim.
+- Evidence: [T05D record](../results/T05D-dn-error-attribution.md).
+
+## T05E — exact-order standalone Q8 out projection
+
+- Date: 2026-09-08.
+- Status: numerical pass, performance hold.
+- Hypothesis: keeping Qwen's 32 FMA streams and final reduction tree on Pascal
+  eliminates the format-1 generic CUDA rounding failure.
+- Result: exact bit identity against the AVX2/FMA reference. CPU median
+  0.1400 ms/call; GPU complete median 0.1247 ms/call; 1.123x observed ratio.
+  First GPU call with initialization and 8 MiB upload took 1.694 ms.
+- Safety: GPU0 peak 34 C; all fans 2,000–2,100 RPM; no fault; five-minute
+  cooldown; no retained allocation; 250 W cap restored.
+- Decision: mathematical hypothesis passes, but 12.3% misses the 15% keep
+  threshold. T05F changes only final reduction transport from shared memory
+  plus barrier to a warp-shuffle tree with the exact same arithmetic order.
+  It must retain bit identity and meet the speed threshold before chain work.
+- Evidence: [T05E record](../results/T05E-dn-out-cpuorder.md).

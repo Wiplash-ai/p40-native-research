@@ -47,6 +47,28 @@ class T05Q8ControlSourceTests(unittest.TestCase):
         self.assertIn('qwen_dn_triplet_control: qwen_dn_triplet_control.cu', MAKEFILE)
         self.assertIn('if (options.dry_run)', triplet)
 
+    def test_sweep_target_exceeds_cache_with_the_full_qwen_deltanet_working_set(self):
+        sweep = (ROOT / "benchmarks" / "qwen_dn_sweep_control.cu").read_text()
+        self.assertIn('constexpr int kLayers = 30;', sweep)
+        self.assertIn('dn-sweep-30x-triplet-2048-8192-4096', sweep)
+        self.assertIn('for (Layer& layer : *layers)', sweep)
+        self.assertIn('make_out_input(boundary->data(), layer.qkv.gpu.data(), layer.z.gpu.data())', sweep)
+        self.assertIn('out_kernel_with_gpu_boundary', sweep)
+        self.assertIn('boundary_propagation', sweep)
+        self.assertIn('options.memory_cap_mib < 1024 || options.memory_cap_mib > 1088', sweep)
+        self.assertIn('qwen_dn_sweep_control: qwen_dn_sweep_control.cu', MAKEFILE)
+
+    def test_cpuorder_out_control_is_standalone_and_uses_the_fixed_reduction_tree(self):
+        kernel = (ROOT / "benchmarks" / "qwen_cpuorder_cuda.cu").read_text()
+        control = (ROOT / "benchmarks" / "qwen_dn_out_cpuorder_control.cpp").read_text()
+        self.assertIn('__fmaf_rn', kernel)
+        self.assertIn('partial[32]', kernel)
+        self.assertIn('qwen_cpuorder_q8_matvec', kernel)
+        self.assertIn('constexpr int kInput = 4096;', control)
+        self.assertIn('constexpr int kOutput = 2048;', control)
+        self.assertIn('p40_cpuorder_matvec', control)
+        self.assertIn('qwen_dn_out_cpuorder_control:', MAKEFILE)
+
 
 if __name__ == "__main__":
     unittest.main()

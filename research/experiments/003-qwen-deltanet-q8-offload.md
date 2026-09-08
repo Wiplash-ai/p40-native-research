@@ -1,7 +1,8 @@
 # E003 / T05 — Qwen DeltaNet Q8-weight GPU offload control
 
-Status: T05A pass; T05B three-projection control is next. T05A used no model
-load and no kernel modification.
+Status: T05A numerical/GPU-latency pass; T05B performance result inconclusive;
+T05C failed the numerical gate; T05D diagnostic sweep is next. The controls
+use no model load and no kernel modification.
 
 ## Why this is next
 
@@ -67,16 +68,56 @@ Otherwise reject direct per-projection offload and move to the LM-head control
 or a different mathematical primitive; do not compensate by silently
 quantizing activations.
 
-## T05A result
+## T05A result and control correction
 
-The guarded GPU0 control passed on 2026-09-08. Its 2048x8192 `dn_qkv`
-projection measured 4.645 ms/call on the matching CPU operator and 0.335
-ms/call through the cached, transfer-inclusive GPU API: **13.86x**. Maximum
+The guarded GPU0 control passed its numerical and thermal gates on 2026-09-08.
+Its 2048x8192 `dn_qkv` projection recorded 4.645 ms/call on its then-current
+CPU control and 0.335 ms/call through the cached, transfer-inclusive GPU API.
+Maximum
 absolute and relative errors were 1.526e-5 and 5.965e-6, within the declared
 per-element gate. Its first call, which includes CUDA initialization and the
 16 MiB Q8 upload, took 21.228 ms; that is not the steady-state metric.
 GPU0 sampled at <=36 C and recovered under the required five-minute gate.
 See [T05A evidence](../results/T05A-dn-qkv-2048x8192.md).
+
+Do **not** treat the observed 13.86x ratio as a keep decision. T05B uncovered
+two CPU-control confounders: its single 32 MiB synthetic layer became
+cache-hot across repeated samples, and the original guard inherited unpinned
+OpenMP variables rather than the accepted Qwen 24-thread policy. The guard is
+now fixed to an explicit Qwen-like OpenMP environment. T05C must sweep 30
+layer-distinct triplets (about 960 MB Q8 weights) before the direct-offload
+hypothesis is accepted or rejected.
+
+## T05C result: rejected numerical control
+
+T05C completed a 30-layer / 90-tensor (~960 MiB Q8) cache-aware sweep under
+the corrected OpenMP guard. It recorded a CPU median of 38.785 ms and a
+transfer-inclusive cached-GPU median of 17.910 ms (2.166x observed ratio), but
+failed the predeclared numerical gate: 9.155e-4 maximum absolute and
+4.286e-4 maximum relative error. Its 125 W thermal and cleanup gates passed.
+The direct-offload hypothesis therefore remains unproven. T05D will separate
+direct projection reduction error from the host-boundary propagation error;
+there is no model integration until it passes. See [T05C evidence](../results/T05C-dn-sweep-30x-triplet.md).
+
+## T05D result: reject the generic Q8 reduction for strict integration
+
+T05D found that the direct qkv and z calls meet the gate, but the existing
+generic CUDA reduction for out does not. With the same GPU-derived out input,
+the out operator still had 9.155e-4 maximum absolute and 3.022e-4 maximum
+relative error. Separately, passing qkv/z's otherwise gate-compliant output
+through the host boundary produced 7.324e-4 / 5.817e-4 error at out. Therefore
+the generic path must not be connected to Qwen under the current correctness
+contract. T05E will test a standalone CPU-reduction-order Q8 out kernel before
+any broader sweep. See [T05D evidence](../results/T05D-dn-error-attribution.md).
+
+## T05E result: exact arithmetic, insufficient speed
+
+The standalone CPU-reduction-order Q8 dn_out kernel was bit-identical to the
+Qwen AVX2/FMA control. Its transfer-inclusive GPU median was 0.1247 ms versus
+0.1400 ms CPU (1.123x). This confirms arithmetic order, rather than Pascal
+precision alone, caused T05D's failure; it does not clear the 15% performance
+threshold. T05F will replace only the shared-memory final reduction with an
+equivalent warp-shuffle tree. See [T05E evidence](../results/T05E-dn-out-cpuorder.md).
 
 ## What a T05A pass does and does not show
 

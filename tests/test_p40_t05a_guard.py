@@ -32,6 +32,42 @@ assert TRIPLET_CLIENT_SPEC and TRIPLET_CLIENT_SPEC.loader
 sys.modules[TRIPLET_CLIENT_SPEC.name] = triplet_client
 TRIPLET_CLIENT_SPEC.loader.exec_module(triplet_client)
 
+SWEEP_SPEC = importlib.util.spec_from_file_location("p40_t05c_sweep_guard", ROOT / "remote/p40-t05c-sweep-guard.py")
+sweep = importlib.util.module_from_spec(SWEEP_SPEC)
+assert SWEEP_SPEC and SWEEP_SPEC.loader
+sys.modules[SWEEP_SPEC.name] = sweep
+SWEEP_SPEC.loader.exec_module(sweep)
+
+SWEEP_CLIENT_SPEC = importlib.util.spec_from_file_location("p40_t05c_client", ROOT / "scripts/p40_t05c_sweep_client.py")
+sweep_client = importlib.util.module_from_spec(SWEEP_CLIENT_SPEC)
+assert SWEEP_CLIENT_SPEC and SWEEP_CLIENT_SPEC.loader
+sys.modules[SWEEP_CLIENT_SPEC.name] = sweep_client
+SWEEP_CLIENT_SPEC.loader.exec_module(sweep_client)
+
+DIAGNOSTIC_SPEC = importlib.util.spec_from_file_location("p40_t05d_diagnostic_guard", ROOT / "remote/p40-t05d-diagnostic-guard.py")
+diagnostic = importlib.util.module_from_spec(DIAGNOSTIC_SPEC)
+assert DIAGNOSTIC_SPEC and DIAGNOSTIC_SPEC.loader
+sys.modules[DIAGNOSTIC_SPEC.name] = diagnostic
+DIAGNOSTIC_SPEC.loader.exec_module(diagnostic)
+
+DIAGNOSTIC_CLIENT_SPEC = importlib.util.spec_from_file_location("p40_t05d_client", ROOT / "scripts/p40_t05d_diagnostic_client.py")
+diagnostic_client = importlib.util.module_from_spec(DIAGNOSTIC_CLIENT_SPEC)
+assert DIAGNOSTIC_CLIENT_SPEC and DIAGNOSTIC_CLIENT_SPEC.loader
+sys.modules[DIAGNOSTIC_CLIENT_SPEC.name] = diagnostic_client
+DIAGNOSTIC_CLIENT_SPEC.loader.exec_module(diagnostic_client)
+
+CPUORDER_SPEC = importlib.util.spec_from_file_location("p40_t05e_cpuorder_guard", ROOT / "remote/p40-t05e-cpuorder-guard.py")
+cpuorder = importlib.util.module_from_spec(CPUORDER_SPEC)
+assert CPUORDER_SPEC and CPUORDER_SPEC.loader
+sys.modules[CPUORDER_SPEC.name] = cpuorder
+CPUORDER_SPEC.loader.exec_module(cpuorder)
+
+CPUORDER_CLIENT_SPEC = importlib.util.spec_from_file_location("p40_t05e_client", ROOT / "scripts/p40_t05e_cpuorder_client.py")
+cpuorder_client = importlib.util.module_from_spec(CPUORDER_CLIENT_SPEC)
+assert CPUORDER_CLIENT_SPEC and CPUORDER_CLIENT_SPEC.loader
+sys.modules[CPUORDER_CLIENT_SPEC.name] = cpuorder_client
+CPUORDER_CLIENT_SPEC.loader.exec_module(cpuorder_client)
+
 
 class T05AGuardTests(unittest.TestCase):
     def test_dry_run_never_initializes_cuda(self):
@@ -62,6 +98,31 @@ class T05AGuardTests(unittest.TestCase):
         identity = Path("/tmp/p40-t05b-test-key")
         self.assertEqual(triplet_client.ssh_argv("host", identity)[-1], "p40-t05b-triplet")
 
+    def test_sweep_identity_pins_the_30_layer_binary_and_command(self):
+        self.assertEqual(sweep.t05a.EXPECTED_ORIGINAL_COMMAND, "p40-t05c-sweep")
+        self.assertEqual(sweep.t05a.PROFILE_ID, "t05c-dn-sweep-30x-triplet-2048-8192-4096")
+        self.assertIn("qwen_dn_sweep_control", str(sweep.t05a.BENCHMARK))
+        self.assertIn("dn-sweep-30x-triplet-2048-8192-4096", sweep.t05a.FIXED_ARGUMENTS)
+        self.assertEqual(sweep.t05a.WATCHDOG_SECONDS, 240)
+        identity = Path("/tmp/p40-t05c-test-key")
+        self.assertEqual(sweep_client.ssh_argv("host", identity)[-1], "p40-t05c-sweep")
+
+    def test_diagnostic_identity_is_distinct_from_the_rejected_t05c_run(self):
+        self.assertEqual(diagnostic.t05a.EXPECTED_ORIGINAL_COMMAND, "p40-t05d-diagnostic")
+        self.assertEqual(diagnostic.t05a.PROFILE_ID, "t05d-dn-error-attribution-30x-triplet")
+        self.assertEqual(diagnostic.t05a.BENCHMARK_SHA256, "3d8043ee2846e2d5942a823bdbeaa43fffea331e9175da92d5d8c790233115a7")
+        self.assertIn("qwen_dn_sweep_control", str(diagnostic.t05a.BENCHMARK))
+        identity = Path("/tmp/p40-t05d-test-key")
+        self.assertEqual(diagnostic_client.ssh_argv("host", identity)[-1], "p40-t05d-diagnostic")
+
+    def test_cpuorder_identity_pins_the_standalone_out_projection_control(self):
+        self.assertEqual(cpuorder.t05a.EXPECTED_ORIGINAL_COMMAND, "p40-t05e-cpuorder")
+        self.assertEqual(cpuorder.t05a.PROFILE_ID, "t05e-dn-out-cpuorder-4096x2048")
+        self.assertIn("qwen_dn_out_cpuorder_control", str(cpuorder.t05a.BENCHMARK))
+        self.assertIn("dn-out-cpuorder-4096x2048", cpuorder.t05a.FIXED_ARGUMENTS)
+        identity = Path("/tmp/p40-t05e-test-key")
+        self.assertEqual(cpuorder_client.ssh_argv("host", identity)[-1], "p40-t05e-cpuorder")
+
     def test_mocked_run_caps_restores_and_records_output(self):
         class FinishedProcess:
             returncode = 0
@@ -74,6 +135,7 @@ class T05AGuardTests(unittest.TestCase):
         ]
         fans = [{"name": f"FAN{i}", "rpm": 2000.0} for i in range(1, 9)]
         calls = []
+        popen_kwargs = {}
         with TemporaryDirectory() as temporary:
             root = Path(temporary)
             binary = root / "qwen_dn_q8_control"; binary.write_text("fixture"); binary.chmod(0o755)
@@ -85,10 +147,11 @@ class T05AGuardTests(unittest.TestCase):
                  mock.patch.object(guard.base, "critical_fan_events", return_value=set()), \
                  mock.patch.object(guard.base, "cool_down", return_value=None), \
                  mock.patch.object(guard.base, "set_power_limit", side_effect=lambda gpu, watts: calls.append((gpu, watts))), \
-                 mock.patch.object(guard.subprocess, "Popen", return_value=FinishedProcess()):
+                 mock.patch.object(guard.subprocess, "Popen", side_effect=lambda *args, **kwargs: (popen_kwargs.update(kwargs), FinishedProcess())[1]):
                 result = guard.run({"dry_run": False})
         self.assertEqual(result["status"], "pass")
         self.assertEqual(calls, [(0, 125), (0, 250.0)])
+        self.assertEqual(popen_kwargs["env"], guard.RUN_ENV)
         self.assertEqual(result["stdout"]["bytes"], 0)
         self.assertEqual(result["stderr"]["bytes"], 0)
 
