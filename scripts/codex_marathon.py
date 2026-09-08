@@ -94,6 +94,29 @@ T00/T02. Run local tests. Write research/results/T03-acceptance.json with
 "fail" or "blocked" with evidence. Commit task-scoped files and report commands, paths, evidence,
 risks, and next eligible task.""",
     ),
+    Task(
+        "T04A",
+        "workspace-write",
+        "research/results/T04A-model-guard-acceptance.json",
+        """Implement T04A only: a local, mock-tested specification and forced-command
+guard for the first Qwen model canary. Read EXECUTION_PLAN.md, research/hardware.md,
+research/results/T03-async-profile-build.md, remote/p40-canary-guard.py, and its tests.
+Work only in this research repository. Do not SSH, initialize CUDA, load a model, run a
+benchmark, invoke nvidia-smi or IPMI, change BMC/fan/power settings, alter production
+Colibri, deploy a remote guard, start a service, or queue another Codex task.
+
+The implementation must allow only the pinned experimental Qwen binary, exact pinned
+Kreuzzelg snapshot, fixed public prompt fixture, fixed two-GPU profile, fixed short output
+limit, fixed timeout/power/cooldown policy, and a durable result schema. Reject arbitrary
+commands, models, paths, environment variables, GPU selections, prompt text, and duration.
+It must preserve the existing P01/P03 executor. Add CPU-only tests proving dry-run does not
+initialize CUDA, no arbitrary argv can be introduced, both-GPU power restoration is recorded,
+and unsafe telemetry or a new fan-critical event fails closed. Do not claim runtime acceptance.
+Run local tests. Write research/results/T04A-model-guard-acceptance.json with
+{\"task\":\"T04A\",\"status\":\"pass\"} only if these source-only criteria pass; otherwise
+write fail or blocked with evidence. Commit only T04A-scoped files and append the experiment
+log. Report changed paths, commands, evidence, risks, and next eligible task.""",
+    ),
 )
 
 
@@ -190,7 +213,7 @@ def select_task(requested: str, state: dict[str, Any]) -> Task:
     complete = completed_tasks(state)
     # T01 and T03 are local-only. Complete both before the separately secured
     # telemetry task, so a scheduled runner never receives general SSH access.
-    for task_id in ("T01", "T03", "T00"):
+    for task_id in ("T01", "T04A", "T03", "T00"):
         task = tasks[task_id]
         if task.id not in complete:
             return task

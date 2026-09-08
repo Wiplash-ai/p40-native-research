@@ -67,7 +67,7 @@ class MarathonTests(unittest.TestCase):
             self.assertEqual(MARATHON.marker_status(marker, "T00"), "blocked_thermal")
 
     def test_auto_selects_first_incomplete_task(self) -> None:
-        self.assertEqual(MARATHON.select_task("auto", {"completed": ["T01"]}).id, "T03")
+        self.assertEqual(MARATHON.select_task("auto", {"completed": ["T01"]}).id, "T04A")
 
     def test_start_turn_uses_configured_reasoning_effort(self) -> None:
         calls = []
