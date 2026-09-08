@@ -85,3 +85,15 @@ ID, status, hypothesis, prediction, exact change, source/binary/model/prompt ide
 - Evidence: [P01 ten-second record](../results/T02-P01-gpu0-64m-10s.md) and [raw durable JSON](../results/raw/T02-P01-gpu0-64m-10s-37f975ae.json).
 - Tooling correction: the local client timed out at 380 seconds while the server completed its valid final BMC checks; increased its display timeout to 480 seconds. This does not alter server guard limits.
 - Decision: P01 is stable only for this bounded, 125 W primitive. Begin P03 DP4A GEMV at one second under the same guard; do not load Colibri or extrapolate to inference yet.
+
+## T02 / P03 — first guarded Pascal DP4A GEMV canary
+
+- Date: 2026-09-08.
+- Status: pass (correctness and one-second thermal gate only).
+- Hypothesis: an explicit `sm_61` packed INT8 DP4A GEMV can run correctly and safely on GPU0 under the same bounded 125 W guard.
+- Prediction: GPU result exactly matches a host `int64` reference; temperature stays below 65°C, no fresh BMC critical event occurs, memory is released, and the original power cap is restored.
+- Exact command: `p40_bench --primitive P03-dp4a-gemv --gpu 0 --bytes 67108864 --duration 1 --memory-cap-mib 256 --seed 1`, invoked only by the forced-command server guard.
+- Result: 512×2048 GEMV, 84,128 iterations in 982.141 ms, 179.637 INT8 GOP/s under multiply-plus-accumulate accounting, exact reference match. GPU0 was 36°C at start and a sampled 37°C peak; it returned to 35–36°C through cooldown. Both GPUs ended empty and at 250 W; fans stayed 2000–2100 RPM; no new critical SEL occurred.
+- Evidence: [P03 record](../results/T02-P03-gpu0-1s.md) and [raw durable JSON](../results/raw/T02-P03-gpu0-1s-c5cf3200.json). Source SASS inspection directly identified `IDP.4A.S8.S8`.
+- Interpretation: this fixed small-GEMV kernel is deliberately a thermal/correctness baseline. Two DP4A loop iterations per thread, per-output reduction overhead, and poor input reuse explain why 179.637 GOP/s cannot be compared with large-GEMM theoretical peaks.
+- Decision: preserve P03 as control. Design a bounded, tiled comparison with exact reference and byte accounting before expanding the canary allowlist. Do not infer Qwen or Kimi performance from this result.
