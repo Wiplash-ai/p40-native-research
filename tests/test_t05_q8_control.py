@@ -39,6 +39,14 @@ class T05Q8ControlSourceTests(unittest.TestCase):
         self.assertIn('$(CXX) -x c++', MAKEFILE)
         self.assertIn('$< -x none $(COLIBRI_C_DIR)/backend_cuda.o', MAKEFILE)
 
+    def test_triplet_target_keeps_the_host_boundary_and_fixed_shapes(self):
+        triplet = (ROOT / "benchmarks" / "qwen_dn_triplet_control.cu").read_text()
+        self.assertIn('constexpr int kConv = 8192;', triplet)
+        self.assertIn('constexpr int kValue = 4096;', triplet)
+        self.assertIn('make_out_input(out_input->data(), qkv->gpu.data(), z->gpu.data())', triplet)
+        self.assertIn('qwen_dn_triplet_control: qwen_dn_triplet_control.cu', MAKEFILE)
+        self.assertIn('if (options.dry_run)', triplet)
+
 
 if __name__ == "__main__":
     unittest.main()

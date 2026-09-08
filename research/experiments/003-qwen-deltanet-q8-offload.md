@@ -83,9 +83,11 @@ See [T05A evidence](../results/T05A-dn-qkv-2048x8192.md).
 A pass shows that one cached Q8/FP32 projection benefits from the P40. It does
 not prove an end-to-end Qwen speedup: one decoded token has 90 such calls,
 and Qwen's recurrent/state work remains on the CPU. T05B will therefore add
-only the three-projection DeltaNet call chain, preserve CPU fallback, measure
-host-device transfers, and compare fixed Qwen output/logits before any full
-generation claim. Tensor placement would initially alternate whole DeltaNet
+only the three-projection DeltaNet call chain, preserve the actual CPU-hosted
+intermediate boundary, and compare complete CPU/GPU triplet time before any
+model integration claim. The generic API reports the complete call but does
+not yet expose individual H2D/kernel/D2H events. Tensor placement would
+initially alternate whole DeltaNet
 layers between GPUs only if T05B shows a benefit; token-sequential layers make
 two-device tensor parallelism an assumption to test, not a default.
 

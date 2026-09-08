@@ -20,6 +20,18 @@ assert CLIENT_SPEC and CLIENT_SPEC.loader
 sys.modules[CLIENT_SPEC.name] = client
 CLIENT_SPEC.loader.exec_module(client)
 
+TRIPLET_SPEC = importlib.util.spec_from_file_location("p40_t05b_triplet_guard", ROOT / "remote/p40-t05b-triplet-guard.py")
+triplet = importlib.util.module_from_spec(TRIPLET_SPEC)
+assert TRIPLET_SPEC and TRIPLET_SPEC.loader
+sys.modules[TRIPLET_SPEC.name] = triplet
+TRIPLET_SPEC.loader.exec_module(triplet)
+
+TRIPLET_CLIENT_SPEC = importlib.util.spec_from_file_location("p40_t05b_client", ROOT / "scripts/p40_t05b_triplet_client.py")
+triplet_client = importlib.util.module_from_spec(TRIPLET_CLIENT_SPEC)
+assert TRIPLET_CLIENT_SPEC and TRIPLET_CLIENT_SPEC.loader
+sys.modules[TRIPLET_CLIENT_SPEC.name] = triplet_client
+TRIPLET_CLIENT_SPEC.loader.exec_module(triplet_client)
+
 
 class T05AGuardTests(unittest.TestCase):
     def test_dry_run_never_initializes_cuda(self):
@@ -41,6 +53,14 @@ class T05AGuardTests(unittest.TestCase):
         identity = Path("/tmp/p40-t05a-test-key")
         self.assertEqual(client.ssh_argv("host", identity)[-1], "p40-t05a-q8")
         self.assertEqual(client.ssh_argv("host", identity, read_results=True)[-1], "p40-t05a-q8-results")
+
+    def test_triplet_identity_cannot_reuse_the_t05a_binary_or_command(self):
+        self.assertEqual(triplet.t05a.EXPECTED_ORIGINAL_COMMAND, "p40-t05b-triplet")
+        self.assertEqual(triplet.t05a.PROFILE_ID, "t05b-dn-triplet-2048-8192-4096")
+        self.assertIn("qwen_dn_triplet_control", str(triplet.t05a.BENCHMARK))
+        self.assertIn("dn-triplet-2048-8192-4096", triplet.t05a.FIXED_ARGUMENTS)
+        identity = Path("/tmp/p40-t05b-test-key")
+        self.assertEqual(triplet_client.ssh_argv("host", identity)[-1], "p40-t05b-triplet")
 
     def test_mocked_run_caps_restores_and_records_output(self):
         class FinishedProcess:
