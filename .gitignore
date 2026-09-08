@@ -17,3 +17,4 @@ marathon/state.json
 marathon/quota.json
 marathon/lock
 marathon/logs/
+marathon/queue/

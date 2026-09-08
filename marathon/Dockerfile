@@ -1,11 +1,8 @@
-FROM node:20-bookworm-slim
+FROM python:3.11-slim-bookworm
 
-# Deliberately small runner: it has Codex but no Wiphand API/database
+# Deliberately small queue writer: no Codex account, Wiphand API/database
 # credentials, Docker socket, SSH material, CUDA runtime, or GPU devices.
-RUN apt-get update \
-    && apt-get install --yes --no-install-recommends python3 \
-    && rm -rf /var/lib/apt/lists/* \
-    && npm install --global --no-audit --no-fund @openai/codex@0.153.4
+RUN useradd --create-home --uid 1000 --shell /bin/sh runner
 
-USER node
+USER runner
 WORKDIR /workspace/p40-native-research

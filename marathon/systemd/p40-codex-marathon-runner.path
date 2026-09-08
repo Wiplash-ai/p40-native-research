@@ -1,0 +1,9 @@
+[Unit]
+Description=Watch for Wiphand P40 research queue entries
+
+[Path]
+PathChanged=/home/jordanculver/Laboratory/p40-native-research/marathon/queue/trigger.json
+Unit=p40-codex-marathon-runner.service
+
+[Install]
+WantedBy=default.target

@@ -3,7 +3,7 @@
   "command": [
     "/bin/sh",
     "-lc",
-    "cd /workspace/p40-native-research && python3 scripts/codex_marathon.py run --task auto"
+    "cd /workspace/p40-native-research && python3 scripts/codex_marathon.py enqueue"
   ],
   "working_dir": "/workspace/p40-native-research",
   "timeout_seconds": 10800,
@@ -11,20 +11,11 @@
   "user": "1000:1000",
   "environment": {
     "HOME": "/workspace/home",
-    "CODEX_HOME": "/workspace/home/.codex",
     "P40_MARATHON_REPOSITORY": "/workspace/p40-native-research",
-    "P40_MARATHON_MIN_FIVE_HOUR_REMAINING_PERCENT": "10",
-    "P40_MARATHON_MODEL": "gpt-5.6-luna",
-    "P40_MARATHON_MAX_TURN_SECONDS": "9000",
     "P40_MARATHON_CONTAINER": "1",
     "TZ": "America/Chicago"
   },
   "mounts": [
-    {
-      "source": "/home/jordanculver/Laboratory/codex-tui-home/pts_2",
-      "target": "/workspace/home/.codex",
-      "read_only": false
-    },
     {
       "source": "/home/jordanculver/Laboratory/p40-native-research",
       "target": "/workspace/p40-native-research",

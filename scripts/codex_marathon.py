@@ -29,6 +29,8 @@ STATE_PATH = MARATHON / "state.json"
 QUOTA_PATH = MARATHON / "quota.json"
 LOCK_PATH = MARATHON / "lock"
 LOG_DIR = MARATHON / "logs"
+QUEUE_DIR = MARATHON / "queue"
+QUEUE_PATH = QUEUE_DIR / "trigger.json"
 MIN_REMAINING = float(os.environ.get("P40_MARATHON_MIN_FIVE_HOUR_REMAINING_PERCENT", "10"))
 MODEL = os.environ.get("P40_MARATHON_MODEL", "gpt-5.6-luna")
 MAX_TURN_SECONDS = int(os.environ.get("P40_MARATHON_MAX_TURN_SECONDS", "9000"))
@@ -330,6 +332,36 @@ class AppServer:
             if params.get("threadId") == thread_id and turn.get("id") == turn_id:
                 return turn
 
+    def start_turn(self, thread_id: str, task: Task) -> str:
+        result = self._request(
+            "turn/start",
+            {
+                "threadId": thread_id,
+                "input": [{"type": "text", "text": task.prompt}],
+                "effort": "medium",
+            },
+            60,
+        )
+        turn = result.get("turn", result)
+        turn_id = turn.get("id") if isinstance(turn, dict) else None
+        if not turn_id:
+            raise RuntimeError("Codex did not return a turn id")
+        return str(turn_id)
+
+    def wait_for_turn(self, thread_id: str, turn_id: str, timeout: int) -> dict[str, Any]:
+        deadline = time.monotonic() + timeout
+        while True:
+            remaining = int(deadline - time.monotonic())
+            if remaining <= 0:
+                raise TimeoutError(f"Codex turn {turn_id} exceeded {timeout} seconds")
+            message = self._read(min(60, max(1, remaining)))
+            if message.get("method") != "turn/completed":
+                continue
+            params = message.get("params", {})
+            turn = params.get("turn", {})
+            if params.get("threadId") == thread_id and turn.get("id") == turn_id:
+                return turn
+
 
 @contextlib.contextmanager
 def controller_lock() -> Any:
@@ -369,7 +401,7 @@ def command_status() -> int:
 
 
 def command_prepare() -> int:
-    """Host-only quota preflight plus native-thread/goal creation; starts no agent turn."""
+    """Host-only quota preflight; native goals are created with their owning turn."""
     with controller_lock():
         server = AppServer()
         try:
@@ -377,71 +409,86 @@ def command_prepare() -> int:
             save_quota_snapshot(quota)
             state = load_state()
             task = select_task("auto", state)
-            if task_passed(task):
-                print(f"{task.id} already has a passing acceptance marker; no thread created.")
-                return 0
-            if not state.get("thread_id"):
-                state["thread_id"] = server.start_thread(task)
-                state["prepared_at"] = int(time.time())
-                save_state(state)
-            print(json.dumps({"task": task.id, "thread_id": state["thread_id"], "quota": quota}, indent=2))
+            # Stdio app-server thread IDs are process-local until a turn owns them.
+            # Never hand a later process a stale prepared ID.
+            state.pop("thread_id", None)
+            state["prepared_at"] = int(time.time())
+            save_state(state)
+            print(json.dumps({"task": task.id, "quota": quota}, indent=2))
             return 0
         finally:
             server.close()
 
 
-def run_native_exec(thread_id: str, task: Task) -> int:
-    """Resume a prepared goal thread only from the externally constrained container."""
+def command_enqueue() -> int:
+    """Container-safe handoff: write a fixed request; never invoke Codex here."""
     if os.environ.get("P40_MARATHON_CONTAINER") != "1":
-        raise RuntimeError("direct Codex execution is allowed only in the dedicated marathon container")
-    command = [
-        "codex", "-C", str(ROOT), "exec", "resume", "-m", MODEL,
-        "--dangerously-bypass-approvals-and-sandbox", "--json", thread_id, task.prompt,
-    ]
-    _write_event("native_exec_started", task=task.id, thread_id=thread_id, argv=command[:-1])
-    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
-    assert process.stdout is not None
-    deadline = time.monotonic() + MAX_TURN_SECONDS
-    LOG_DIR.mkdir(parents=True, exist_ok=True)
-    with (LOG_DIR / "agent.jsonl").open("a", encoding="utf-8") as output:
-        for line in process.stdout:
-            output.write(line)
-            output.flush()
-            if time.monotonic() > deadline:
-                process.terminate()
-                raise TimeoutError(f"native Codex task {task.id} exceeded {MAX_TURN_SECONDS} seconds")
-    return process.wait(timeout=30)
+        raise RuntimeError("enqueue is reserved for the isolated Wiphand container")
+    QUEUE_DIR.mkdir(parents=True, exist_ok=True)
+    payload = {"requested": "auto", "enqueued_at": int(time.time()), "source": "wiphand"}
+    temporary = QUEUE_PATH.with_suffix(".tmp")
+    temporary.write_text(json.dumps(payload, sort_keys=True) + "\n", encoding="utf-8")
+    temporary.replace(QUEUE_PATH)
+    print(json.dumps({"queued": True, "task": "auto"}))
+    return 0
 
 
-def command_run(requested: str) -> int:
+def command_host_run() -> int:
+    """Service-only native turn on the host; exactly one queued task at a time."""
+    if os.environ.get("P40_MARATHON_HOST_RUNNER") != "1":
+        raise RuntimeError("host-run is reserved for the user-level systemd service")
     with controller_lock():
-        quota = fresh_quota_snapshot()
-        state = load_state()
-        task = select_task(requested, state)
-        if task_passed(task):
-            if task.id not in completed_tasks(state):
+        try:
+            queued = json.loads(QUEUE_PATH.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            print("no queued marathon task")
+            return 0
+        except json.JSONDecodeError as error:
+            raise RuntimeError(f"invalid queued task: {error}") from error
+        QUEUE_PATH.unlink()
+        requested = str(queued.get("requested", "auto"))
+        server = AppServer()
+        try:
+            quota = check_quota(server)
+            save_quota_snapshot(quota)
+            state = load_state()
+            task = select_task(requested, state)
+            if task_passed(task):
                 state["completed"] = sorted(completed_tasks(state) | {task.id})
                 save_state(state)
-            print(f"{task.id} already has a passing acceptance marker; no turn started.")
-            return 0
-        if task.id == "T00" and os.environ.get("P40_MARATHON_T00_READONLY_GATEWAY") != "1":
-            raise RuntimeError("T00 requires the separately reviewed read-only SSH gateway; no turn was started")
-        thread_id = state.get("thread_id")
-        if not thread_id:
-            raise RuntimeError("no prepared native goal thread; run `scripts/codex_marathon.py prepare` on the host")
-        state.update({"last_task": task.id, "last_started_at": int(time.time()), "last_quota": quota})
-        save_state(state)
-        exit_code = run_native_exec(str(thread_id), task)
-        marker = marker_status(ROOT / task.marker, task.id)
-        _write_event("native_exec_completed", task=task.id, thread_id=thread_id, exit_code=exit_code, marker=marker)
-        state["last_finished_at"] = int(time.time())
-        state["last_exit_code"] = exit_code
-        state["last_marker_status"] = marker
-        if marker == "pass":
-            state["completed"] = sorted(completed_tasks(state) | {task.id})
-        save_state(state)
-        print(json.dumps({"task": task.id, "exit_code": exit_code, "marker": marker, "thread_id": thread_id}, indent=2))
-        return 0 if exit_code == 0 and marker == "pass" else 2
+                print(f"{task.id} already has a passing acceptance marker; no turn started.")
+                return 0
+            if task.id == "T00" and os.environ.get("P40_MARATHON_T00_READONLY_GATEWAY") != "1":
+                raise RuntimeError("T00 requires the separately reviewed read-only SSH gateway; no turn was started")
+            # Keep goal creation and the first turn in this same app-server process.
+            # A new stdio app-server cannot resume an unstarted thread from another
+            # process, so each bounded scheduled task owns its native goal thread.
+            thread_id = server.start_thread(task)
+            turn_id = server.start_turn(thread_id, task)
+            state.update({
+                "thread_id": thread_id,
+                "last_task": task.id,
+                "last_turn_id": turn_id,
+                "last_started_at": int(time.time()),
+                "last_quota": quota,
+            })
+            save_state(state)
+            _write_event("host_turn_started", task=task.id, thread_id=thread_id, turn_id=turn_id, quota=quota)
+            turn = server.wait_for_turn(thread_id, turn_id, MAX_TURN_SECONDS)
+            marker = marker_status(ROOT / task.marker, task.id)
+            _write_event("host_turn_completed", task=task.id, thread_id=thread_id, turn_id=turn_id, turn_status=turn.get("status"), marker=marker)
+            state.update({
+                "last_finished_at": int(time.time()),
+                "last_turn_status": turn.get("status"),
+                "last_marker_status": marker,
+            })
+            if marker == "pass":
+                state["completed"] = sorted(completed_tasks(state) | {task.id})
+            save_state(state)
+            print(json.dumps({"task": task.id, "turn_status": turn.get("status"), "marker": marker}, indent=2))
+            return 0 if marker == "pass" else 2
+        finally:
+            server.close()
 
 
 def main() -> int:
@@ -449,14 +496,18 @@ def main() -> int:
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser("status", help="read ChatGPT-backed Codex quota without starting a turn")
     subparsers.add_parser("prepare", help="host-only quota preflight and native-goal thread setup")
-    run_parser = subparsers.add_parser("run", help="dispatch one gated native Codex task")
-    run_parser.add_argument("--task", choices=["auto", *(task.id for task in TASKS)], default="auto")
+    subparsers.add_parser("enqueue", help="isolated Wiphand handoff; queues no model work itself")
+    subparsers.add_parser("host-run", help="systemd-only host native Codex task runner")
     args = parser.parse_args()
     if args.command == "status":
         return command_status()
     if args.command == "prepare":
         return command_prepare()
-    return command_run(args.task)
+    if args.command == "enqueue":
+        return command_enqueue()
+    if args.command == "host-run":
+        return command_host_run()
+    raise AssertionError(f"unexpected command {args.command}")
 
 
 if __name__ == "__main__":

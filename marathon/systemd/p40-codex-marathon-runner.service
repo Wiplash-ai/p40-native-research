@@ -1,0 +1,15 @@
+[Unit]
+Description=Run one queued P40 research Codex task on the host
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/jordanculver/Laboratory/p40-native-research
+Environment=P40_MARATHON_HOST_RUNNER=1
+Environment=P40_MARATHON_REPOSITORY=/home/jordanculver/Laboratory/p40-native-research
+Environment=P40_MARATHON_MIN_FIVE_HOUR_REMAINING_PERCENT=10
+Environment=P40_MARATHON_MODEL=gpt-5.6-luna
+Environment=P40_MARATHON_MAX_TURN_SECONDS=9000
+Environment=HOME=/home/jordanculver
+Environment=CODEX_HOME=/home/jordanculver/Laboratory/codex-tui-home/pts_2
+Environment=PATH=/home/jordanculver/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/bin/python3 /home/jordanculver/Laboratory/p40-native-research/scripts/codex_marathon.py host-run
