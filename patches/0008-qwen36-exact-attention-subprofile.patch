@@ -1,0 +1,48 @@
+--- a/c/qwen36.c
++++ b/c/qwen36.c
+@@ -711,8 +711,10 @@
+ static long g_tm_dec_tokens = 0, g_tm_pre_tokens = 0;
+ static double tm_now(void){ struct timespec ts; clock_gettime(CLOCK_MONOTONIC,&ts); return ts.tv_sec*1e3 + ts.tv_nsec/1e6; }
+ static int tm_on(void){ if(g_timers<0){ const char *e=getenv("COLI_TIMERS"); g_timers = (e && *e=='1'); } return g_timers; }
++static int attn_profile_on(void){ static int v=-1; if(v<0){ const char *e=getenv("COLI_ATTN_PROFILE"); v=(e && *e=='1'); } return v; }
+ double g_qt_iss=0, g_qt_cpu=0, g_qt_tak=0;   /* QTIER-Phasen (Decode) */
+ double g_dn_sub[4];                           /* DN: proj, conv+split, l2n+rec, norm+out */
++double g_attn_sub[5];                         /* ATT: Q, K, V, CPU middle, O */
+ double g_tm_step=0;                           /* step() total (decode) */
+ static double g_tm_win_moe=0; static int g_tm_win_n=0;
+ static void tm_add(int S, int idx, double ms){
+@@ -743,6 +745,10 @@
+     if(g_dn_sub[0]+g_dn_sub[1]+g_dn_sub[2]+g_dn_sub[3]>0)
+         fprintf(stderr,"[timers]   dn-sub: proj %.1f | conv %.1f | l2n+rec %.1f | norm+out %.1f ms/token\n",
+             g_dn_sub[0]/g_tm_dec_tokens,g_dn_sub[1]/g_tm_dec_tokens,g_dn_sub[2]/g_tm_dec_tokens,g_dn_sub[3]/g_tm_dec_tokens);
++    if(g_attn_sub[0]+g_attn_sub[1]+g_attn_sub[2]+g_attn_sub[3]+g_attn_sub[4]>0)
++        fprintf(stderr,"[timers]   attn-sub: q %.2f | k %.2f | v %.2f | cpu-middle %.2f | o %.2f ms/token\n",
++            g_attn_sub[0]/g_tm_dec_tokens,g_attn_sub[1]/g_tm_dec_tokens,g_attn_sub[2]/g_tm_dec_tokens,
++            g_attn_sub[3]/g_tm_dec_tokens,g_attn_sub[4]/g_tm_dec_tokens);
+     if(g_qt_iss+g_qt_cpu+g_qt_tak>0)
+         fprintf(stderr,"[timers]   qtier: issue %.2f | cpu-miss %.2f | take %.2f ms/token\n",
+                 g_qt_iss/g_tm_dec_tokens, g_qt_cpu/g_tm_dec_tokens, g_qt_tak/g_tm_dec_tokens);
+@@ -1826,9 +1832,14 @@
+     float *q = falloc((int64_t)S*q_out);
+     float *k = falloc((int64_t)S*kv_out);
+     float *vv= falloc((int64_t)S*kv_out);
++    int attn_sub_profile = S==1 && tm_on() && attn_profile_on();
++    double _a0 = attn_sub_profile ? tm_now() : 0.0;
+     matmul_d(q, x, l->q, S, D, q_out);
++    if(attn_sub_profile){ double t=tm_now(); g_attn_sub[0]+=t-_a0; _a0=t; }
+     matmul_d(k, x, l->k, S, D, kv_out);
++    if(attn_sub_profile){ double t=tm_now(); g_attn_sub[1]+=t-_a0; _a0=t; }
+     matmul_d(vv, x, l->v, S, D, kv_out);
++    if(attn_sub_profile){ double t=tm_now(); g_attn_sub[2]+=t-_a0; _a0=t; }
+     /* split q into query (first hd) and gate (next gate_dim), both per head */
+     float *query = falloc((int64_t)S*H*hd);
+     float *gate  = falloc((int64_t)S*H*gate_dim);
+@@ -1891,7 +1907,9 @@
+         float g = gate_dim ? gate[o] : 0.f;
+         ag[o] = ctx[o] * (1.f / (1.f + expf(-g)));
+     }
++    if(attn_sub_profile){ double t=tm_now(); g_attn_sub[3]+=t-_a0; _a0=t; }
+     matmul_d(out, ag, l->o, S, H*hd, D);
++    if(attn_sub_profile) g_attn_sub[4]+=tm_now()-_a0;
+     free(q); free(k); free(vv); free(query); free(gate); free(ctx); free(ag);
+ }

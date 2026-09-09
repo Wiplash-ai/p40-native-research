@@ -1,6 +1,6 @@
 # E019 / T25 — exact-Q8 shared MLP gate/up issue/join
 
-Status: designed from the post-T24 real-Qwen profile; not yet implemented.
+Status: rejected after exact-Qwen canary and fixed-64 comparison.
 
 ## Evidence
 
@@ -30,3 +30,17 @@ only an exact-Qwen canary and fixed-64 comparison can decide.
   a win if routed-expert contention worsens total decode.
 - Preserve T24's 125 W/card, two-cool-idle-preflight, fan, cooldown, and raw
   evidence protocol.
+
+## Result and decision
+
+T25's exact 16-token canary matched its output oracle and activated both pair
+markers. T26's fixed 64-token output also exactly matched its oracle, but the
+candidate was slower than T24: 65.26 versus 64.04 ms/token total (+1.9%), with
+shared MLP 17.47 versus 17.12 ms/token (+2.0%).
+
+Reject this same-stream gate/up pair. The shared block runs while routed MoE
+work is already issued to GPU 0, and the observed total regression is
+consistent with contention. That mechanism is not asserted as causal without a
+separate controlled profiler. Do not add it to the experimental line or
+production. The next user-ranked task is an exact-Qwen attention dependency and
+timing audit.

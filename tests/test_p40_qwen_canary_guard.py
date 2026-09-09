@@ -114,6 +114,18 @@ assert T25_SPEC and T25_SPEC.loader
 sys.modules[T25_SPEC.name] = t25
 T25_SPEC.loader.exec_module(t25)
 
+T26_SPEC = importlib.util.spec_from_file_location("p40_t26_qwen_shared_pair", ROOT / "remote/p40-t26-qwen-shared-pair-guard.py")
+t26 = importlib.util.module_from_spec(T26_SPEC)
+assert T26_SPEC and T26_SPEC.loader
+sys.modules[T26_SPEC.name] = t26
+T26_SPEC.loader.exec_module(t26)
+
+T27_SPEC = importlib.util.spec_from_file_location("p40_t27_qwen_attention_profile", ROOT / "remote/p40-t27-qwen-attention-profile-guard.py")
+t27 = importlib.util.module_from_spec(T27_SPEC)
+assert T27_SPEC and T27_SPEC.loader
+sys.modules[T27_SPEC.name] = t27
+T27_SPEC.loader.exec_module(t27)
+
 CLIENT_SPEC = importlib.util.spec_from_file_location("p40_qwen_control_client", ROOT / "scripts/p40_qwen_control_client.py")
 client = importlib.util.module_from_spec(CLIENT_SPEC)
 assert CLIENT_SPEC and CLIENT_SPEC.loader
@@ -209,6 +221,18 @@ t25_client = importlib.util.module_from_spec(T25_CLIENT_SPEC)
 assert T25_CLIENT_SPEC and T25_CLIENT_SPEC.loader
 sys.modules[T25_CLIENT_SPEC.name] = t25_client
 T25_CLIENT_SPEC.loader.exec_module(t25_client)
+
+T26_CLIENT_SPEC = importlib.util.spec_from_file_location("p40_t26_qwen_shared_pair_client", ROOT / "scripts/p40_t26_qwen_shared_pair_client.py")
+t26_client = importlib.util.module_from_spec(T26_CLIENT_SPEC)
+assert T26_CLIENT_SPEC and T26_CLIENT_SPEC.loader
+sys.modules[T26_CLIENT_SPEC.name] = t26_client
+T26_CLIENT_SPEC.loader.exec_module(t26_client)
+
+T27_CLIENT_SPEC = importlib.util.spec_from_file_location("p40_t27_qwen_attention_profile_client", ROOT / "scripts/p40_t27_qwen_attention_profile_client.py")
+t27_client = importlib.util.module_from_spec(T27_CLIENT_SPEC)
+assert T27_CLIENT_SPEC and T27_CLIENT_SPEC.loader
+sys.modules[T27_CLIENT_SPEC.name] = t27_client
+T27_CLIENT_SPEC.loader.exec_module(t27_client)
 
 
 class QwenCanaryGuardTests(unittest.TestCase):
@@ -470,6 +494,32 @@ class QwenCanaryGuardTests(unittest.TestCase):
         identity = Path("/tmp/p40-t25-test-key")
         self.assertEqual(t25_client.ssh_argv("host", identity)[-1], "p40-t25-qwen-shared-pair")
         self.assertEqual(t25_client.ssh_argv("host", identity, read_results=True)[-1], "p40-t25-qwen-shared-pair-results")
+
+    def test_t26_reuses_shared_pair_binary_with_64_token_oracle_only(self):
+        self.assertEqual(t26.EXPECTED_ORIGINAL_COMMAND, "p40-t26-qwen-shared-pair")
+        self.assertEqual(t26.PROFILE_ID, "t26-exact-qwen-shared-pair-64")
+        self.assertEqual(t26.ENGINE_SHA256, t25.ENGINE_SHA256)
+        argv = t26.model_argv()
+        self.assertIn("N_NEW=64", argv)
+        self.assertNotIn("N_NEW=16", argv)
+        self.assertIn("COLI_CUDA_SHARED_PAIR=1", argv)
+        identity = Path("/tmp/p40-t26-test-key")
+        self.assertEqual(t26_client.ssh_argv("host", identity)[-1], "p40-t26-qwen-shared-pair")
+        self.assertEqual(t26_client.ssh_argv("host", identity, read_results=True)[-1], "p40-t26-qwen-shared-pair-results")
+
+    def test_t27_pins_attention_subprofile_to_t24_execution_path(self):
+        self.assertEqual(t27.EXPECTED_ORIGINAL_COMMAND, "p40-t27-qwen-attention-profile")
+        self.assertEqual(t27.PROFILE_ID, "t27-exact-qwen-attention-subprofile-64")
+        self.assertEqual(t27.ENGINE_SHA256, "1c98079d523efcdb536fa66e4772abc0b024a25927ce525f1b3058946405b34f")
+        self.assertEqual(t27.EXPECTED_STDOUT_SHA256, t24.EXPECTED_STDOUT_SHA256)
+        argv = t27.model_argv()
+        self.assertIn("N_NEW=64", argv)
+        self.assertIn("COLI_CUDA_DN_PAIR=1", argv)
+        self.assertIn("COLI_ATTN_PROFILE=1", argv)
+        self.assertNotIn("COLI_CUDA_SHARED_PAIR=1", argv)
+        identity = Path("/tmp/p40-t27-test-key")
+        self.assertEqual(t27_client.ssh_argv("host", identity)[-1], "p40-t27-qwen-attention-profile")
+        self.assertEqual(t27_client.ssh_argv("host", identity, read_results=True)[-1], "p40-t27-qwen-attention-profile-results")
 
     def test_mocked_run_caps_and_restores_both_gpus_and_records_output(self):
         class FinishedProcess:

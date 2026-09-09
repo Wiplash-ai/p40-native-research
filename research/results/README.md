@@ -32,3 +32,13 @@ the fixed 64-token comparison remains the performance gate.
 `T24-exact-qwen-deltanet-pair-64.md` is that fixed comparison. It accepts the
 exact DeltaNet pair path at 12.92 tok/s, with total decode reduced 9.6% from
 the matched T16 baseline; it is experimental-only, not a production change.
+
+`T25-exact-qwen-shared-pair-canary.md` and
+`T26-exact-qwen-shared-pair-64.md` record the corresponding shared-MLP
+gate/up pair path. It clears the exact-output canary but is rejected by the
+fixed-64 comparison because total decode worsens 1.9% from the T24 control.
+
+`T27-exact-qwen-attention-subprofile-64.md` records a real-Qwen, exact-output
+Q/K/V/O timing audit. It rejects async attention as low headroom: at most the
+0.71 ms/token K+V interval is potentially overlapable, before implementation
+overhead.

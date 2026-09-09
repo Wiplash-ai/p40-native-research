@@ -739,3 +739,61 @@ ID, status, hypothesis, prediction, exact change, source/binary/model/prompt ide
   issue/join path; do not return to approximate W4A8 yet.
 - Evidence: [T24 result](../results/T24-exact-qwen-deltanet-pair-64.md)
   and `research/results/raw/T24-qwen-deltanet-pair-67da18c4-4922-4bf3-92f9-b11140c7a19b.*`.
+
+## T25 — exact Qwen shared-MLP gate/up pair canary
+
+- Date: 2026-09-09.
+- Status: exactness and safety pass; short run only.
+- Exact change: on top of accepted T24 DeltaNet pairing, default-off
+  `COLI_CUDA_SHARED_PAIR=1` uploads `xs` once for shared gate/up, issues both
+  unchanged exact-Q8 projections, computes the independent scalar gate on CPU,
+  then joins before the existing SiLU product and down projection.
+- Result: the 16-token output hash exactly matched the canary oracle, both
+  pair markers appeared, and no fallback occurred. The short decode was 65.35
+  ms/token total with 17.54 ms/token shared MLP; it was not used to claim a
+  speed result.
+- Safety: peaks were 45 C / 46 C; all fans were 2,000–2,100 RPM; allocation
+  release, cooldown, and 250 W cap restoration passed.
+- Decision: run exactly one fixed-64 comparison to make the performance
+  decision; do not integrate on the short canary.
+- Evidence: [T25 result](../results/T25-exact-qwen-shared-pair-canary.md)
+  and `research/results/raw/T25-qwen-shared-pair-d37e321c-39e4-4183-960c-d6b38c1e8d72.*`.
+
+## T26 — exact Qwen shared-MLP gate/up pair 64-token comparison
+
+- Date: 2026-09-09.
+- Status: rejected.
+- Exact change: same model, prompt, guards, exact-Q8 caches, and accepted
+  DeltaNet pair as T24; only `COLI_CUDA_SHARED_PAIR=1` was enabled.
+- Result: the fixed 64-token output hash exactly matched. Shared MLP worsened
+  from 17.12 to 17.47 ms/token (+2.0%), MoE from 30.79 to 31.73 (+3.1%), and
+  total decode from 64.04 to 65.26 (+1.9%). Reported rate fell from 12.92 to
+  12.68 tok/s.
+- Safety: peaks were 45 C / 46 C, fans held 2,000–2,100 RPM, allocation
+  release and cooldown passed, and both 250 W caps were restored.
+- Decision: retire the simple same-stream shared-pair idea. The regression is
+  consistent with GPU-0 contention with routed-MoE work, but causal attribution
+  remains an inference. Preserve T24 only; next is a source-led, exact-Qwen
+  attention dependency/timing audit.
+- Evidence: [T26 result](../results/T26-exact-qwen-shared-pair-64.md)
+  and `research/results/raw/T26-qwen-shared-pair-898a2a0a-807c-42b6-a06b-347a2acdcd8d.*`.
+
+## T27 — exact Qwen attention Q/K/V/O timing profile
+
+- Date: 2026-09-09.
+- Status: pass for instrumentation; reject async-attention implementation.
+- Exact change: an isolated T24-derived engine added default-off decode timing
+  reads around existing exact-Q8 Q, K, V, CPU-middle, and O intervals. It
+  changed neither attention math nor execution order.
+- Result: the fixed 64-token output hash exactly matched. The subprofile was
+  Q 1.66, K 0.36, V 0.35, CPU middle 2.25, O 1.15 ms/token (attention 5.80).
+  The timing reads increased total decode to 69.37 ms/token, so that number is
+  explicitly not compared to T24.
+- Decision: Q/K/O have no independent CPU region to hide, while K+V are at
+  most 0.71 ms/token of hypothetical overlap (<1.1% of T24 total). Do not
+  build an async-attention path. Return to an actual-Qwen groupwise/outlier
+  W4A8 shadow control; production remains untouched.
+- Safety: peaks were 45 C / 45 C, fans held 2,000–2,100 RPM, allocation
+  release and cooldown passed, and both 250 W caps were restored.
+- Evidence: [T27 result](../results/T27-exact-qwen-attention-subprofile-64.md)
+  and `research/results/raw/T27-qwen-attention-profile-38a5e84f-f852-48f5-b62d-46491062c830.*`.
