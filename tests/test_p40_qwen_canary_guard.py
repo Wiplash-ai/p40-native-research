@@ -90,6 +90,12 @@ assert T21_SPEC and T21_SPEC.loader
 sys.modules[T21_SPEC.name] = t21
 T21_SPEC.loader.exec_module(t21)
 
+T22_SPEC = importlib.util.spec_from_file_location("p40_t22_qwen_async_profile", ROOT / "remote/p40-t22-qwen-async-profile-guard.py")
+t22 = importlib.util.module_from_spec(T22_SPEC)
+assert T22_SPEC and T22_SPEC.loader
+sys.modules[T22_SPEC.name] = t22
+T22_SPEC.loader.exec_module(t22)
+
 CLIENT_SPEC = importlib.util.spec_from_file_location("p40_qwen_control_client", ROOT / "scripts/p40_qwen_control_client.py")
 client = importlib.util.module_from_spec(CLIENT_SPEC)
 assert CLIENT_SPEC and CLIENT_SPEC.loader
@@ -161,6 +167,12 @@ t21_client = importlib.util.module_from_spec(T21_CLIENT_SPEC)
 assert T21_CLIENT_SPEC and T21_CLIENT_SPEC.loader
 sys.modules[T21_CLIENT_SPEC.name] = t21_client
 T21_CLIENT_SPEC.loader.exec_module(t21_client)
+
+T22_CLIENT_SPEC = importlib.util.spec_from_file_location("p40_t22_qwen_async_profile_client", ROOT / "scripts/p40_t22_qwen_async_profile_client.py")
+t22_client = importlib.util.module_from_spec(T22_CLIENT_SPEC)
+assert T22_CLIENT_SPEC and T22_CLIENT_SPEC.loader
+sys.modules[T22_CLIENT_SPEC.name] = t22_client
+T22_CLIENT_SPEC.loader.exec_module(t22_client)
 
 
 class QwenCanaryGuardTests(unittest.TestCase):
@@ -364,6 +376,25 @@ class QwenCanaryGuardTests(unittest.TestCase):
         self.assertIn("grouped_hidden_w4_dual<<<hg,256,0,ctx->stream>>>", patch)
         self.assertIn("return ctx->host_y", patch)
         self.assertIn('finite=%d\\n",ctx->dp8_shadow_rows', patch)
+
+    def test_t22_pins_the_instrumented_exact_binary_and_requires_async_events(self):
+        self.assertEqual(t22.EXPECTED_ORIGINAL_COMMAND, "p40-t22-qwen-async-profile")
+        self.assertEqual(t22.PROFILE_ID, "t22-exact-qwen-async-expert-profile-64")
+        self.assertEqual(t22.ENGINE_SHA256, "af708bad3cf1c0370f13357bce9a666852799839053770fb1a97d2cb778507b9")
+        argv = t22.model_argv()
+        self.assertIn("N_NEW=64", argv)
+        self.assertIn("COLI_CUDA_PROFILE=1", argv)
+        self.assertIn(str(t22.ENGINE), argv)
+        dry_run = t22.run({"dry_run": True})
+        self.assertEqual(dry_run["status"], "dry_run")
+        self.assertFalse(dry_run["cuda_initialized"])
+        parsed = t22.EVENTS.search(
+            b"[qtier] group_stats: 4 calls, 8 experts | h2d 1 ms, kernel 2 ms, d2h 3 ms"
+        )
+        self.assertIsNotNone(parsed)
+        identity = Path("/tmp/p40-t22-test-key")
+        self.assertEqual(t22_client.ssh_argv("host", identity)[-1], "p40-t22-qwen-async-profile")
+        self.assertEqual(t22_client.ssh_argv("host", identity, read_results=True)[-1], "p40-t22-qwen-async-profile-results")
 
     def test_mocked_run_caps_and_restores_both_gpus_and_records_output(self):
         class FinishedProcess:
