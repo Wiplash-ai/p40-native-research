@@ -591,3 +591,21 @@ ID, status, hypothesis, prediction, exact change, source/binary/model/prompt ide
   for engine integration.
 - Evidence: [T17 result](../results/T17-w4a8-dp4a-expert-projection-gpu0-125w.md)
   and `research/results/raw/T17-w4a8-dp4a-cfb76b1a.*`.
+
+## T18 — Pascal W4A8/DP4A no-unroll control
+
+- Date: 2026-09-09.
+- Status: pass as a measurement; reject no-unroll as the preferred kernel.
+- Exact change: compile only the synthetic T17 DP4A loop with
+  `P40_W4A8_UNROLL=0`, forcing `#pragma unroll 1`. Shape, W4 layout, tile,
+  Q8 quantization, transfers, seed, CPU reference, GPU0 cap, and guard fixed.
+- Result: integer parity and 0.00384378 relative-L2 error repeated, with
+  `IDP.4A` SASS. W4A8 was 0.0914453 ms, 1.50x slower than T17's unrolled
+  0.0609619 ms. Do not select it despite 1.32362x relative speed over its
+  own W4/FP32 baseline.
+- Safety: GPU0 <=36 C, GPU1 idle <=37 C, all fans 2,000–2,100 RPM; cleanup,
+  cooldown, and 250 W restore passed.
+- Decision: retain unrolling. Test only tile 16 next; do not infer an end-to-end
+  Qwen gain or modify Colibri.
+- Evidence: [T18 result](../results/T18-w4a8-dp4a-no-unroll-gpu0-125w.md)
+  and `research/results/raw/T18-w4a8-dp4a-no-unroll-32a72ef5.*`.

@@ -19,7 +19,10 @@ namespace {
 constexpr int kExperts = 4;       // representative per-P40 top-k share
 constexpr int kInput = 2048;      // Qwen routed expert hidden width
 constexpr int kOutput = 512;      // Qwen routed expert intermediate width
-constexpr int kTile = 8;          // eight warp-per-row outputs per CTA
+#ifndef P40_W4A8_TILE
+#define P40_W4A8_TILE 8
+#endif
+constexpr int kTile = P40_W4A8_TILE;  // warp-per-row outputs per CTA
 constexpr const char* kProfile = "w4a8-dp4a-expert-proj-4x-2048-512";
 constexpr const char* kSchema = "t17-w4a8-dp4a-expert-proj-v1";
 #ifndef P40_W4A8_UNROLL
@@ -86,7 +89,8 @@ Options parse_options(int argc, char** argv) {
   }
   if (options.profile != kProfile || options.gpu != 0 || options.repetitions < 1 ||
       options.repetitions > 3 || options.calls_per_sample != 64 ||
-      options.memory_cap_mib < 24 || options.memory_cap_mib > 48) usage();
+      options.memory_cap_mib < 24 || options.memory_cap_mib > 48 ||
+      (kTile != 8 && kTile != 16)) usage();
   return options;
 }
 

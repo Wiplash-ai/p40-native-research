@@ -141,10 +141,12 @@ class T05Q8ControlSourceTests(unittest.TestCase):
         self.assertIn('constexpr int kExperts = 4;', control)
         self.assertIn('constexpr int kInput = 2048;', control)
         self.assertIn('constexpr int kOutput = 512;', control)
-        self.assertIn('constexpr int kTile = 8;', control)
+        self.assertIn('#define P40_W4A8_TILE 8', control)
+        self.assertIn('constexpr int kTile = P40_W4A8_TILE;', control)
         self.assertIn('__dp4a', control)
         self.assertIn('P40_W4A8_UNROLL', control)
         self.assertIn('#pragma unroll 1', control)
+        self.assertIn('P40_W4A8_TILE', control)
         self.assertIn('quantize_rows_i8', control)
         self.assertIn('w4a32_rows', control)
         self.assertIn('gpu_integer != cpu_integer', control)
@@ -153,6 +155,7 @@ class T05Q8ControlSourceTests(unittest.TestCase):
         self.assertIn('"cuda_initialized\\":false', control)
         self.assertIn('qwen_w4a8_dp4a_control:', MAKEFILE)
         self.assertIn('qwen_w4a8_dp4a_no_unroll_control:', MAKEFILE)
+        self.assertIn('qwen_w4a8_dp4a_tile16_control:', MAKEFILE)
 
 
 if __name__ == "__main__":
