@@ -675,3 +675,24 @@ ID, status, hypothesis, prediction, exact change, source/binary/model/prompt ide
   investigate lower-error alternatives only as isolated controls.
 - Evidence: [T21 result](../results/T21-real-qwen-expert-w4a8-shadow.md) and
   `research/results/raw/T21-shadow-parser-failure-5496c4e2-0d51-4b06-b064-b992d4b592c2.*`.
+
+## T22 — exact Qwen asynchronous-expert profile
+
+- Date: 2026-09-09.
+- Status: pass for instrumentation; no source-performance change.
+- Exact change: copied the accepted exact-Q8 T16 source and applied only the
+  opt-in persistent-event patch around Qwen's async routed-expert issue/take
+  path. The fixed model, prompt, 64 outputs, two GPUs, exact cache settings,
+  and 125 W safety policy were unchanged.
+- Result: exact 64-token stdout hash matched, at 11.87 tok/s and 70.46
+  ms/token decode. MoE was 31.65 and DeltaNet 29.99 ms/token. Async routed
+  group events reported 6,226 calls/24,960 experts: 90 ms H2D, 2,433 ms
+  kernel, 66 ms D2H. The sums include prefill and per-device timelines, but
+  show routed work is kernel- rather than transfer-dominated.
+- Safety: both GPUs peaked at 44 C, fans held 2,000–2,100 RPM, allocations
+  released, cooldown passed, and both 250 W caps were restored.
+- Decision: reject PCIe bandwidth and generic W4A8 as the immediate target.
+  The next smallest control is exact Q8 projection launch/synchronization
+  reduction, beginning with DeltaNet and then shared MLP/attention.
+- Evidence: [T22 result](../results/T22-exact-qwen-async-expert-profile.md)
+  and `research/results/raw/T22-qwen-async-profile-846a85bb-38ab-4f45-a54d-80b24cdf0780.*`.

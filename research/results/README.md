@@ -20,3 +20,7 @@ numerical gates; it is not an end-to-end Qwen result.
 `T21-real-qwen-expert-w4a8-shadow.md` records the first real Qwen expert
 quality test. It rejects the plain per-row W4A8/DP4A formulation for
 approximate execution; the exact production path was not changed.
+
+`T22-exact-qwen-async-expert-profile.md` adds nonzero async Qwen routed-expert
+event timing and establishes that its device work is kernel-dominated rather
+than PCIe-transfer-bound.

@@ -1,6 +1,6 @@
 # E017 / T22 - exact Qwen asynchronous-expert profile
 
-Status: implementation prepared; no model run yet.
+Status: pass; exact profile completed.
 
 ## Why this test
 
@@ -35,3 +35,21 @@ This is instrumentation only. It may classify MoE time as transfer-, kernel-,
 or synchronization-dominated, but cannot justify a performance claim or a
 source integration. The next optimization choice must use the resulting
 shares alongside T16's DeltaNet and attention timers.
+
+## Result
+
+The exact 64-token stdout hash passed at 11.87 tok/s (70.46 ms/token decode).
+The async counters reported 6,226 group calls and 24,960 experts: 90 ms H2D,
+2,433 ms kernel, and 66 ms D2H. These values are summed device timelines and
+can overlap across the two P40s, so they do not equal token wall time; their
+94.0% kernel share nevertheless rejects PCIe transfer as the routed-expert
+bottleneck.
+
+The full decode profile has two comparable dominant phases: MoE 31.65
+ms/token (44.9%) and DeltaNet 29.99 ms/token (42.6%). MoE is mixed: its
+16.80 ms/token shared-MLP portion uses the exact CPU-order Q8 projection path,
+while the routed expert device section is kernel-dominated. DeltaNet and the
+smaller 5.47 ms/token attention phase each invoke the same CPU-order path,
+which synchronizes after every projection. The next isolated experiment is
+therefore launch/synchronization reduction for exact Q8 projections, not a
+PCIe or W4A8 change.
