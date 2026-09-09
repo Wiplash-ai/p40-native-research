@@ -42,3 +42,8 @@ fixed-64 comparison because total decode worsens 1.9% from the T24 control.
 Q/K/V/O timing audit. It rejects async attention as low headroom: at most the
 0.71 ms/token K+V interval is potentially overlapable, before implementation
 overhead.
+
+`T28-real-qwen-groupwise-w4a8-shadow.md` records the actual-Qwen groupwise
+activation W4A8 shadow control. It materially improves the rejected per-row
+formulation but still has 48 of 2,397 records above the 5% L2 gate, so it is
+not an approximate-output or production candidate.

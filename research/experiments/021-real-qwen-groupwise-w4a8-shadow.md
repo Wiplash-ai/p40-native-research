@@ -1,6 +1,6 @@
 # E021 / T28 — real-Qwen groupwise-activation W4A8 shadow
 
-Status: designed from T21 and T27; implementation pending.
+Status: complete — rejected for approximate expert execution; production unchanged.
 
 ## Hypothesis
 
@@ -61,3 +61,20 @@ control is top-K activation outlier residual correction. It must add the
 residual against dequantized W4 weights in the shadow result and be benchmarked
 on the same actual routed activations; do not combine it with fusion or serving
 changes.
+
+## Result
+
+The guarded, fixed 16-token real-Qwen run completed with all 2,397 records
+finite and the exact returned-output SHA-256 unchanged:
+`43095be2395844a0c7f321ea2496689325d5ae890f91ab53bb31c55e37a0877a`.
+
+Groupwise activation scaling substantially improves T21's plain per-row
+formulation: relative L2 is 2.46% median, 3.12% p95, 8.46% p99, and 13.18%
+maximum. That is lower than T21's 3.63%, 5.69%, 20.66%, and 36.37%,
+respectively. However, 48 records still exceed the predeclared 5% gate.
+
+The source therefore remains shadow-only and cannot advance to approximate
+Qwen output. The next small control is a top-K activation residual correction
+on this exact groupwise formulation, using the same fixed real-Qwen canary.
+It must demonstrate that it removes the remaining tail before any latency or
+end-to-end quality work is considered.

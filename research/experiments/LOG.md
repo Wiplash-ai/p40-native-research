@@ -797,3 +797,27 @@ ID, status, hypothesis, prediction, exact change, source/binary/model/prompt ide
   release and cooldown passed, and both 250 W caps were restored.
 - Evidence: [T27 result](../results/T27-exact-qwen-attention-subprofile-64.md)
   and `research/results/raw/T27-qwen-attention-profile-38a5e84f-f852-48f5-b62d-46491062c830.*`.
+
+## T28 — real Qwen groupwise W4A8 shadow canary
+
+- Date: 2026-09-09.
+- Status: rejected for approximate Qwen expert execution; production unchanged.
+- Exact change: an isolated T21-derived engine added default-off
+  `COLI_CUDA_W4A8_DP4A=groupwise-shadow`. It quantizes each real routed expert
+  activation in 256-value groups, accumulates the packed W4 gate/up/down
+  products with `__dp4a`, and applies each group scale before returning the
+  unchanged exact W4/FP32 Qwen result.
+- Result: all 2,397 shadow records were finite and the fixed 16-token stdout
+  SHA-256 exactly matched. Relative L2 was 2.46% median, 3.12% p95, 8.46%
+  p99, and 13.18% maximum. This materially improves T21 (3.63%, 5.69%,
+  20.66%, 36.37%) and reduces over-5% records from 288 to 48, but fails the
+  predeclared all-records-below-5% gate.
+- Safety: peaks were 41 C / 42 C and 7,895 MiB/card at the 125 W cap. Fans
+  held 2,000–2,100 RPM, allocations released, the five-minute cooldown
+  passed, and both 250 W caps were restored.
+- Decision: retain groupwise W4A8 only as a shadow-quality result. The next
+  isolated control is top-K activation outlier residual correction on this
+  same formulation and canary; do not measure speed or enable approximate
+  Qwen output until it removes the remaining error tail.
+- Evidence: [T28 result](../results/T28-real-qwen-groupwise-w4a8-shadow.md)
+  and `research/results/raw/T28-qwen-groupwise-shadow-f7d95342-57b4-4cab-86b6-f5d53221aaeb.*`.
