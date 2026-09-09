@@ -92,6 +92,18 @@ assert FULL_SWEEP_CLIENT_SPEC and FULL_SWEEP_CLIENT_SPEC.loader
 sys.modules[FULL_SWEEP_CLIENT_SPEC.name] = full_sweep_client
 FULL_SWEEP_CLIENT_SPEC.loader.exec_module(full_sweep_client)
 
+T08_SPEC = importlib.util.spec_from_file_location("p40_t08_lmhead_guard", ROOT / "remote/p40-t08-lmhead-cpuorder-guard.py")
+t08 = importlib.util.module_from_spec(T08_SPEC)
+assert T08_SPEC and T08_SPEC.loader
+sys.modules[T08_SPEC.name] = t08
+T08_SPEC.loader.exec_module(t08)
+
+T08_CLIENT_SPEC = importlib.util.spec_from_file_location("p40_t08_lmhead_client", ROOT / "scripts/p40_t08_lmhead_cpuorder_client.py")
+t08_client = importlib.util.module_from_spec(T08_CLIENT_SPEC)
+assert T08_CLIENT_SPEC and T08_CLIENT_SPEC.loader
+sys.modules[T08_CLIENT_SPEC.name] = t08_client
+T08_CLIENT_SPEC.loader.exec_module(t08_client)
+
 
 class T05AGuardTests(unittest.TestCase):
     def test_dry_run_never_initializes_cuda(self):
@@ -162,6 +174,16 @@ class T05AGuardTests(unittest.TestCase):
         self.assertIn("qwen_dn_sweep_cpuorder_control", str(full_sweep.t05a.BENCHMARK))
         identity = Path("/tmp/p40-t05g-test-key")
         self.assertEqual(full_sweep_client.ssh_argv("host", identity)[-1], "p40-t05g-full-sweep")
+
+    def test_t08_identity_pins_the_real_lmhead_shape_and_binary(self):
+        self.assertEqual(t08.t05.EXPECTED_ORIGINAL_COMMAND, "p40-t08-lmhead-cpuorder")
+        self.assertEqual(t08.t05.PROFILE_ID, "t08-lmhead-cpuorder-2048x248044")
+        self.assertEqual(t08.t05.BENCHMARK_SHA256, "25d36744dca6761d93082500f8c49b70779835c5ca1001fbd45391fc2d70d777")
+        self.assertIn("qwen_lmhead_cpuorder_control", str(t08.t05.BENCHMARK))
+        self.assertEqual(t08.t05.FIXED_ARGUMENTS[-6:], ("--repetitions", "3", "--calls-per-sample", "1", "--memory-cap-mib", "512", "--seed", "1")[-6:])
+        identity = Path("/tmp/p40-t08-test-key")
+        self.assertEqual(t08_client.ssh_argv("host", identity)[-1], "p40-t08-lmhead-cpuorder")
+        self.assertEqual(t08_client.ssh_argv("host", identity, read_results=True)[-1], "p40-t08-lmhead-cpuorder-results")
 
     def test_mocked_run_caps_restores_and_records_output(self):
         class FinishedProcess:

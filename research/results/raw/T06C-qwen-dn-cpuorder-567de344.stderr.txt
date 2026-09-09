@@ -1,0 +1,41 @@
+== qwen36 Phase-2 engine | cache=256/layer bits=4 pilot=0 wide=1 hot=0 smooth=0.30 conf=0.92 ==
+[tok] loaded 248044 pieces (max id 248043) from /mnt/ai-ssd/huggingface/hub/models--Kreuzzelg--qwen36-35b-a3b-colibri-i4/snapshots/9ccfbfa09bc55410a9c9102558ee63077d8a477d/tokenizer.json
+[enc] prompt tokens: 15 | generating 16 new tokens
+[meta] loaded: q_heads=16 kv_heads=2 head_dim=256 q_head_dim=512 k_head_dim=256 v_head_dim=256 o_in=4096 rotary_dim=64 n_experts=256 topk=8 inter=512 shared_inter=512 n_group=1 topk_group=1 attn_output_gate=1 n_active=10
+[meta] DeltaNet: vheads=32 kheads=16 kdim=128 vdim=128 convk=4 conv_dim=8192
+resident weights loaded in 10.8s | RSS after load: 9.23 GB
+[dense-i8] 291 matrices quantized in 0.8 s, 7.2 GB f32 freed
+[CUDA] device 0: Tesla P40, 25.6 GB VRAM, sm_61
+[CUDA] device 1: Tesla P40, 25.6 GB VRAM, sm_61
+[qtier] dev 0: 23.7 GB free, budget 22.7 GB (~15349 experts)
+[qtier] dev 1: 23.7 GB free, budget 22.7 GB (~15349 experts)
+[qtier] CUDA VRAM expert tier active: 2 device(s), 1.52 MB/expert
+[gpu] MoE experts -> CUDA VRAM tier
+[qwen36] int4 packed weights detected — unpacking to int8 in slot
+[qtier] warmstart (parallel): all 10240 experts in RAM (int8 only for non-residents), 10240 in VRAM -- 44.1 s
+[dn-cpuorder] exact Q8 cache active: 90 DeltaNet matrices on GPU 0
+
+Generated (16 new tokens):
+Text      : 
+TTFT: 1.15 s (time to first token)
+[timers] decode: 15 tokens  (shared/router are subsets of moe_total)
+[timers]   deltanet       686.1 ms     45.74 ms/token
+[timers]   attention     1782.3 ms    118.82 ms/token
+[timers]   moe_total     1279.9 ms     85.32 ms/token
+[timers]   (shared)       983.9 ms     65.59 ms/token
+[timers]   (router)       172.6 ms     11.51 ms/token
+[timers]   lm_head       2777.6 ms    185.17 ms/token
+[timers]   TOTAL         6525.9 ms    435.06 ms/token
+[timers]   step() total: 436.3 ms/token (outside the phases: 1.2)
+[timers]   dn-sub: proj 20.1 | conv 9.6 | l2n+rec 8.7 | norm+out 7.2 ms/token
+[timers]   qtier: issue 5.71 | cpu-miss 65.61 | take 1.12 ms/token
+[timers] prefill: 15 tokens  dn=446 attn=116 moe=367(sh=174 rt=11) head=178 ms
+[qtier] resident 10240/10240 experts | uploads 10240 | miss(CPU) 0 | q_skips 0
+[qtier]   dev 0: hits 4830 | 15360 tensors, 7.56 GB VRAM used (budget 22.72 GB)
+[qtier]   dev 1: hits 4770 | 15360 tensors, 7.56 GB VRAM used (budget 22.72 GB)
+[qtier] VRAM hit rate: 100.0 % | LFRU swaps 0
+[qtier] group_stats: 2397 calls, 9600 experts | h2d 0 ms, kernel 0 ms, d2h 0 ms
+
+PEAK RSS: 22.49 GB
+Expert cache hit rate: 48.4% (hit=9600 miss=10240)
+Speed: 2.08 tok/s (7.7s for 16 tokens)

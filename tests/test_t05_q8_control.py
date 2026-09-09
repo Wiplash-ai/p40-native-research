@@ -73,6 +73,16 @@ class T05Q8ControlSourceTests(unittest.TestCase):
         self.assertIn('p40_cpuorder_matvec', control)
         self.assertIn('qwen_dn_out_cpuorder_control:', MAKEFILE)
 
+    def test_lmhead_control_matches_the_real_q8_shape_and_requires_bit_identity(self):
+        control = (ROOT / "benchmarks" / "qwen_lmhead_cpuorder_control.cpp").read_text()
+        self.assertIn('constexpr int kInput = 2048;', control)
+        self.assertIn('constexpr int kOutput = 248044;', control)
+        self.assertIn('lmhead-cpuorder-2048x248044', control)
+        self.assertIn('std::memcmp(expected.data(), actual.data()', control)
+        self.assertIn('p40_cpuorder_matvec', control)
+        self.assertIn('options.memory_cap_mib < 512 || options.memory_cap_mib > 544', control)
+        self.assertIn('qwen_lmhead_cpuorder_control:', MAKEFILE)
+
 
 if __name__ == "__main__":
     unittest.main()

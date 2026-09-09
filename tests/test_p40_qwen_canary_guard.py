@@ -24,11 +24,83 @@ assert CONTROL_256_SPEC and CONTROL_256_SPEC.loader
 sys.modules[CONTROL_256_SPEC.name] = control_256
 CONTROL_256_SPEC.loader.exec_module(control_256)
 
+T06_SPEC = importlib.util.spec_from_file_location("p40_t06_qwen_dn_cpuorder", ROOT / "remote/p40-t06-qwen-dn-cpuorder-guard.py")
+t06 = importlib.util.module_from_spec(T06_SPEC)
+assert T06_SPEC and T06_SPEC.loader
+sys.modules[T06_SPEC.name] = t06
+T06_SPEC.loader.exec_module(t06)
+
+T06B_SPEC = importlib.util.spec_from_file_location("p40_t06b_qwen_dn_cpuorder", ROOT / "remote/p40-t06b-qwen-dn-cpuorder-guard.py")
+t06b = importlib.util.module_from_spec(T06B_SPEC)
+assert T06B_SPEC and T06B_SPEC.loader
+sys.modules[T06B_SPEC.name] = t06b
+T06B_SPEC.loader.exec_module(t06b)
+
+T06C_SPEC = importlib.util.spec_from_file_location("p40_t06c_qwen_dn_cpuorder", ROOT / "remote/p40-t06c-qwen-dn-cpuorder-guard.py")
+t06c = importlib.util.module_from_spec(T06C_SPEC)
+assert T06C_SPEC and T06C_SPEC.loader
+sys.modules[T06C_SPEC.name] = t06c
+T06C_SPEC.loader.exec_module(t06c)
+
+T07_SPEC = importlib.util.spec_from_file_location("p40_t07_qwen_dn_cpuorder", ROOT / "remote/p40-t07-qwen-dn-cpuorder-guard.py")
+t07 = importlib.util.module_from_spec(T07_SPEC)
+assert T07_SPEC and T07_SPEC.loader
+sys.modules[T07_SPEC.name] = t07
+T07_SPEC.loader.exec_module(t07)
+
+T09_SPEC = importlib.util.spec_from_file_location("p40_t09_qwen_lmhead", ROOT / "remote/p40-t09-qwen-lmhead-cpuorder-guard.py")
+t09 = importlib.util.module_from_spec(T09_SPEC)
+assert T09_SPEC and T09_SPEC.loader
+sys.modules[T09_SPEC.name] = t09
+T09_SPEC.loader.exec_module(t09)
+
+T10_SPEC = importlib.util.spec_from_file_location("p40_t10_qwen_lmhead", ROOT / "remote/p40-t10-qwen-lmhead-cpuorder-guard.py")
+t10 = importlib.util.module_from_spec(T10_SPEC)
+assert T10_SPEC and T10_SPEC.loader
+sys.modules[T10_SPEC.name] = t10
+T10_SPEC.loader.exec_module(t10)
+
 CLIENT_SPEC = importlib.util.spec_from_file_location("p40_qwen_control_client", ROOT / "scripts/p40_qwen_control_client.py")
 client = importlib.util.module_from_spec(CLIENT_SPEC)
 assert CLIENT_SPEC and CLIENT_SPEC.loader
 sys.modules[CLIENT_SPEC.name] = client
 CLIENT_SPEC.loader.exec_module(client)
+
+T06_CLIENT_SPEC = importlib.util.spec_from_file_location("p40_t06_qwen_client", ROOT / "scripts/p40_t06_qwen_dn_cpuorder_client.py")
+t06_client = importlib.util.module_from_spec(T06_CLIENT_SPEC)
+assert T06_CLIENT_SPEC and T06_CLIENT_SPEC.loader
+sys.modules[T06_CLIENT_SPEC.name] = t06_client
+T06_CLIENT_SPEC.loader.exec_module(t06_client)
+
+T06B_CLIENT_SPEC = importlib.util.spec_from_file_location("p40_t06b_qwen_client", ROOT / "scripts/p40_t06b_qwen_dn_cpuorder_client.py")
+t06b_client = importlib.util.module_from_spec(T06B_CLIENT_SPEC)
+assert T06B_CLIENT_SPEC and T06B_CLIENT_SPEC.loader
+sys.modules[T06B_CLIENT_SPEC.name] = t06b_client
+T06B_CLIENT_SPEC.loader.exec_module(t06b_client)
+
+T06C_CLIENT_SPEC = importlib.util.spec_from_file_location("p40_t06c_qwen_client", ROOT / "scripts/p40_t06c_qwen_dn_cpuorder_client.py")
+t06c_client = importlib.util.module_from_spec(T06C_CLIENT_SPEC)
+assert T06C_CLIENT_SPEC and T06C_CLIENT_SPEC.loader
+sys.modules[T06C_CLIENT_SPEC.name] = t06c_client
+T06C_CLIENT_SPEC.loader.exec_module(t06c_client)
+
+T07_CLIENT_SPEC = importlib.util.spec_from_file_location("p40_t07_qwen_client", ROOT / "scripts/p40_t07_qwen_dn_cpuorder_client.py")
+t07_client = importlib.util.module_from_spec(T07_CLIENT_SPEC)
+assert T07_CLIENT_SPEC and T07_CLIENT_SPEC.loader
+sys.modules[T07_CLIENT_SPEC.name] = t07_client
+T07_CLIENT_SPEC.loader.exec_module(t07_client)
+
+T09_CLIENT_SPEC = importlib.util.spec_from_file_location("p40_t09_qwen_client", ROOT / "scripts/p40_t09_qwen_lmhead_cpuorder_client.py")
+t09_client = importlib.util.module_from_spec(T09_CLIENT_SPEC)
+assert T09_CLIENT_SPEC and T09_CLIENT_SPEC.loader
+sys.modules[T09_CLIENT_SPEC.name] = t09_client
+T09_CLIENT_SPEC.loader.exec_module(t09_client)
+
+T10_CLIENT_SPEC = importlib.util.spec_from_file_location("p40_t10_qwen_client", ROOT / "scripts/p40_t10_qwen_lmhead_cpuorder_client.py")
+t10_client = importlib.util.module_from_spec(T10_CLIENT_SPEC)
+assert T10_CLIENT_SPEC and T10_CLIENT_SPEC.loader
+sys.modules[T10_CLIENT_SPEC.name] = t10_client
+T10_CLIENT_SPEC.loader.exec_module(t10_client)
 
 
 class QwenCanaryGuardTests(unittest.TestCase):
@@ -77,6 +149,83 @@ class QwenCanaryGuardTests(unittest.TestCase):
         self.assertEqual(client.ssh_argv("host", identity, "control-64")[-1], "p40-qwen-control-64")
         self.assertEqual(client.ssh_argv("host", identity, "control-256")[-1], "p40-qwen-control-256")
         self.assertEqual(client.ssh_argv("host", identity, "canary-16", read_results=True)[-1], "p40-qwen-canary-results")
+
+    def test_t06_identity_pins_exact_delta_q8_path_and_output_oracle(self):
+        self.assertEqual(t06.EXPECTED_ORIGINAL_COMMAND, "p40-t06-qwen-dn-cpuorder")
+        self.assertEqual(t06.PROFILE_ID, "t06-dn-cpuorder-16")
+        self.assertEqual(len(t06.ENGINE_SHA256), 64)
+        self.assertEqual(len(t06.EXPECTED_STDOUT_SHA256), 64)
+        argv = t06.model_argv()
+        self.assertIn("COLI_CUDA_DN_CPUORDER=1", argv)
+        self.assertIn("COLI_CUDA_DN_DEVICE=0", argv)
+        identity = Path("/tmp/p40-t06-test-key")
+        self.assertEqual(t06_client.ssh_argv("host", identity)[-1], "p40-t06-qwen-dn-cpuorder")
+        self.assertEqual(t06_client.ssh_argv("host", identity, read_results=True)[-1], "p40-t06-qwen-dn-cpuorder-results")
+
+    def test_t06_cuda_diagnostic_allows_device_inventory_only(self):
+        self.assertFalse(t06.cuda_runtime_diagnostic(
+            b"[CUDA] device 0: Tesla P40, 25.6 GB VRAM, sm_61\n[CUDA] device 1: Tesla P40, 25.6 GB VRAM, sm_61\n"))
+        self.assertTrue(t06.cuda_runtime_diagnostic(
+            b"[CUDA] expert group issue launch: invalid resource handle\n"))
+        self.assertTrue(t06.cuda_runtime_diagnostic(b"[dn-cpuorder] CUDA failure; permanently falling back to CPU\n"))
+
+    def test_t06b_identity_is_distinct_and_pins_the_dedicated_stream_binary(self):
+        self.assertEqual(t06b.EXPECTED_ORIGINAL_COMMAND, "p40-t06b-qwen-dn-cpuorder")
+        self.assertEqual(t06b.PROFILE_ID, "t06b-dn-cpuorder-16-dedicated-stream")
+        self.assertEqual(t06b.ENGINE_SHA256, "bbee1f3c74cd57e1165d2de97c955b16a12c42f193644e4bf20d70873de19ffb")
+        identity = Path("/tmp/p40-t06b-test-key")
+        self.assertEqual(t06b_client.ssh_argv("host", identity)[-1], "p40-t06b-qwen-dn-cpuorder")
+        self.assertEqual(t06b_client.ssh_argv("host", identity, read_results=True)[-1], "p40-t06b-qwen-dn-cpuorder-results")
+
+    def test_t06c_identity_uses_a_new_backend_selector_binary(self):
+        self.assertEqual(t06c.EXPECTED_ORIGINAL_COMMAND, "p40-t06c-qwen-dn-cpuorder")
+        self.assertEqual(t06c.PROFILE_ID, "t06c-dn-cpuorder-16-backend-device-selector")
+        self.assertEqual(t06c.ENGINE_SHA256, "8bef44d2ff680cc3fb35756c95bfdef343fafa989e67009b1ffff43011d49d4c")
+        identity = Path("/tmp/p40-t06c-test-key")
+        self.assertEqual(t06c_client.ssh_argv("host", identity)[-1], "p40-t06c-qwen-dn-cpuorder")
+        self.assertEqual(t06c_client.ssh_argv("host", identity, read_results=True)[-1], "p40-t06c-qwen-dn-cpuorder-results")
+
+    def test_t07_identity_changes_only_output_length_and_oracle(self):
+        self.assertEqual(t07.EXPECTED_ORIGINAL_COMMAND, "p40-t07-qwen-dn-cpuorder")
+        self.assertEqual(t07.PROFILE_ID, "t07-dn-cpuorder-64-backend-device-selector")
+        self.assertEqual(t07.ENGINE_SHA256, t06c.ENGINE_SHA256)
+        self.assertEqual(t07.EXPECTED_STDOUT_SHA256, "5909fad89de2faac1b77af72bf8b25f56b8f33853df59d35cb04120e9ce1f35f")
+        argv = t07.model_argv()
+        self.assertIn("N_NEW=64", argv)
+        self.assertNotIn("N_NEW=16", argv)
+        self.assertIn("COLI_CUDA_DN_CPUORDER=1", argv)
+        self.assertIn("COLI_CUDA_DN_DEVICE=0", argv)
+        identity = Path("/tmp/p40-t07-test-key")
+        self.assertEqual(t07_client.ssh_argv("host", identity)[-1], "p40-t07-qwen-dn-cpuorder")
+        self.assertEqual(t07_client.ssh_argv("host", identity, read_results=True)[-1], "p40-t07-qwen-dn-cpuorder-results")
+
+    def test_t09_identity_pins_lmhead_binary_and_required_cache_marker(self):
+        self.assertEqual(t09.EXPECTED_ORIGINAL_COMMAND, "p40-t09-qwen-lmhead-cpuorder")
+        self.assertEqual(t09.PROFILE_ID, "t09-dn-lmhead-cpuorder-16")
+        self.assertEqual(t09.ENGINE_SHA256, "857940ee9bf68844e81bc80b8dc0921909842bcf83bd0ea76cd12c265d239af6")
+        self.assertIn(b"plus LM head", t09.CACHE_MARKER)
+        argv = t09.model_argv()
+        self.assertIn("COLI_CUDA_DN_CPUORDER=1", argv)
+        self.assertIn("COLI_CUDA_DN_DEVICE=0", argv)
+        self.assertIn("COLI_CUDA_LMHEAD_CPUORDER=1", argv)
+        self.assertIn(str(t09.ENGINE), argv)
+        identity = Path("/tmp/p40-t09-test-key")
+        self.assertEqual(t09_client.ssh_argv("host", identity)[-1], "p40-t09-qwen-lmhead-cpuorder")
+        self.assertEqual(t09_client.ssh_argv("host", identity, read_results=True)[-1], "p40-t09-qwen-lmhead-cpuorder-results")
+
+    def test_t10_identity_changes_only_length_and_uses_the_64_output_oracle(self):
+        self.assertEqual(t10.EXPECTED_ORIGINAL_COMMAND, "p40-t10-qwen-lmhead-cpuorder")
+        self.assertEqual(t10.PROFILE_ID, "t10-dn-lmhead-cpuorder-64")
+        self.assertEqual(t10.t09.ENGINE_SHA256, t09.ENGINE_SHA256)
+        self.assertEqual(t10.EXPECTED_STDOUT_SHA256, "5909fad89de2faac1b77af72bf8b25f56b8f33853df59d35cb04120e9ce1f35f")
+        argv = t10.model_argv()
+        self.assertIn("N_NEW=64", argv)
+        self.assertNotIn("N_NEW=16", argv)
+        self.assertIn("COLI_CUDA_DN_CPUORDER=1", argv)
+        self.assertIn("COLI_CUDA_LMHEAD_CPUORDER=1", argv)
+        identity = Path("/tmp/p40-t10-test-key")
+        self.assertEqual(t10_client.ssh_argv("host", identity)[-1], "p40-t10-qwen-lmhead-cpuorder")
+        self.assertEqual(t10_client.ssh_argv("host", identity, read_results=True)[-1], "p40-t10-qwen-lmhead-cpuorder-results")
 
     def test_mocked_run_caps_and_restores_both_gpus_and_records_output(self):
         class FinishedProcess:

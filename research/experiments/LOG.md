@@ -326,3 +326,105 @@ ID, status, hypothesis, prediction, exact change, source/binary/model/prompt ide
   64-output performance comparison. Do not combine this with FP32 DeltaNet,
   expert, attention, or multi-GPU changes.
 - Evidence: [T05G record](../results/T05G-dn-full-sweep-cpuorder.md).
+
+## T06C — backend-owned device-selection integration canary
+
+- Date: 2026-09-09.
+- Status: pass after one guard-parser-corrected repeat; advance to one
+  separately guarded 64-output timing comparison.
+- Exact change: the experimental Q8 helper calls the CUDA backend's own
+  device-selector API rather than raw `cudaSetDevice`, preserving the
+  backend's thread-local device/stream state. The dedicated nonblocking helper
+  stream from T06B remains unchanged.
+- Result: the fixed output hash exactly matched the T04 oracle; all 90 Q8
+  DeltaNet matrices activated on GPU0. The accepted repeat reported 2.07
+  tok/s across 15 decode steps, with DeltaNet 45.49 ms/token versus 354.79
+  ms/token in the fixed T04 16-token control. Unlike T06/T06B, stderr contains
+  no illegal-memory-access, invalid-resource-handle, expert-group, or
+  helper-fallback line.
+- Guard correction: its original `"[CUDA] "` substring rule inadvertently
+  rejected the normal two device-inventory lines. The repaired rule permits
+  only those inventory lines and fails closed on every other CUDA line or
+  helper fallback. Unit tests pass; the forced command dry-run confirmed it
+  does not initialize CUDA.
+- Safety: accepted-repeat fans remained 2,000–2,100 RPM, peak sampled GPU0/1
+  temperature was 46 C / 43 C, peak VRAM was 8,855 / 7,895 MiB, both cards
+  reached the <=40 C cooldown gate, emptied, and returned to 250 W limits.
+- Decision: build and dry-run a separate 64-output identity which pins the
+  established control's 64-output hash. It must change only output length from
+  the accepted integration path and preserve every safety condition.
+- Evidence: [experiment record](004-qwen-deltanet-exact-integration.md) and
+  `research/results/raw/T06C-qwen-dn-cpuorder-567de344.*`.
+
+## T07 — exact-Q8 DeltaNet 64-output comparison
+
+- Date: 2026-09-09.
+- Status: pass.
+- Exact change: only output length changed from the accepted T06C path,
+  16 to 64. The distinct restricted command pinned the prior T04 64-output
+  stdout hash and retained the same binary, model, prompt, GPUs, 125 W/card
+  cap, cache, and environment.
+- Result: exact 64-output text; 2.23 engine tok/s and 2.29 decode tok/s,
+  versus the T04 control's 1.52 and 1.58. DeltaNet fell from 330.63 to 60.36
+  ms/token. All experts remained resident with no CPU miss/swap.
+- Safety: fan RPM 2,000–2,100; sampled peak 46 C / 45 C; peak VRAM 8,855 /
+  7,895 MiB; <=40 C recovery, empty cards, and restored 250 W limits.
+- Decision: retain the exact-Q8 DeltaNet design. Audit the 177.08 ms/token
+  LM-head path next; it is now the largest measured decode phase.
+- Evidence: [T07 result](../results/T07-dn-cpuorder-64-dual-p40-125w.md).
+
+## T08 — standalone exact-Q8 LM-head control
+
+- Date: 2026-09-09.
+- Status: pass for operator viability only.
+- Exact profile: synthetic 2048×248,044 Q8 LM-head shape (507,994,112 bytes),
+  exact CPU-order GPU kernel, GPU0 at 125 W, three single-call CPU/GPU samples,
+  cached weights, input upload, logits download, and a bit-identity gate.
+- Result: 16.4813 ms CPU median; 7.1071 ms GPU median; 2.319x. All 248,044
+  output float bits matched (zero mismatches). First upload-plus-call: 63.6048
+  ms. The sub-second fixture completed between telemetry polls, so cached-byte
+  accounting is the VRAM residency evidence.
+- Safety: 2,000–2,100 RPM fans, no fresh fault, <=40 C cooldown, empty cards,
+  and restored 250 W cap.
+- Decision: T09 may add an opt-in, LM-head-only registry flag in a separate
+  source copy and run a fixed 16-output full-model canary. Do not infer the
+  full-model gain from this synthetic CPU timing.
+- Evidence: `research/results/raw/T08-lmhead-cpuorder-bfc3d670.*` and
+  [integration design](006-qwen-lmhead-exact-integration.md).
+
+## T09 — exact-Q8 LM-head full-model integration canary
+
+- Date: 2026-09-09.
+- Status: pass for the fixed 16-output integration canary; not a sustained
+  comparison.
+- Exact change: a separate experimental source copy registers and uploads the
+  already-Q8 LM head on GPU0 only when `COLI_CUDA_LMHEAD_CPUORDER=1`; it
+  retains the accepted exact-Q8 DeltaNet cache and all other T06C settings.
+- Result: fixed output SHA-256 exactly matched the T04 16-output oracle;
+  required cache marker confirmed 90 DeltaNet matrices plus LM head; no
+  fallback or CUDA diagnostic. Engine rate was 3.20 tok/s. Decode phases were
+  DeltaNet 47.65, attention 123.21, MoE 90.46, LM head 3.69, and total 265.01
+  ms/token.
+- Safety: fans 2,000–2,100 RPM; sampled peak 46 C / 43 C; peak VRAM 8,391 /
+  7,893 MiB; <=40 C recovery, empty cards, and restored 250 W caps.
+- Decision: keep the opt-in LM head path. Run one separately guarded,
+  hash-pinned 64-output T10 comparison that changes only output length.
+- Evidence: [T09 result](../results/T09-dn-lmhead-cpuorder-16-dual-p40-125w.md).
+
+## T10 — exact-Q8 DeltaNet plus LM-head 64-output comparison
+
+- Date: 2026-09-09.
+- Status: pass.
+- Exact change: only output length changed from T09, 16 to 64; distinct
+  restricted command pins the accepted T04/T07 64-output SHA-256 and keeps
+  the same T09 binary, model, prompt, GPUs, cache, and 125 W/card policy.
+- Result: exact text; engine rate 3.59 tok/s and decode rate 3.76 tok/s,
+  versus 2.23/2.29 in T07 and 1.52/1.58 in T04. DeltaNet was 47.91 ms/token;
+  LM head 4.04; attention 123.78; MoE 90.27; and total decode step 267.2.
+  All experts remained VRAM resident with zero CPU expert miss/swap.
+- Safety: fans 2,000–2,100 RPM; sampled peak 47 C / 44 C; peak VRAM 9,343 /
+  7,895 MiB; <=40 C recovery, empty cards, and restored 250 W caps.
+- Decision: retain both exact-Q8 paths. The next work is a static audit of
+  attention and MoE dispatch/placement before designing a separately gated
+  microbenchmark; do not sweep generic environment variables.
+- Evidence: [T10 result](../results/T10-dn-lmhead-cpuorder-64-dual-p40-125w.md).
