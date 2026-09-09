@@ -91,7 +91,7 @@ index 7e5c695..c1d88f1 100644
 +    if(ctx->dp8_shadow_pending){
 +        double se=0,sr=0,dot=0,sa=0,sb=0,ma=0;int finite=1;size_t n=(size_t)ctx->dp8_shadow_rows*ctx->dp8_shadow_width;
 +        for(size_t i=0;i<n;i++){double a=ctx->host_dp8_y[i],b=ctx->host_y[i],d=a-b;if(!std::isfinite(a)||!std::isfinite(b))finite=0;se+=d*d;sr+=b*b;dot+=a*b;sa+=a*a;sb+=b*b;if(fabs(d)>ma)ma=fabs(d);}
-+        std::fprintf(stderr,"[w4a8-shadow] rows=%d width=%d rel_l2=%.8g max_abs=%.8g cosine=%.8g finite=%d\\n",ctx->dp8_shadow_rows,ctx->dp8_shadow_width,sqrt(se/(sr>1e-30?sr:1e-30)),ma,dot/(sqrt(sa*sb)>1e-30?sqrt(sa*sb):1e-30),finite);ctx->dp8_shadow_pending=0;
++        std::fprintf(stderr,"[w4a8-shadow] rows=%d width=%d rel_l2=%.8g max_abs=%.8g cosine=%.8g finite=%d\n",ctx->dp8_shadow_rows,ctx->dp8_shadow_width,sqrt(se/(sr>1e-30?sr:1e-30)),ma,dot/(sqrt(sa*sb)>1e-30?sqrt(sa*sb):1e-30),finite);ctx->dp8_shadow_pending=0;
 +    }
      return ctx->host_y;
  }

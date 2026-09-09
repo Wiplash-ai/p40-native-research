@@ -347,7 +347,7 @@ class QwenCanaryGuardTests(unittest.TestCase):
     def test_t21_shadow_is_exact_output_and_default_off(self):
         self.assertEqual(t21.EXPECTED_ORIGINAL_COMMAND, "p40-t21-qwen-w4a8-shadow")
         self.assertEqual(t21.PROFILE_ID, "t21-w4a8-real-expert-shadow-16")
-        self.assertEqual(t21.ENGINE_SHA256, "e59c5b5129004fe6753a7966123197a6ee8483aea0ea15c2f8df8387af6abe7b")
+        self.assertEqual(t21.ENGINE_SHA256, "b58d4181e836af3b26c8970e24e32e17b69df617217f40f9a65b2508888d2127")
         self.assertEqual(t21.EXPECTED_STDOUT_SHA256, "43095be2395844a0c7f321ea2496689325d5ae890f91ab53bb31c55e37a0877a")
         argv = t21.model_argv()
         self.assertIn("COLI_CUDA_W4A8_DP4A=shadow", argv)
@@ -363,6 +363,7 @@ class QwenCanaryGuardTests(unittest.TestCase):
         self.assertIn("COLI_CUDA_W4A8_DP4A", patch)
         self.assertIn("grouped_hidden_w4_dual<<<hg,256,0,ctx->stream>>>", patch)
         self.assertIn("return ctx->host_y", patch)
+        self.assertIn('finite=%d\\n",ctx->dp8_shadow_rows', patch)
 
     def test_mocked_run_caps_and_restores_both_gpus_and_records_output(self):
         class FinishedProcess:

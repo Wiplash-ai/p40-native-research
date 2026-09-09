@@ -24,7 +24,7 @@ SPEC.loader.exec_module(qwen)
 EXPECTED_ORIGINAL_COMMAND = "p40-t21-qwen-w4a8-shadow"
 RESULTS_ORIGINAL_COMMAND = "p40-t21-qwen-w4a8-shadow-results"
 ENGINE = Path("/home/jordanculver/p40-native-research/colibri-t21-w4a8-shadow/c/qwen36")
-ENGINE_SHA256 = "e59c5b5129004fe6753a7966123197a6ee8483aea0ea15c2f8df8387af6abe7b"
+ENGINE_SHA256 = "b58d4181e836af3b26c8970e24e32e17b69df617217f40f9a65b2508888d2127"
 RESULT_DIRECTORY = Path("/home/jordanculver/p40-native-research/results/t21-qwen-w4a8-shadow")
 PROFILE_ID = "t21-w4a8-real-expert-shadow-16"
 SCHEMA_VERSION = "t21-qwen-w4a8-shadow-v1"
