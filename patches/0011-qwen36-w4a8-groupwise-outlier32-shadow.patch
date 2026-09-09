@@ -1,0 +1,29 @@
+--- a/c/backend_cuda.cu
++++ b/c/backend_cuda.cu
+@@ -863,7 +863,7 @@
+  * fixed and divisible by the DP4A pack width; the group scale layout is
+  * [row][ceil(width/256)]. */
+ #define DP8_GROUPWISE_WIDTH 256
+-#define DP8_OUTLIER_TOPK 8
++#define DP8_OUTLIER_TOPK 32
+ __global__ static void dp8_quant_rows_groupwise(int8_t *q,float *sc,const float *x,
+                                                  int rows,int width){
+     int r=blockIdx.x,g=blockIdx.y;if(r>=rows)return;
+@@ -2300,7 +2300,7 @@
+          * sync dispatch, silu fused in the dual epilogue. */
+         f8_group_launch(ctx,(GroupDesc*)ctx->group_desc,I,D,max_rows,count);
+     }else if(all_s4&&ctx->compute_major==6&&ctx->compute_minor>=1&&getenv("COLI_CUDA_W4A8_DP4A")&&
+-             !strcmp(getenv("COLI_CUDA_W4A8_DP4A"),"groupwise-outlier-shadow")){
++             !strcmp(getenv("COLI_CUDA_W4A8_DP4A"),"groupwise-outlier32-shadow")){
+         GroupDesc *dev=(GroupDesc*)ctx->group_desc;
+         if(!dp8_groupwise_outlier_shadow_launch(ctx,dev,total,D,I,max_rows,count))return 0;
+         dim3 hg((unsigned)I,(unsigned)max_rows,(unsigned)count),og((unsigned)D,(unsigned)max_rows,(unsigned)count);
+@@ -2387,7 +2387,7 @@
+     if(ctx->dp8_shadow_pending){
+         double se=0,sr=0,dot=0,sa=0,sb=0,ma=0;int finite=1;size_t n=(size_t)ctx->dp8_shadow_rows*ctx->dp8_shadow_width;
+         for(size_t i=0;i<n;i++){double a=ctx->host_dp8_y[i],b=ctx->host_y[i],d=a-b;if(!std::isfinite(a)||!std::isfinite(b))finite=0;se+=d*d;sr+=b*b;dot+=a*b;sa+=a*a;sb+=b*b;if(fabs(d)>ma)ma=fabs(d);}
+-        const char *dp8_mode=getenv("COLI_CUDA_W4A8_DP4A");const char *tag=dp8_mode&&!strcmp(dp8_mode,"groupwise-outlier-shadow")?"w4a8-groupwise-outlier-shadow":(dp8_mode&&!strcmp(dp8_mode,"groupwise-shadow")?"w4a8-groupwise-shadow":"w4a8-shadow");
++        const char *dp8_mode=getenv("COLI_CUDA_W4A8_DP4A");const char *tag=dp8_mode&&!strcmp(dp8_mode,"groupwise-outlier32-shadow")?"w4a8-groupwise-outlier32-shadow":(dp8_mode&&!strcmp(dp8_mode,"groupwise-shadow")?"w4a8-groupwise-shadow":"w4a8-shadow");
+         std::fprintf(stderr,"[%s] rows=%d width=%d rel_l2=%.8g max_abs=%.8g cosine=%.8g finite=%d\n",tag,ctx->dp8_shadow_rows,ctx->dp8_shadow_width,sqrt(se/(sr>1e-30?sr:1e-30)),ma,dot/(sqrt(sa*sb)>1e-30?sqrt(sa*sb):1e-30),finite);ctx->dp8_shadow_pending=0;
+     }
+     return ctx->host_y;
