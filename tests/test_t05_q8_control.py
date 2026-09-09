@@ -110,6 +110,21 @@ class T05Q8ControlSourceTests(unittest.TestCase):
         self.assertIn('qdw_register_with_flags(l->o', patch)
         self.assertNotIn('coli_cuda_attention_', patch)
 
+    def test_shared_expert_control_has_the_real_40_layer_q8_mlp_sequence(self):
+        control = (ROOT / "benchmarks" / "qwen_shared_expert_cpuorder_control.cpp").read_text()
+        self.assertIn('constexpr int kLayers = 40;', control)
+        self.assertIn('constexpr int kHidden = 2048;', control)
+        self.assertIn('constexpr int kIntermediate = 512;', control)
+        self.assertIn('shared-expert-cpuorder-40x-2048-512-2048', control)
+        self.assertIn('layers.reserve(kLayers)', control)
+        self.assertIn('qwen_cpu_q8_matvec(gate, layer.input.data(), layer.gate)', control)
+        self.assertIn('qwen_cpu_q8_matvec(up, layer.input.data(), layer.up)', control)
+        self.assertIn('activate(activation, gate, up)', control)
+        self.assertIn('qwen_cpu_q8_matvec(down, activation, layer.down)', control)
+        self.assertIn('p40_cpuorder_matvec(layer.down.tensor', control)
+        self.assertIn('options.memory_cap_mib < 144 || options.memory_cap_mib > 176', control)
+        self.assertIn('qwen_shared_expert_cpuorder_control:', MAKEFILE)
+
 
 if __name__ == "__main__":
     unittest.main()

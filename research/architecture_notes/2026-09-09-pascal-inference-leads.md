@@ -63,9 +63,11 @@ call it exact: that would be a separate approximate-quality experiment.
 
 1. T13: exact, hash-pinned 64-output measurement of the already accepted
    DeltaNet + LM-head + attention paths.
-2. T14: add phase-local instrumentation to separate shared-expert CPU work,
-   PCIe upload/download, kernel time, and take-side synchronization.
-3. T15: standalone Colibri-shaped W4A8 DP4A GEMV. Test 64/96 tile and
+2. T14: exact Q8 shared-expert control across all 40 Qwen MLPs. It preserves
+   the real gate/up/SiLU/down host boundary and first asks whether exact GPU
+   offload is enough to eliminate the measured 70.74 ms/token CPU overlap.
+3. T15: only if T14 fails or leaves MoE dominant, standalone Colibri-shaped
+   W4A8 DP4A GEMV. Test 64/96 tile and
    unroll variants one variable at a time, using a bounded quality/error gate.
 4. Only if T15 earns its gate: an isolated approximate MoE layer experiment,
    then fixed-output quality/latency comparison. It cannot share a run with

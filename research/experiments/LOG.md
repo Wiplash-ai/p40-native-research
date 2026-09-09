@@ -478,3 +478,29 @@ ID, status, hypothesis, prediction, exact change, source/binary/model/prompt ide
   establishing T12 sustained behavior.
 - Evidence: [T12 result](008-qwen-attention-exact-integration.md) and
   `research/results/raw/T12-qwen-attention-cpuorder-8952b573.*`.
+
+## T13 — exact-Q8 attention-projection 64-output comparison
+
+- Date: 2026-09-09.
+- Status: pass.
+- Exact change: output length only, from the T12 16-output canary to 64.
+  The isolated attention binary, all exact-Q8 caches, model/prompt, two-GPU
+  configuration, 125 W/card cap, numerical oracle, thermal policy, and guard
+  remained fixed.
+- Result: exact output SHA-256 matched the established 64-output control;
+  marker and no-fallback requirements passed. Engine rate was 6.07 tok/s
+  (10.5 s for 64; TTFT 0.90 s), versus T04 1.52 and T10 3.59 tok/s. Decode
+  timing was DeltaNet 47.69, attention 8.29, MoE 91.27, LM head 3.88, and
+  total 151.14 ms/token. All 10,240 experts remained resident with zero
+  actual CPU cache misses and zero swaps.
+- Safety: all fans 2,000–2,100 RPM; sampled peak 45 C and 9,605 / 7,895 MiB;
+  all allocations released; final sample 39 C / 38 C; both 250 W caps
+  restored; durable guard result passed.
+- Decision: retain the exact attention path. The named `cpu-miss` phase time
+  is not a cache miss: its explicit counter is zero, and source inspection
+  shows it wraps the CPU shared expert between asynchronous issue and take.
+  T14 is a standalone, exact-Q8 40-layer shared-expert control, followed by a
+  separate source integration only if it meets parity and speed gates. W4A8
+  DP4A kernel variants remain conditional on that evidence.
+- Evidence: [T13 result](../results/T13-qwen-attention-cpuorder-64-dual-p40-125w.md)
+  and `research/results/raw/T13-qwen-attention-cpuorder-5741a6dd.*`.

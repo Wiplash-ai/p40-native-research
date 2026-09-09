@@ -42,11 +42,35 @@ sampled maximum temperatures of 42 C / 43 C and peak allocations of 8,155 /
 7,893 MiB (GPU 0 / GPU 1); every fan stayed at 2,000--2,100 RPM. The guard
 released allocations, cooled to its gate, and restored both 250 W power limits.
 
+## Sustained 64-output comparison
+
+T13 changed only `N_NEW` from 16 to 64. Its output SHA-256 exactly matched the
+previous 64-output control:
+`5909fad89de2faac1b77af72bf8b25f56b8f33853df59d35cb04120e9ce1f35f`.
+The same 90+1+40 cache marker appeared, with no fallback or CUDA diagnostic.
+
+Engine-reported end-to-end rate was **6.07 tok/s** (10.5 seconds for 64
+outputs; TTFT 0.90 seconds). Over 63 decode steps the phases were stable at
+47.69 ms/token DeltaNet, 8.29 attention, 91.27 MoE, 3.88 LM head, and 151.14
+total. This is 3.99x the T04 fixed 64-output control (1.52 tok/s), 1.69x the
+T10 exact DeltaNet-plus-LM-head result (3.59 tok/s), and shows the attention
+gain survives the longer sequence.
+
+All 10,240 experts remained VRAM-resident with zero actual CPU misses or
+swaps. The `qtier` line named `cpu-miss` is a phase timer, not a cache-miss
+counter. The source audit shows that, in this all-resident case, it brackets the
+CPU shared expert after async GPU issue and before take, which agrees with the
+independently reported 70.74 ms/token shared subset. Telemetry
+peaked at 45 C and 9,605 / 7,895 MiB (GPU 0 / GPU 1); every fan was
+2,000--2,100 RPM. The guard released allocations, reached 39 C / 38 C by its
+final sample, and restored both 250 W caps.
+
 ## Next experiment
 
 After a physical no-workload break and fresh two-sample cool/idle preflight,
-run a new hash-pinned 64-output T13 comparison that changes only `N_NEW`.
-It must reproduce the established 64-output stdout hash, keep the exact
-90+1+40 marker, and preserve the same thermal, fan, allocation-release, and
-power-restore gates. Do not reinterpret the T12 short-canary rate as sustained
-throughput.
+run the standalone T14 exact-Q8 shared-expert control. It covers all 40 real
+shared-MLP shapes with the actual gate/up/SiLU/down dependency and transfer
+boundaries. It must clear exactness, safety, and a 15% transfer-inclusive
+speed gate before any fourth isolated source integration. The later W4A8 DP4A
+control inspired by the reviewed Pascal references remains conditional on that
+result.
