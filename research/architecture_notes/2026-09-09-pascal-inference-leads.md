@@ -61,16 +61,18 @@ call it exact: that would be a separate approximate-quality experiment.
 
 ## Updated experiment order
 
-1. T13: exact, hash-pinned 64-output measurement of the already accepted
-   DeltaNet + LM-head + attention paths.
-2. T14: exact Q8 shared-expert control across all 40 Qwen MLPs. It preserves
-   the real gate/up/SiLU/down host boundary and first asks whether exact GPU
-   offload is enough to eliminate the measured 70.74 ms/token CPU overlap.
-3. T15: only if T14 fails or leaves MoE dominant, standalone Colibri-shaped
-   W4A8 DP4A GEMV. Test 64/96 tile and
+1. T13 established the exact, hash-pinned 64-output DeltaNet + LM-head +
+   attention path.
+2. T14 passed the exact Q8 shared-expert control across all 40 Qwen MLPs. It
+   preserved the real gate/up/SiLU/down host boundary and measured 1.93x
+   transfer-inclusive speedup, clearing a fourth isolated full-model canary.
+3. T15 is that exact shared-MLP canary. It must preserve the established
+   16-output hash before a separate 64-output comparison.
+4. Only if the exact shared path leaves MoE dominant, build a standalone
+   Colibri-shaped W4A8 DP4A GEMV. Test 64/96 tile and
    unroll variants one variable at a time, using a bounded quality/error gate.
-4. Only if T15 earns its gate: an isolated approximate MoE layer experiment,
+5. Only if that DP4A control earns its gate: an isolated approximate MoE layer experiment,
    then fixed-output quality/latency comparison. It cannot share a run with
    T13 or attention changes.
-5. Treat BitNet as a separate small-model/training lane, where ternary weights
+6. Treat BitNet as a separate small-model/training lane, where ternary weights
    are trained for rather than post-hoc applied to Qwen.

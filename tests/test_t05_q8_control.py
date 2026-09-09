@@ -125,6 +125,17 @@ class T05Q8ControlSourceTests(unittest.TestCase):
         self.assertIn('options.memory_cap_mib < 144 || options.memory_cap_mib > 176', control)
         self.assertIn('qwen_shared_expert_cpuorder_control:', MAKEFILE)
 
+    def test_shared_expert_integration_patch_is_opt_in_and_count_gated(self):
+        patch = (ROOT / "patches" / "0003-qwen36-shared-expert-cpuorder.patch").read_text()
+        self.assertIn('#define QDW_SHARED_CPUORDER 8u', patch)
+        self.assertIn('COLI_CUDA_SHARED_CPUORDER', patch)
+        self.assertIn('shared_count != (shared_cpuorder_on() ? 120 : 0)', patch)
+        self.assertIn('qdw_register_with_flags(l->sh_g', patch)
+        self.assertIn('qdw_register_with_flags(l->sh_u', patch)
+        self.assertIn('qdw_register_with_flags(l->sh_d', patch)
+        self.assertIn('120 shared MLP matrices', patch)
+        self.assertNotIn('coli_cuda_expert_', patch)
+
 
 if __name__ == "__main__":
     unittest.main()

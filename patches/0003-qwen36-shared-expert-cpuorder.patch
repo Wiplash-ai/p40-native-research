@@ -1,0 +1,87 @@
+--- /home/jordanculver/p40-native-research/colibri-t12-attention/c/qwen36.c	2026-09-09 02:32:18.753211845 +0000
++++ /home/jordanculver/p40-native-research/colibri-t15-shared/c/qwen36.c	2026-09-09 06:38:44.667848391 +0000
+@@ -991,6 +991,7 @@
+ #define QDW_DN_CPUORDER 1u
+ #define QDW_LMHEAD_CPUORDER 2u
+ #define QDW_ATTN_CPUORDER 4u
++#define QDW_SHARED_CPUORDER 8u
+ typedef struct {
+     const float *w;
+     int8_t *q;
+@@ -1039,6 +1040,7 @@
+ static int dn_cpuorder_on(void){ const char *e=getenv("COLI_CUDA_DN_CPUORDER"); return e && !strcmp(e,"1"); }
+ static int lmhead_cpuorder_on(void){ const char *e=getenv("COLI_CUDA_LMHEAD_CPUORDER"); return e && !strcmp(e,"1"); }
+ static int attn_cpuorder_on(void){ const char *e=getenv("COLI_CUDA_ATTN_CPUORDER"); return e && !strcmp(e,"1"); }
++static int shared_cpuorder_on(void){ const char *e=getenv("COLI_CUDA_SHARED_CPUORDER"); return e && !strcmp(e,"1"); }
+ static int dn_cpuorder_device(void){
+     const char *e=getenv("COLI_CUDA_DN_DEVICE"); char *end=NULL;
+     if(!e || !*e) return 0;
+@@ -1048,7 +1050,8 @@
+ static int qdw_cpuorder_requested(unsigned flags){
+     return ((flags & QDW_DN_CPUORDER) && dn_cpuorder_on()) ||
+            ((flags & QDW_LMHEAD_CPUORDER) && lmhead_cpuorder_on()) ||
+-           ((flags & QDW_ATTN_CPUORDER) && attn_cpuorder_on());
++           ((flags & QDW_ATTN_CPUORDER) && attn_cpuorder_on()) ||
++           ((flags & QDW_SHARED_CPUORDER) && shared_cpuorder_on());
+ }
+ static void qdw_dn_cpuorder_shutdown(void){
+     if(!g_dn_cpuorder_initialized) return;
+@@ -1061,7 +1064,7 @@
+     g_dn_cpuorder_initialized=0;
+ }
+ static int qdw_dn_cpuorder_prepare(int device){
+-    int dn_count=0, lmhead_count=0, attn_count=0;
++    int dn_count=0, lmhead_count=0, attn_count=0, shared_count=0;
+     if(!p40_qwen_dn_init(device)) return 0;
+     g_dn_cpuorder_initialized=1;
+     for(int i=0;i<g_qdw_n;i++) if(qdw_cpuorder_requested(g_qdw[i].flags)){
+@@ -1072,10 +1075,12 @@
+         if(g_qdw[i].flags & QDW_DN_CPUORDER) dn_count++;
+         if(g_qdw[i].flags & QDW_LMHEAD_CPUORDER) lmhead_count++;
+         if(g_qdw[i].flags & QDW_ATTN_CPUORDER) attn_count++;
++        if(g_qdw[i].flags & QDW_SHARED_CPUORDER) shared_count++;
+     }
+     if(dn_count != (dn_cpuorder_on() ? 90 : 0) ||
+        lmhead_count != (lmhead_cpuorder_on() ? 1 : 0) ||
+-       attn_count != (attn_cpuorder_on() ? 40 : 0)){
++       attn_count != (attn_cpuorder_on() ? 40 : 0) ||
++       shared_count != (shared_cpuorder_on() ? 120 : 0)){
+         qdw_dn_cpuorder_shutdown();
+         return 0;
+     }
+@@ -2779,13 +2784,15 @@
+         for (int i = 0; i < qc->n_layers; i++) {
+             Layer *l = &m.L[i];
+             unsigned attn_flags = attn_cpuorder_on() ? QDW_ATTN_CPUORDER : 0;
++            unsigned shared_flags = shared_cpuorder_on() ? QDW_SHARED_CPUORDER : 0;
+             qdw_register_with_flags(l->q, D2, q_out, attn_flags);
+             qdw_register_with_flags(l->k, D2, kv_out, attn_flags);
+             qdw_register_with_flags(l->v, D2, kv_out, attn_flags);
+             qdw_register_with_flags(l->o, qc->o_in, D2, attn_flags);
+             qdw_register(l->gate, D2, qc->n_experts);
+-            qdw_register(l->sh_g, D2, qc->shared_inter); qdw_register(l->sh_u, D2, qc->shared_inter);
+-            qdw_register(l->sh_d, qc->shared_inter, D2);
++            qdw_register_with_flags(l->sh_g, D2, qc->shared_inter, shared_flags);
++            qdw_register_with_flags(l->sh_u, D2, qc->shared_inter, shared_flags);
++            qdw_register_with_flags(l->sh_d, qc->shared_inter, D2, shared_flags);
+             qdw_register_with_flags(l->dn_qkv, D2, qc->dn_conv_dim, QDW_DN_CPUORDER);
+             qdw_register_with_flags(l->dn_z, D2, qc->dn_vheads * qc->dn_vdim, QDW_DN_CPUORDER);
+             qdw_register_with_flags(l->dn_out, qc->dn_vheads * qc->dn_vdim, D2, QDW_DN_CPUORDER);
+@@ -2852,13 +2859,15 @@
+         }
+     }
+ #ifdef COLI_CUDA
+-    if(dn_cpuorder_on() || lmhead_cpuorder_on() || attn_cpuorder_on()){
++    if(dn_cpuorder_on() || lmhead_cpuorder_on() || attn_cpuorder_on() || shared_cpuorder_on()){
+         int device=dn_cpuorder_device();
+         if(!qt_ready()) fprintf(stderr,"[dn-cpuorder] disabled: CUDA expert tier is unavailable\n");
+         else if(device<0 || !qdw_dn_cpuorder_prepare(device))
+             fprintf(stderr,"[dn-cpuorder] disabled: exact Q8 cache initialization failed\n");
+         else {
+-            if(dn_cpuorder_on() && lmhead_cpuorder_on() && attn_cpuorder_on())
++            if(dn_cpuorder_on() && lmhead_cpuorder_on() && attn_cpuorder_on() && shared_cpuorder_on())
++                fprintf(stderr,"[dn-cpuorder] exact Q8 cache active: 90 DeltaNet matrices, LM head, 40 attention Q/K/V/O matrices, and 120 shared MLP matrices on GPU %d\n",device);
++            else if(dn_cpuorder_on() && lmhead_cpuorder_on() && attn_cpuorder_on())
+                 fprintf(stderr,"[dn-cpuorder] exact Q8 cache active: 90 DeltaNet matrices, LM head, and 40 attention Q/K/V/O matrices on GPU %d\n",device);
+             else if(dn_cpuorder_on() && lmhead_cpuorder_on())
+                 fprintf(stderr,"[dn-cpuorder] exact Q8 cache active: 90 DeltaNet matrices plus LM head on GPU %d\n",device);

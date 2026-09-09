@@ -504,3 +504,23 @@ ID, status, hypothesis, prediction, exact change, source/binary/model/prompt ide
   DP4A kernel variants remain conditional on that evidence.
 - Evidence: [T13 result](../results/T13-qwen-attention-cpuorder-64-dual-p40-125w.md)
   and `research/results/raw/T13-qwen-attention-cpuorder-5741a6dd.*`.
+
+## T14 — exact-Q8 shared-expert 40-layer control
+
+- Date: 2026-09-09.
+- Status: pass for operator viability; full-model integration unexecuted.
+- Exact profile: all 40 Qwen shared MLPs, each with Q8 2048→512 gate and up,
+  CPU SiLU product, and Q8 512→2048 down; CPU AVX2/FMA control vs exact
+  CPU-order CUDA helper; GPU0 only at 125 W; three transfer-inclusive samples.
+- Result: all gate, up, activation, and down output bits matched. CPU median
+  was 10.7883 ms/sweep, GPU 5.57591 ms/sweep, 1.9348x. First upload and sweep
+  was 45.628 ms. The control accounted for 120 matrices / 125,829,120 Q8
+  bytes. It clears the 15% advancement rule.
+- Safety: sub-second work completed between telemetry samples; byte accounting
+  is the cached-residency evidence. GPU0 sampled peak 37 C; GPU1 stayed idle;
+  all fans 2,000–2,100 RPM; empty-card/cooldown/power-restore checks passed.
+- Decision: add shared-expert flag and exact 120-matrix registry in a fourth
+  isolated source copy, then a separately guarded 16-output oracle canary.
+  No W4A8/DP4A or expert-tier change may share that run.
+- Evidence: [T14 result](../results/T14-shared-expert-cpuorder-40x-gpu0-125w.md)
+  and `research/results/raw/T14-shared-expert-cpuorder-63e129e0.*`.

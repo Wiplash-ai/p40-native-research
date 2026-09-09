@@ -1,7 +1,7 @@
 # E009 / T14 — Qwen shared-expert exact-Q8 control
 
-Status: source-only benchmark fixture; CPU-only compile and dry run pass; no
-GPU workload has run.
+Status: pass for the standalone exact-Q8 control; full-model integration has
+not run.
 
 ## Hypothesis
 
@@ -28,15 +28,30 @@ The fixture compiled on the server explicitly for `sm_61` with
 `CUDA_VISIBLE_DEVICES=""`; its dry run emitted the expected schema and
 `cuda_initialized:false`. Compilation did not load a model or initialize CUDA.
 
-## Acceptance and decision rule
+## Guarded result
 
-Run only under a new restricted 125 W GPU0 guard, after T13's recovery plus a
-fresh two-sample cool/idle preflight. Require bit identity, successful BMC
-fan/thermal/allocation/power restoration, and transfer-inclusive GPU median at
-least 15% faster than CPU. If it passes, add a **separate opt-in registry flag
-in a fourth isolated source copy**; do not combine its integration canary with
-MoE W4A8/DP4A, expert-tier, or attention changes.
+The fixed GPU0-only run (`run_id` `63e129e0-a7e6-455a-9218-29c7120c2324`)
+passed its bit-identity, 125 W, fan, allocation-release, cooldown, and power
+restoration gates. It accounted for all 120 Q8 matrices (125,829,120 bytes)
+and 128,368,640 host bytes. All output comparisons were bit-identical:
+zero mismatches and zero numerical error.
 
-If it fails the speed gate, keep the exact CPU shared path and shift to the
-reviewed Pascal W4A8/DP4A standalone expert primitive. That approximate path
-requires its own quality gate and cannot claim byte identity with Qwen.
+CPU samples were 10.7883, 10.7545, and 10.9191 ms per 40-layer sweep; GPU
+transfer-inclusive samples were 5.59371, 5.57591, and 5.52076 ms. The medians
+are 10.7883 and 5.57591 ms, respectively: **1.9348x** CPU/GPU. First
+initialization, upload, and sweep took 45.628 ms. The work completed between
+telemetry polls, so 120-matrix byte accounting is the residency evidence.
+
+Telemetry never exceeded 37 C. Every fan remained 2,000--2,100 RPM; the
+guard released allocations, completed cooldown, and restored the GPU0 cap to
+250 W. GPU1 stayed idle.
+
+## Integration decision
+
+The result clears the 15% speed rule, so add a **separate opt-in registry flag
+in a fourth isolated source copy**. The integration must change only shared
+expert Q8 matvec dispatch, require exactly 120 shared matrices alongside the
+previous 90+1+40 cache, and preserve the 16-output oracle. Do not combine it
+with MoE W4A8/DP4A, expert-tier, or attention changes.
+
+Raw evidence: `research/results/raw/T14-shared-expert-cpuorder-63e129e0.*`.
