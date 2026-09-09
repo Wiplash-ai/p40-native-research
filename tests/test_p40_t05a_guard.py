@@ -128,6 +128,18 @@ assert T14_CLIENT_SPEC and T14_CLIENT_SPEC.loader
 sys.modules[T14_CLIENT_SPEC.name] = t14_client
 T14_CLIENT_SPEC.loader.exec_module(t14_client)
 
+T17_SPEC = importlib.util.spec_from_file_location("p40_t17_w4a8_dp4a_guard", ROOT / "remote/p40-t17-w4a8-dp4a-guard.py")
+t17 = importlib.util.module_from_spec(T17_SPEC)
+assert T17_SPEC and T17_SPEC.loader
+sys.modules[T17_SPEC.name] = t17
+T17_SPEC.loader.exec_module(t17)
+
+T17_CLIENT_SPEC = importlib.util.spec_from_file_location("p40_t17_w4a8_dp4a_client", ROOT / "scripts/p40_t17_w4a8_dp4a_client.py")
+t17_client = importlib.util.module_from_spec(T17_CLIENT_SPEC)
+assert T17_CLIENT_SPEC and T17_CLIENT_SPEC.loader
+sys.modules[T17_CLIENT_SPEC.name] = t17_client
+T17_CLIENT_SPEC.loader.exec_module(t17_client)
+
 
 class T05AGuardTests(unittest.TestCase):
     def test_dry_run_never_initializes_cuda(self):
@@ -230,6 +242,17 @@ class T05AGuardTests(unittest.TestCase):
         identity = Path("/tmp/p40-t14-test-key")
         self.assertEqual(t14_client.ssh_argv("host", identity)[-1], "p40-t14-shared-expert-cpuorder")
         self.assertEqual(t14_client.ssh_argv("host", identity, read_results=True)[-1], "p40-t14-shared-expert-cpuorder-results")
+
+    def test_t17_identity_pins_the_w4a8_dp4a_projection_control(self):
+        self.assertEqual(t17.t05.EXPECTED_ORIGINAL_COMMAND, "p40-t17-w4a8-dp4a")
+        self.assertEqual(t17.t05.PROFILE_ID, "t17-w4a8-dp4a-expert-projection-4x")
+        self.assertEqual(t17.t05.BENCHMARK_SHA256, "6787701b7acd642f88a5128a8111b262ce0ccea3765bf0351ca4ec7076b5fafe")
+        self.assertIn("qwen_w4a8_dp4a_control", str(t17.t05.BENCHMARK))
+        self.assertIn("w4a8-dp4a-expert-proj-4x-2048-512", t17.t05.FIXED_ARGUMENTS)
+        self.assertEqual(t17.t05.FIXED_ARGUMENTS[-6:], ("--repetitions", "3", "--calls-per-sample", "64", "--memory-cap-mib", "32", "--seed", "1")[-6:])
+        identity = Path("/tmp/p40-t17-test-key")
+        self.assertEqual(t17_client.ssh_argv("host", identity)[-1], "p40-t17-w4a8-dp4a")
+        self.assertEqual(t17_client.ssh_argv("host", identity, read_results=True)[-1], "p40-t17-w4a8-dp4a-results")
 
     def test_mocked_run_caps_restores_and_records_output(self):
         class FinishedProcess:

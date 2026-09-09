@@ -549,3 +549,25 @@ ID, status, hypothesis, prediction, exact change, source/binary/model/prompt ide
   comparison completes. No W4A8/DP4A or MoE-tier change may share the run.
 - Evidence: [T15 result](../results/T15-qwen-shared-cpuorder-16-dual-p40-125w.md)
   and `research/results/raw/T15-qwen-shared-cpuorder-8e19ccde.*`.
+
+## T16 — exact-Q8 shared-MLP 64-output comparison
+
+- Date: 2026-09-09.
+- Status: pass.
+- Exact change: `N_NEW` only, from T15's 16 to 64. The T15 binary, model,
+  prompt, two-GPU resident tier, four exact-Q8 caches, 125 W caps, thermal
+  guard, and new 64-output response hash requirement were otherwise fixed.
+- Result: output hash was exactly the accepted T04/T13 64-output oracle; all
+  90+1+40+120 cached matrices were confirmed with no fallback. Engine rate was
+  11.84 tok/s (5.4 s; TTFT 0.89 s), versus T13's 6.07. Decode was 70.81
+  ms/token versus 151.14: DeltaNet 31.36, attention 5.46, MoE 30.63 (shared
+  17.17; router 7.54), LM head 3.35. All 10,240 experts were resident with
+  zero actual CPU misses/swaps.
+- Safety: peaks were 45 C / 45 C and 8,801 / 7,895 MiB; all fans 2,000–2,100
+  RPM; allocations released; cooldown reached 38 C / 40 C; both caps restored
+  to 250 W.
+- Decision: retain the exact shared path. MoE is now the main named phase at
+  30.63 ms/token. Build a standalone W4A8/DP4A projection control with exact
+  integer checks and measured quantization error before any engine integration.
+- Evidence: [T16 result](../results/T16-qwen-shared-cpuorder-64-dual-p40-125w.md)
+  and `research/results/raw/T16-qwen-shared-cpuorder-6047e0b6.*`.

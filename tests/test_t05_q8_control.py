@@ -136,6 +136,21 @@ class T05Q8ControlSourceTests(unittest.TestCase):
         self.assertIn('120 shared MLP matrices', patch)
         self.assertNotIn('coli_cuda_expert_', patch)
 
+    def test_w4a8_dp4a_control_keeps_packed_w4_and_the_real_expert_projection_shape(self):
+        control = (ROOT / "benchmarks" / "qwen_w4a8_dp4a_control.cu").read_text()
+        self.assertIn('constexpr int kExperts = 4;', control)
+        self.assertIn('constexpr int kInput = 2048;', control)
+        self.assertIn('constexpr int kOutput = 512;', control)
+        self.assertIn('constexpr int kTile = 8;', control)
+        self.assertIn('__dp4a', control)
+        self.assertIn('quantize_rows_i8', control)
+        self.assertIn('w4a32_rows', control)
+        self.assertIn('gpu_integer != cpu_integer', control)
+        self.assertIn('relative_l2 > 0.02', control)
+        self.assertIn('options.calls_per_sample != 64', control)
+        self.assertIn('"cuda_initialized\\":false', control)
+        self.assertIn('qwen_w4a8_dp4a_control:', MAKEFILE)
+
 
 if __name__ == "__main__":
     unittest.main()

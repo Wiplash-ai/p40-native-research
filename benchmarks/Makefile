@@ -7,7 +7,7 @@ CUDA_LIBDIR ?= /usr/lib64
 
 .PHONY: all clean
 
-all: p40_bench qwen_dn_q8_control qwen_dn_triplet_control qwen_dn_sweep_control qwen_dn_out_cpuorder_control qwen_lmhead_cpuorder_control qwen_attention_cpuorder_control qwen_shared_expert_cpuorder_control
+all: p40_bench qwen_dn_q8_control qwen_dn_triplet_control qwen_dn_sweep_control qwen_dn_out_cpuorder_control qwen_lmhead_cpuorder_control qwen_attention_cpuorder_control qwen_shared_expert_cpuorder_control qwen_w4a8_dp4a_control
 
 p40_bench: p40_bench.cu
 	$(NVCC) $(CXXFLAGS) -arch=$(CUDA_ARCH) $< -o $@
@@ -54,9 +54,12 @@ qwen_shared_expert_cpuorder_control: qwen_shared_expert_cpuorder_control.cpp qwe
 	$(CXX) -std=c++17 -O3 -mavx2 -mfma -fopenmp -Wall -Wextra -Werror \
 		$< qwen_cpuorder_cuda.o -o $@ -L$(CUDA_LIBDIR) -Wl,-rpath,$(CUDA_LIBDIR) -lcudart -ldl -lpthread -lm
 
+qwen_w4a8_dp4a_control: qwen_w4a8_dp4a_control.cu
+	$(NVCC) $(CXXFLAGS) -arch=$(CUDA_ARCH) $< -o $@
+
 qwen_dn_sweep_cpuorder_control: qwen_dn_sweep_control.cu qwen_cpuorder_cuda.h qwen_cpuorder_cuda.o
 	$(CXX) -x c++ -DCPUORDER -std=c++17 -O3 -mavx2 -mfma -fopenmp -Wall -Wextra -Werror \
 		$< -x none qwen_cpuorder_cuda.o -o $@ -L$(CUDA_LIBDIR) -Wl,-rpath,$(CUDA_LIBDIR) -lcudart -ldl -lpthread -lm
 
 clean:
-	rm -f p40_bench qwen_dn_q8_control qwen_dn_triplet_control qwen_dn_sweep_control qwen_cpuorder_cuda.o qwen_dn_out_cpuorder_control qwen_lmhead_cpuorder_control qwen_attention_cpuorder_control qwen_shared_expert_cpuorder_control qwen_dn_sweep_cpuorder_control
+	rm -f p40_bench qwen_dn_q8_control qwen_dn_triplet_control qwen_dn_sweep_control qwen_cpuorder_cuda.o qwen_dn_out_cpuorder_control qwen_lmhead_cpuorder_control qwen_attention_cpuorder_control qwen_shared_expert_cpuorder_control qwen_dn_sweep_cpuorder_control qwen_w4a8_dp4a_control
