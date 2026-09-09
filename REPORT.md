@@ -2,6 +2,15 @@
 
 Date: 2026-09-09. Research baseline: repository `8e447340c7d88a6f5cc35b3986e6e9a634bc9801`, retained T24 experimental engine, pinned Qwen3.6 checkpoint. This report proposes experiments; it does not implement or execute them. All proposed P40 speed and quality outcomes are **`not_measured`**. Equations and cost scenarios are analytical, not benchmark results. No novelty is claimed.
 
+> Repository reconciliation, later on 2026-09-09: the report was authored
+> against its stated baseline. Later T28–T30 groupwise/top-K real-Qwen shadows
+> completed and rejected the generic residual-capacity direction. T31 then
+> attributed the remaining tail to gate/up input quantization (45/2,397 groups
+> above 5%), while isolated post-SiLU down quantization had 0/2,397 failures.
+> Accordingly, R1 should begin with gate/up input capture/replay and an
+> influence-aware selector, rather than treating T28 as pending. See
+> `research/results/T31-real-qwen-w4a8-stage-attribution-shadow.md`.
+
 **Recommendation:** investigate a cheap bulk computation plus a small, explicitly measured correction. The most useful question is no longer “Can Pascal multiply these weights faster?” It is “Which parts of this particular token's computation actually require the full representation?” Start with sparse activation-error correction and low-rank error-response correction. In parallel as research, test whether co-selected experts share reusable computations and whether successive tokens have cheap innovations. Speculative verification is the strongest distinct route to doubling whole-model throughput, but its verifier should be falsified before building a draft.
 
 ## The assumptions worth challenging first
@@ -22,7 +31,7 @@ Routed experts alone have less headroom. CPU/GPU intervals overlap, so subtracti
 
 **“94% kernel time” does not mean compute-bound.** T22's device events are mostly kernels, but kernels can be limited by weight reads, reductions, occupancy or instructions. Their sums also span both devices and prefill. DP4A does not shrink the existing W4 weight payload. T20's synthetic 1.694× result is evidence for that control, not the production-shaped implementation's attainable speed. [T22](research/results/T22-exact-qwen-async-expert-profile.md), [T20](research/results/T20-w4a8-dp4a-full-routed-mlp-gpu0-125w.md)
 
-**T21 diagnosed a failed formulation, not the cause of failure.** Its 2,397 records aggregate `rows × width` within device groups. They are not 2,397 independently evaluated experts. The 36.37% maximum relative L2 error and 288 groups above 5% reject the tested formulation, but do not reveal input-quantization error versus post-SwiGLU error, sensitive experts, cancellation, or subsequent logit impact. The exact stdout passed because the original W4A32 path supplied the returned values. T28's groupwise scaling remains unmeasured in the checked-in evidence. [T21](research/results/T21-real-qwen-expert-w4a8-shadow.md), [shadow implementation](patches/0004-qwen36-w4a8-dp4a-shadow.patch), [T28 design](research/experiments/021-real-qwen-groupwise-w4a8-shadow.md)
+**T21 diagnosed a failed formulation, not the cause of failure.** Its 2,397 records aggregate `rows × width` within device groups. They are not 2,397 independently evaluated experts. The 36.37% maximum relative L2 error and 288 groups above 5% reject the tested formulation, but do not reveal input-quantization error versus post-SwiGLU error, sensitive experts, cancellation, or subsequent logit impact. The exact stdout passed because the original W4A32 path supplied the returned values. At this report's baseline, T28's groupwise scaling was unmeasured; later T28–T31 evidence is reconciled above. [T21](research/results/T21-real-qwen-expert-w4a8-shadow.md), [shadow implementation](patches/0004-qwen36-w4a8-dp4a-shadow.patch), [T28 design](research/experiments/021-real-qwen-groupwise-w4a8-shadow.md)
 
 **CPU bit identity is a valuable control, not a complete definition of useful numerical accuracy.** Keep that control and every existing gate. In separately declared approximation experiments, assess the error's effect on logits, routing, recurrent state and language loss. Neither a changed reduction tree nor low local L2 alone proves a candidate acceptable. T06 already demonstrated that correct text can coexist with severe CUDA failures and CPU fallback. [T06 history](research/experiments/004-qwen-deltanet-exact-integration.md)
 
@@ -286,7 +295,11 @@ For any later separately scoped approximate model replay, teacher-force identica
 
 **Stay within the existing execution contract.** This report authorizes no hardware dispatch. Preserve production and use isolated pinned sources. Before future workload tasks, reconcile the checked-in remote runners with the documented independent watchdog, host-wide lock, stale/slope checks and cleanup requirements, then satisfy current thermal gates. Begin with bounded canaries and matched power caps. No giant downloads, global runtime changes, or automatic task advancement follow from this research.
 
-The current execution task remains **T28**. Finish its already specified decision without mixing new algorithms into the comparison. A subsequent explicitly identified capture/replay task can falsify R1 and supply data for R2–R4. R5 starts with CPU state fixtures and a cost ceiling, not a draft deployment.
+At the report baseline, the current execution task was **T28**. Its comparison
+and T31 attribution have since completed; the next explicitly identified task
+is a bounded input-side capture/replay that can falsify R1 and supply data for
+R2–R4. R5 still starts with CPU state fixtures and a cost ceiling, not a draft
+deployment.
 
 ## Research and verification record
 

@@ -55,3 +55,9 @@ the 48 failing groupwise records to 47, so top-8 sparse correction is rejected.
 `T30-real-qwen-groupwise-w4a8-outlier32-shadow.md` records the one-variable top-32
 control. It improves the distribution but still has 46 failing records; do not
 continue increasing K without stage attribution.
+
+`T31-real-qwen-w4a8-stage-attribution-shadow.md` completes that attribution.
+It shows that 45 of the remaining 46-tail-scale failures originate before the
+gate/up projections; the isolated hidden/down approximation has zero records
+above the 5% gate. The next approximation study must focus on gate/up input
+residual selection or representation, not another down-side or top-K variant.

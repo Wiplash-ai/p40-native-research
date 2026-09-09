@@ -865,7 +865,7 @@ ID, status, hypothesis, prediction, exact change, source/binary/model/prompt ide
   gate/up versus exact gate/up before approximate down.
 - Evidence: [T30 result](../results/T30-real-qwen-groupwise-w4a8-outlier32-shadow.md)
   and `research/results/raw/T30-qwen-groupwise-outlier32-shadow-4f339e4d-dcd5-4c52-b3c7-407c1197d72d.*`.
-=======
+---
 ## Repository comprehension and local verification — 2026-09-09
 
 - Scope: user-requested reading of repository state at `8e44734`; no numbered
@@ -922,3 +922,30 @@ ID, status, hypothesis, prediction, exact change, source/binary/model/prompt ide
 - Next task ID: T28 remains pending. Complete its existing comparison and
   reconcile runner prerequisites before a separately identified bounded
   capture/replay task; this report does not advance that workload.
+
+## T31 — real Qwen W4A8 stage-attribution shadow
+
+- Date: 2026-09-09.
+- Status: complete; input-side gate/up approximation is responsible for the
+  remaining high-error tail; production unchanged.
+- Exact change: an isolated hash-pinned T31 binary enabled
+  `COLI_CUDA_W4A8_DP4A=groupwise-stage-shadow`. It shadowed (a) groupwise-Q8
+  top-32 gate/up followed by exact W4/FP32 down and (b) exact W4/FP32 gate/up
+  followed by groupwise-Q8 top-32 down. Both paths were queued before the
+  existing exact return path and returned no approximate model values.
+- Result: both streams reported 2,397 finite records and the fixed 16-token
+  exact stdout SHA-256 matched. Gate/up input had 1.62% median, 2.50% p95,
+  7.31% p99, 12.42% max relative L2 and 45 records above 5%. Hidden/down had
+  1.37% median, 2.05% p95, 2.42% p99, 2.87% max and zero records above 5%.
+  Thus every T31 tail failure belongs to the input-side stream.
+- Safety: after two independent idle preflights more than 60 seconds apart,
+  the locked 125 W/card canary peaked at 46 C / 47 C and 7,895 MiB/card. Fans
+  stayed at 2,000–2,100 RPM; allocation release, five-minute cooldown, and
+  restoration to 250 W/card passed.
+- Decision: reject further generic top-K capacity or down-side correction.
+  Next specify a bounded real-Qwen gate/up residual capture/replay that compares
+  magnitude and influence-aware selectors on calibration/holdout data. Do not
+  infer approximate-model language quality or speed from this exact-output
+  shadow result.
+- Evidence: [T31 result](../results/T31-real-qwen-w4a8-stage-attribution-shadow.md)
+  and `research/results/raw/T31-qwen-stage-attribution-c60e6556-80c0-43ea-abd3-0cd975c336ab.*`.
