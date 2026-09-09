@@ -16,3 +16,7 @@ user measurements are separately labeled in `../hardware.md` and
 `T05G-dn-full-sweep-cpuorder.md` is an exact, transfer-inclusive synthetic
 Q8 DeltaNet-projection sweep. It clears its projection-phase performance and
 numerical gates; it is not an end-to-end Qwen result.
+
+`T21-real-qwen-expert-w4a8-shadow.md` records the first real Qwen expert
+quality test. It rejects the plain per-row W4A8/DP4A formulation for
+approximate execution; the exact production path was not changed.

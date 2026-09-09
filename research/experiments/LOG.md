@@ -650,3 +650,28 @@ ID, status, hypothesis, prediction, exact change, source/binary/model/prompt ide
   evaluation rather than an impossible exact-output oracle.
 - Evidence: [T20 result](../results/T20-w4a8-dp4a-full-routed-mlp-gpu0-125w.md)
   and `research/results/raw/T20-w4a8-dp4a-mlp-402ac3b2-3d58-40ae-ad2b-6b8750e3e3d2.*`.
+
+## T21 — real Qwen routed-expert W4A8 shadow-quality canary
+
+- Date: 2026-09-09.
+- Status: rejected for approximate Qwen expert execution; production unchanged.
+- Exact change: an isolated default-off `COLI_CUDA_W4A8_DP4A=shadow` branch
+  quantized real routed expert rows to Q8 and ran packed-W4 DP4A gate/up,
+  SiLU, Q8 hidden, and DP4A down. It then ran and returned the existing exact
+  W4/FP32 CUDA path, so no shadow output could alter model text.
+- Result: all 2,397 measured groups were finite and the 16-token stdout hash
+  exactly matched the accepted oracle. Relative L2 was 3.63% median, 5.69%
+  p95, 20.66% p99, and 36.37% maximum; 288 groups exceeded the predeclared 5%
+  gate. The candidate is rejected even though synthetic T20 passed.
+- Safety: peaks were 42 C / 44 C and 7,895 MiB/card at 125 W; all fans held
+  2,000–2,100 RPM, allocations released, cooldown passed, and both 250 W caps
+  were restored.
+- Instrumentation note: this first run emitted literal `\\n` sequences, so the
+  strict guard could not parse the records and failed closed. Offline parsing
+  of immutable raw stderr recovered the metrics; the line-terminator defect
+  was corrected afterward. A repeat would not change the numerical decision.
+- Decision: do not build an approximate-output canary or integrate this
+  per-row W4A8 formulation. Next, return to exact full-path profiling and
+  investigate lower-error alternatives only as isolated controls.
+- Evidence: [T21 result](../results/T21-real-qwen-expert-w4a8-shadow.md) and
+  `research/results/raw/T21-shadow-parser-failure-5496c4e2-0d51-4b06-b064-b992d4b592c2.*`.

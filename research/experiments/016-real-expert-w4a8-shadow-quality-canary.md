@@ -1,6 +1,6 @@
 # E016 / T21 — real Qwen expert W4A8 shadow-quality canary
 
-Status: isolated implementation and static checks complete; no model load or GPU run yet.
+Status: rejected for approximate Qwen expert execution; exact-output shadow run completed.
 
 ## Source-grounded target
 
@@ -44,3 +44,19 @@ If every reported real-expert group stays below 5% relative L2, shadow mode
 remains exact-output stable, and no thermal/cleanup condition fails, build a
 separate approximate-output canary. Otherwise reject the W4A8 engine path and
 keep the current exact 11.84 tok/s build.
+
+## Result
+
+T21 collected 2,397 real routed-expert outputs from the fixed 16-token Qwen
+canary. The returned exact path preserved the established stdout SHA-256, and
+all shadow outputs were finite. However, 288 groups exceeded the 5% relative
+L2 gate (median 3.63%, p95 5.69%, maximum 36.37%). The plain per-row Q8
+activation scheme is therefore rejected for approximate Qwen MoE execution.
+
+The guard initially marked the run failed because the source wrote a literal
+`\\n` rather than a line terminator; raw stderr was parsed offline to recover
+the metrics. That observability defect has been corrected, but there is no
+reason to repeat the same heat-producing run: the numerical rejection is
+already unambiguous. Top-k/logit agreement and DP4A kernel/transfer timing were
+not measured because this candidate failed before approximate output can be
+considered.
