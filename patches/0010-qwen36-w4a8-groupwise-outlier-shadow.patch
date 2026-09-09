@@ -1,0 +1,135 @@
+--- a/c/backend_cuda.cu
++++ b/c/backend_cuda.cu
+@@ -82,9 +82,11 @@
+     int compute_major,compute_minor;
+     float *x, *y, *gate, *up;
+     size_t x_cap, y_cap, gate_cap, up_cap;
+-    float *dp8_y,*host_dp8_y,*dp8_scale;
++    float *dp8_y,*host_dp8_y,*dp8_scale,*dp8_outlier_residual;
+     int8_t *dp8_q;
+-    size_t dp8_y_cap,host_dp8_y_cap,dp8_scale_cap,dp8_q_cap;
++    int *dp8_outlier_index;
++    size_t dp8_y_cap,host_dp8_y_cap,dp8_scale_cap,dp8_q_cap,
++           dp8_outlier_residual_cap,dp8_outlier_index_cap;
+     uint8_t *qx; float *qscale;
+     size_t qx_cap, qscale_cap;
+     float *host_x,*host_y,*host_kv; size_t host_x_cap,host_y_cap,host_kv_cap;
+@@ -861,6 +863,7 @@
+  * fixed and divisible by the DP4A pack width; the group scale layout is
+  * [row][ceil(width/256)]. */
+ #define DP8_GROUPWISE_WIDTH 256
++#define DP8_OUTLIER_TOPK 8
+ __global__ static void dp8_quant_rows_groupwise(int8_t *q,float *sc,const float *x,
+                                                  int rows,int width){
+     int r=blockIdx.x,g=blockIdx.y;if(r>=rows)return;
+@@ -873,6 +876,29 @@
+     float inv=1.f/sc[(size_t)r*((width+DP8_GROUPWISE_WIDTH-1)/DP8_GROUPWISE_WIDTH)+g];int8_t *dst=q+(size_t)r*width;
+     for(int i=begin+threadIdx.x;i<end;i+=blockDim.x){int v=__float2int_rn(src[i]*inv);dst[i]=(int8_t)max(-127,min(127,v));}
+ }
++/* The shadow-only residual control deliberately selects just eight largest
++ * post-quantization residuals per row. This single-thread selector is not a
++ * production implementation: it is the smallest deterministic quality test
++ * for whether sparse FP32 corrections can eliminate T28's remaining tail. */
++__global__ static void dp8_select_groupwise_outliers(const float *x,const int8_t *q,
++        const float *sc,int *index,float *residual,int rows,int width){
++    int r=blockIdx.x;if(r>=rows||threadIdx.x)return;
++    float best_abs[DP8_OUTLIER_TOPK],best_residual[DP8_OUTLIER_TOPK];
++    int best_index[DP8_OUTLIER_TOPK];
++    for(int k=0;k<DP8_OUTLIER_TOPK;k++){best_abs[k]=-1.f;best_residual[k]=0.f;best_index[k]=0;}
++    int ng=(width+DP8_GROUPWISE_WIDTH-1)/DP8_GROUPWISE_WIDTH;
++    const float *src=x+(size_t)r*width;const int8_t *quant=q+(size_t)r*width;
++    for(int i=0;i<width;i++){
++        float e=src[i]-(float)quant[i]*sc[(size_t)r*ng+i/DP8_GROUPWISE_WIDTH];
++        float a=fabsf(e);int pos=DP8_OUTLIER_TOPK;
++        for(int k=0;k<DP8_OUTLIER_TOPK;k++)if(a>best_abs[k]||(a==best_abs[k]&&i<best_index[k])){pos=k;break;}
++        if(pos<DP8_OUTLIER_TOPK){for(int k=DP8_OUTLIER_TOPK-1;k>pos;k--){best_abs[k]=best_abs[k-1];best_residual[k]=best_residual[k-1];best_index[k]=best_index[k-1];}best_abs[pos]=a;best_residual[pos]=e;best_index[pos]=i;}
++    }
++    for(int k=0;k<DP8_OUTLIER_TOPK;k++){index[(size_t)r*DP8_OUTLIER_TOPK+k]=best_index[k];residual[(size_t)r*DP8_OUTLIER_TOPK+k]=best_residual[k];}
++}
++__device__ static __forceinline__ float dp8_s4_at(const uint8_t *row,int index){
++    int v=(row[index>>1]>>((index&1)<<2))&15;return (float)(v&8?v-16:v);
++}
+ __global__ static void grouped_hidden_w4a8_shadow(float *gate,const int8_t *q,const float *sc,
+         const GroupDesc *desc,int I,int D){
+     int c=blockIdx.z,s=blockIdx.y,warp=threadIdx.x>>5,lane=threadIdx.x&31,o=blockIdx.x*8+warp;
+@@ -921,6 +947,36 @@
+     }
+     if(!lane)y[(size_t)r*D+o]=yv;
+ }
++__global__ static void grouped_hidden_w4a8_groupwise_outlier_shadow(float *gate,const int8_t *q,
++        const float *sc,const int *outlier_index,const float *outlier_residual,
++        const GroupDesc *desc,int I,int D){
++    int c=blockIdx.z,s=blockIdx.y,warp=threadIdx.x>>5,lane=threadIdx.x&31,o=blockIdx.x*8+warp;
++    GroupDesc d=desc[c];if(s>=d.rows||o>=I)return;int r=d.offset+s;
++    const uint8_t *gr=(const uint8_t*)d.g+(size_t)o*((D+1)/2),*ur=(const uint8_t*)d.u+(size_t)o*((D+1)/2);
++    const int8_t *x=q+(size_t)r*D;int ng=(D+DP8_GROUPWISE_WIDTH-1)/DP8_GROUPWISE_WIDTH;float g=0,u=0;
++    for(int group=0;group<ng;group++){
++        int ga=0,ua=0,begin=group*DP8_GROUPWISE_WIDTH,end=min(D,begin+DP8_GROUPWISE_WIDTH);
++        for(int i=begin+lane*4;i+3<end;i+=128){uint16_t gp=(uint16_t)gr[i/2]|((uint16_t)gr[i/2+1]<<8);uint16_t up=(uint16_t)ur[i/2]|((uint16_t)ur[i/2+1]<<8);int xv=*reinterpret_cast<const int*>(x+i);ga=__dp4a(xv,dp8_w4x4(gp),ga);ua=__dp4a(xv,dp8_w4x4(up),ua);}
++        for(int n=16;n;n>>=1){ga+=__shfl_down_sync(0xffffffff,ga,n);ua+=__shfl_down_sync(0xffffffff,ua,n);}
++        if(!lane){float a=sc[(size_t)r*ng+group];g+=(float)ga*a*d.gs[o];u+=(float)ua*a*d.us[o];}
++    }
++    if(!lane){for(int k=0;k<DP8_OUTLIER_TOPK;k++){int i=outlier_index[(size_t)r*DP8_OUTLIER_TOPK+k];float e=outlier_residual[(size_t)r*DP8_OUTLIER_TOPK+k];g+=e*dp8_s4_at(gr,i)*d.gs[o];u+=e*dp8_s4_at(ur,i)*d.us[o];}gate[(size_t)r*I+o]=(g/(1.f+expf(-g)))*u;}
++}
++__global__ static void grouped_down_w4a8_groupwise_outlier_shadow(float *y,const int8_t *q,
++        const float *sc,const int *outlier_index,const float *outlier_residual,
++        const GroupDesc *desc,int D,int I){
++    int c=blockIdx.z,s=blockIdx.y,warp=threadIdx.x>>5,lane=threadIdx.x&31,o=blockIdx.x*8+warp;
++    GroupDesc d=desc[c];if(s>=d.rows||o>=D)return;int r=d.offset+s;
++    const uint8_t *w=(const uint8_t*)d.d+(size_t)o*((I+1)/2);const int8_t *x=q+(size_t)r*I;
++    int ng=(I+DP8_GROUPWISE_WIDTH-1)/DP8_GROUPWISE_WIDTH;float yv=0;
++    for(int group=0;group<ng;group++){
++        int a=0,begin=group*DP8_GROUPWISE_WIDTH,end=min(I,begin+DP8_GROUPWISE_WIDTH);
++        for(int i=begin+lane*4;i+3<end;i+=128){uint16_t p=(uint16_t)w[i/2]|((uint16_t)w[i/2+1]<<8);a=__dp4a(*reinterpret_cast<const int*>(x+i),dp8_w4x4(p),a);}
++        for(int n=16;n;n>>=1)a+=__shfl_down_sync(0xffffffff,a,n);
++        if(!lane)yv+=(float)a*sc[(size_t)r*ng+group]*d.ds[o];
++    }
++    if(!lane){for(int k=0;k<DP8_OUTLIER_TOPK;k++){int i=outlier_index[(size_t)r*DP8_OUTLIER_TOPK+k];yv+=outlier_residual[(size_t)r*DP8_OUTLIER_TOPK+k]*dp8_s4_at(w,i)*d.ds[o];}y[(size_t)r*D+o]=yv;}
++}
+ static int dp8_shadow_launch(DeviceContext *ctx,GroupDesc *dev,int total,int D,int I,int max_rows,int count){
+     size_t xb=(size_t)total*D*sizeof(float),qb=(size_t)total*(D>I?D:I);
+     if(!reserve(&ctx->dp8_y,&ctx->dp8_y_cap,xb)||!reserve_bytes((void**)&ctx->dp8_q,&ctx->dp8_q_cap,qb)||!reserve(&ctx->dp8_scale,&ctx->dp8_scale_cap,(size_t)total*sizeof(float))||!reserve_pinned(&ctx->host_dp8_y,&ctx->host_dp8_y_cap,xb))return 0;
+@@ -942,6 +998,20 @@
+     if(!cuda_ok(cudaGetLastError(),"W4A8 groupwise shadow launch")||!cuda_ok(cudaMemcpyAsync(ctx->host_dp8_y,ctx->dp8_y,xb,cudaMemcpyDeviceToHost,ctx->stream),"W4A8 groupwise shadow download"))return 0;
+     ctx->dp8_shadow_pending=1;ctx->dp8_shadow_rows=total;ctx->dp8_shadow_width=D;return 1;
+ }
++static int dp8_groupwise_outlier_shadow_launch(DeviceContext *ctx,GroupDesc *dev,int total,int D,int I,int max_rows,int count){
++    size_t xb=(size_t)total*D*sizeof(float),qb=(size_t)total*(D>I?D:I);
++    size_t sb=(size_t)total*((D+DP8_GROUPWISE_WIDTH-1)/DP8_GROUPWISE_WIDTH)*sizeof(float);
++    size_t ob=(size_t)total*DP8_OUTLIER_TOPK;
++    if(!reserve(&ctx->dp8_y,&ctx->dp8_y_cap,xb)||!reserve_bytes((void**)&ctx->dp8_q,&ctx->dp8_q_cap,qb)||!reserve(&ctx->dp8_scale,&ctx->dp8_scale_cap,sb)||!reserve_bytes((void**)&ctx->dp8_outlier_index,&ctx->dp8_outlier_index_cap,ob*sizeof(int))||!reserve(&ctx->dp8_outlier_residual,&ctx->dp8_outlier_residual_cap,ob*sizeof(float))||!reserve_pinned(&ctx->host_dp8_y,&ctx->host_dp8_y_cap,xb))return 0;
++    dp8_quant_rows_groupwise<<<dim3((unsigned)total,(unsigned)((D+DP8_GROUPWISE_WIDTH-1)/DP8_GROUPWISE_WIDTH)),256,0,ctx->stream>>>(ctx->dp8_q,ctx->dp8_scale,ctx->x,total,D);
++    dp8_select_groupwise_outliers<<<total,1,0,ctx->stream>>>(ctx->x,ctx->dp8_q,ctx->dp8_scale,ctx->dp8_outlier_index,ctx->dp8_outlier_residual,total,D);
++    grouped_hidden_w4a8_groupwise_outlier_shadow<<<dim3((I+7)/8,max_rows,count),256,0,ctx->stream>>>(ctx->gate,ctx->dp8_q,ctx->dp8_scale,ctx->dp8_outlier_index,ctx->dp8_outlier_residual,dev,I,D);
++    dp8_quant_rows_groupwise<<<dim3((unsigned)total,(unsigned)((I+DP8_GROUPWISE_WIDTH-1)/DP8_GROUPWISE_WIDTH)),256,0,ctx->stream>>>(ctx->dp8_q,ctx->dp8_scale,ctx->gate,total,I);
++    dp8_select_groupwise_outliers<<<total,1,0,ctx->stream>>>(ctx->gate,ctx->dp8_q,ctx->dp8_scale,ctx->dp8_outlier_index,ctx->dp8_outlier_residual,total,I);
++    grouped_down_w4a8_groupwise_outlier_shadow<<<dim3((D+7)/8,max_rows,count),256,0,ctx->stream>>>(ctx->dp8_y,ctx->dp8_q,ctx->dp8_scale,ctx->dp8_outlier_index,ctx->dp8_outlier_residual,dev,D,I);
++    if(!cuda_ok(cudaGetLastError(),"W4A8 groupwise outlier shadow launch")||!cuda_ok(cudaMemcpyAsync(ctx->host_dp8_y,ctx->dp8_y,xb,cudaMemcpyDeviceToHost,ctx->stream),"W4A8 groupwise outlier shadow download"))return 0;
++    ctx->dp8_shadow_pending=1;ctx->dp8_shadow_rows=total;ctx->dp8_shadow_width=D;return 1;
++}
+ 
+ __global__ static void grouped_down_w4(float *y,const float *x,const GroupDesc *desc,int D,int I){
+     int o=blockIdx.x,s=blockIdx.y,c=blockIdx.z;GroupDesc d=desc[c];if(s>=d.rows)return;
+@@ -2230,6 +2300,13 @@
+          * sync dispatch, silu fused in the dual epilogue. */
+         f8_group_launch(ctx,(GroupDesc*)ctx->group_desc,I,D,max_rows,count);
+     }else if(all_s4&&ctx->compute_major==6&&ctx->compute_minor>=1&&getenv("COLI_CUDA_W4A8_DP4A")&&
++             !strcmp(getenv("COLI_CUDA_W4A8_DP4A"),"groupwise-outlier-shadow")){
++        GroupDesc *dev=(GroupDesc*)ctx->group_desc;
++        if(!dp8_groupwise_outlier_shadow_launch(ctx,dev,total,D,I,max_rows,count))return 0;
++        dim3 hg((unsigned)I,(unsigned)max_rows,(unsigned)count),og((unsigned)D,(unsigned)max_rows,(unsigned)count);
++        grouped_hidden_w4_dual<<<hg,256,0,ctx->stream>>>(ctx->gate,ctx->up,ctx->x,dev,I,D);
++        grouped_down_w4<<<og,256,0,ctx->stream>>>(ctx->y,ctx->gate,dev,D,I);
++    }else if(all_s4&&ctx->compute_major==6&&ctx->compute_minor>=1&&getenv("COLI_CUDA_W4A8_DP4A")&&
+              !strcmp(getenv("COLI_CUDA_W4A8_DP4A"),"groupwise-shadow")){
+         GroupDesc *dev=(GroupDesc*)ctx->group_desc;
+         if(!dp8_groupwise_shadow_launch(ctx,dev,total,D,I,max_rows,count))return 0;
+@@ -2310,7 +2387,7 @@
+     if(ctx->dp8_shadow_pending){
+         double se=0,sr=0,dot=0,sa=0,sb=0,ma=0;int finite=1;size_t n=(size_t)ctx->dp8_shadow_rows*ctx->dp8_shadow_width;
+         for(size_t i=0;i<n;i++){double a=ctx->host_dp8_y[i],b=ctx->host_y[i],d=a-b;if(!std::isfinite(a)||!std::isfinite(b))finite=0;se+=d*d;sr+=b*b;dot+=a*b;sa+=a*a;sb+=b*b;if(fabs(d)>ma)ma=fabs(d);}
+-        const char *dp8_mode=getenv("COLI_CUDA_W4A8_DP4A");const char *tag=dp8_mode&&!strcmp(dp8_mode,"groupwise-shadow")?"w4a8-groupwise-shadow":"w4a8-shadow";
++        const char *dp8_mode=getenv("COLI_CUDA_W4A8_DP4A");const char *tag=dp8_mode&&!strcmp(dp8_mode,"groupwise-outlier-shadow")?"w4a8-groupwise-outlier-shadow":(dp8_mode&&!strcmp(dp8_mode,"groupwise-shadow")?"w4a8-groupwise-shadow":"w4a8-shadow");
+         std::fprintf(stderr,"[%s] rows=%d width=%d rel_l2=%.8g max_abs=%.8g cosine=%.8g finite=%d\n",tag,ctx->dp8_shadow_rows,ctx->dp8_shadow_width,sqrt(se/(sr>1e-30?sr:1e-30)),ma,dot/(sqrt(sa*sb)>1e-30?sqrt(sa*sb):1e-30),finite);ctx->dp8_shadow_pending=0;
+     }
+     return ctx->host_y;
