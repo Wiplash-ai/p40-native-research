@@ -104,6 +104,18 @@ assert T08_CLIENT_SPEC and T08_CLIENT_SPEC.loader
 sys.modules[T08_CLIENT_SPEC.name] = t08_client
 T08_CLIENT_SPEC.loader.exec_module(t08_client)
 
+T11_SPEC = importlib.util.spec_from_file_location("p40_t11_attention_guard", ROOT / "remote/p40-t11-attention-cpuorder-guard.py")
+t11 = importlib.util.module_from_spec(T11_SPEC)
+assert T11_SPEC and T11_SPEC.loader
+sys.modules[T11_SPEC.name] = t11
+T11_SPEC.loader.exec_module(t11)
+
+T11_CLIENT_SPEC = importlib.util.spec_from_file_location("p40_t11_attention_client", ROOT / "scripts/p40_t11_attention_cpuorder_client.py")
+t11_client = importlib.util.module_from_spec(T11_CLIENT_SPEC)
+assert T11_CLIENT_SPEC and T11_CLIENT_SPEC.loader
+sys.modules[T11_CLIENT_SPEC.name] = t11_client
+T11_CLIENT_SPEC.loader.exec_module(t11_client)
+
 
 class T05AGuardTests(unittest.TestCase):
     def test_dry_run_never_initializes_cuda(self):
@@ -184,6 +196,17 @@ class T05AGuardTests(unittest.TestCase):
         identity = Path("/tmp/p40-t08-test-key")
         self.assertEqual(t08_client.ssh_argv("host", identity)[-1], "p40-t08-lmhead-cpuorder")
         self.assertEqual(t08_client.ssh_argv("host", identity, read_results=True)[-1], "p40-t08-lmhead-cpuorder-results")
+
+    def test_t11_identity_pins_the_ten_layer_attention_projection_sweep(self):
+        self.assertEqual(t11.t05.EXPECTED_ORIGINAL_COMMAND, "p40-t11-attention-cpuorder")
+        self.assertEqual(t11.t05.PROFILE_ID, "t11-attention-projections-cpuorder-10x")
+        self.assertEqual(t11.t05.BENCHMARK_SHA256, "b7d74121b78bf7a7003c83eea88dcacf68754e5de27f122b470e4e83f9427ca9")
+        self.assertIn("qwen_attention_cpuorder_control", str(t11.t05.BENCHMARK))
+        self.assertIn("attention-projections-cpuorder-10x-2048-8192-512-4096-2048", t11.t05.FIXED_ARGUMENTS)
+        self.assertEqual(t11.t05.FIXED_ARGUMENTS[-6:], ("--repetitions", "3", "--calls-per-sample", "1", "--memory-cap-mib", "288", "--seed", "1")[-6:])
+        identity = Path("/tmp/p40-t11-test-key")
+        self.assertEqual(t11_client.ssh_argv("host", identity)[-1], "p40-t11-attention-cpuorder")
+        self.assertEqual(t11_client.ssh_argv("host", identity, read_results=True)[-1], "p40-t11-attention-cpuorder-results")
 
     def test_mocked_run_caps_restores_and_records_output(self):
         class FinishedProcess:

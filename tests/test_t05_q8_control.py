@@ -83,6 +83,33 @@ class T05Q8ControlSourceTests(unittest.TestCase):
         self.assertIn('options.memory_cap_mib < 512 || options.memory_cap_mib > 544', control)
         self.assertIn('qwen_lmhead_cpuorder_control:', MAKEFILE)
 
+    def test_attention_projection_control_covers_all_ten_full_attention_layers(self):
+        control = (ROOT / "benchmarks" / "qwen_attention_cpuorder_control.cpp").read_text()
+        self.assertIn('constexpr int kLayers = 10;', control)
+        self.assertIn('constexpr int kQueryOutput = 8192;', control)
+        self.assertIn('constexpr int kKvOutput = 512;', control)
+        self.assertIn('constexpr int kOutputInput = 4096;', control)
+        self.assertIn('constexpr int kOutputOutput = 2048;', control)
+        self.assertIn('attention-projections-cpuorder-10x-2048-8192-512-4096-2048', control)
+        self.assertIn('matrices.reserve(kLayers * kMatricesPerLayer)', control)
+        self.assertIn('p40_cpuorder_upload', control)
+        self.assertIn('std::memcmp(matrix.reference.data(), matrix.gpu.data()', control)
+        self.assertIn('std::cout << "{\\"schema_version\\":\\""', control)
+        self.assertNotIn('std::cout << "{\\\\\\"schema_version', control)
+        self.assertIn('options.memory_cap_mib < 288 || options.memory_cap_mib > 320', control)
+        self.assertIn('qwen_attention_cpuorder_control:', MAKEFILE)
+
+    def test_attention_integration_patch_is_opt_in_and_count_gated(self):
+        patch = (ROOT / "patches" / "0002-qwen36-attention-cpuorder.patch").read_text()
+        self.assertIn('#define QDW_ATTN_CPUORDER 4u', patch)
+        self.assertIn('COLI_CUDA_ATTN_CPUORDER', patch)
+        self.assertIn('attn_count != (attn_cpuorder_on() ? 40 : 0)', patch)
+        self.assertIn('qdw_register_with_flags(l->q', patch)
+        self.assertIn('qdw_register_with_flags(l->k', patch)
+        self.assertIn('qdw_register_with_flags(l->v', patch)
+        self.assertIn('qdw_register_with_flags(l->o', patch)
+        self.assertNotIn('coli_cuda_attention_', patch)
+
 
 if __name__ == "__main__":
     unittest.main()

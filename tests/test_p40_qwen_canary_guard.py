@@ -60,6 +60,18 @@ assert T10_SPEC and T10_SPEC.loader
 sys.modules[T10_SPEC.name] = t10
 T10_SPEC.loader.exec_module(t10)
 
+T12_SPEC = importlib.util.spec_from_file_location("p40_t12_qwen_attention", ROOT / "remote/p40-t12-qwen-attention-cpuorder-guard.py")
+t12 = importlib.util.module_from_spec(T12_SPEC)
+assert T12_SPEC and T12_SPEC.loader
+sys.modules[T12_SPEC.name] = t12
+T12_SPEC.loader.exec_module(t12)
+
+T13_SPEC = importlib.util.spec_from_file_location("p40_t13_qwen_attention", ROOT / "remote/p40-t13-qwen-attention-cpuorder-guard.py")
+t13 = importlib.util.module_from_spec(T13_SPEC)
+assert T13_SPEC and T13_SPEC.loader
+sys.modules[T13_SPEC.name] = t13
+T13_SPEC.loader.exec_module(t13)
+
 CLIENT_SPEC = importlib.util.spec_from_file_location("p40_qwen_control_client", ROOT / "scripts/p40_qwen_control_client.py")
 client = importlib.util.module_from_spec(CLIENT_SPEC)
 assert CLIENT_SPEC and CLIENT_SPEC.loader
@@ -101,6 +113,18 @@ t10_client = importlib.util.module_from_spec(T10_CLIENT_SPEC)
 assert T10_CLIENT_SPEC and T10_CLIENT_SPEC.loader
 sys.modules[T10_CLIENT_SPEC.name] = t10_client
 T10_CLIENT_SPEC.loader.exec_module(t10_client)
+
+T12_CLIENT_SPEC = importlib.util.spec_from_file_location("p40_t12_qwen_client", ROOT / "scripts/p40_t12_qwen_attention_cpuorder_client.py")
+t12_client = importlib.util.module_from_spec(T12_CLIENT_SPEC)
+assert T12_CLIENT_SPEC and T12_CLIENT_SPEC.loader
+sys.modules[T12_CLIENT_SPEC.name] = t12_client
+T12_CLIENT_SPEC.loader.exec_module(t12_client)
+
+T13_CLIENT_SPEC = importlib.util.spec_from_file_location("p40_t13_qwen_client", ROOT / "scripts/p40_t13_qwen_attention_cpuorder_client.py")
+t13_client = importlib.util.module_from_spec(T13_CLIENT_SPEC)
+assert T13_CLIENT_SPEC and T13_CLIENT_SPEC.loader
+sys.modules[T13_CLIENT_SPEC.name] = t13_client
+T13_CLIENT_SPEC.loader.exec_module(t13_client)
 
 
 class QwenCanaryGuardTests(unittest.TestCase):
@@ -226,6 +250,35 @@ class QwenCanaryGuardTests(unittest.TestCase):
         identity = Path("/tmp/p40-t10-test-key")
         self.assertEqual(t10_client.ssh_argv("host", identity)[-1], "p40-t10-qwen-lmhead-cpuorder")
         self.assertEqual(t10_client.ssh_argv("host", identity, read_results=True)[-1], "p40-t10-qwen-lmhead-cpuorder-results")
+
+    def test_t12_identity_pins_attention_binary_marker_and_16_output_oracle(self):
+        self.assertEqual(t12.EXPECTED_ORIGINAL_COMMAND, "p40-t12-qwen-attention-cpuorder")
+        self.assertEqual(t12.PROFILE_ID, "t12-dn-lmhead-attention-cpuorder-16")
+        self.assertEqual(t12.ENGINE_SHA256, "cded60fd2b68980c858577354b1ada9fc89ea8bb813a95deb50b999fff6b7dad")
+        self.assertIn(b"40 attention Q/K/V/O", t12.CACHE_MARKER)
+        argv = t12.model_argv()
+        self.assertIn("COLI_CUDA_DN_CPUORDER=1", argv)
+        self.assertIn("COLI_CUDA_LMHEAD_CPUORDER=1", argv)
+        self.assertIn("COLI_CUDA_ATTN_CPUORDER=1", argv)
+        self.assertIn(str(t12.ENGINE), argv)
+        identity = Path("/tmp/p40-t12-test-key")
+        self.assertEqual(t12_client.ssh_argv("host", identity)[-1], "p40-t12-qwen-attention-cpuorder")
+        self.assertEqual(t12_client.ssh_argv("host", identity, read_results=True)[-1], "p40-t12-qwen-attention-cpuorder-results")
+
+    def test_t13_changes_only_length_and_uses_the_established_64_output_oracle(self):
+        self.assertEqual(t13.EXPECTED_ORIGINAL_COMMAND, "p40-t13-qwen-attention-cpuorder")
+        self.assertEqual(t13.PROFILE_ID, "t13-dn-lmhead-attention-cpuorder-64")
+        self.assertEqual(t13.t12.ENGINE_SHA256, t12.ENGINE_SHA256)
+        self.assertEqual(t13.EXPECTED_STDOUT_SHA256, "5909fad89de2faac1b77af72bf8b25f56b8f33853df59d35cb04120e9ce1f35f")
+        argv = t13.model_argv()
+        self.assertIn("N_NEW=64", argv)
+        self.assertNotIn("N_NEW=16", argv)
+        self.assertIn("COLI_CUDA_DN_CPUORDER=1", argv)
+        self.assertIn("COLI_CUDA_LMHEAD_CPUORDER=1", argv)
+        self.assertIn("COLI_CUDA_ATTN_CPUORDER=1", argv)
+        identity = Path("/tmp/p40-t13-test-key")
+        self.assertEqual(t13_client.ssh_argv("host", identity)[-1], "p40-t13-qwen-attention-cpuorder")
+        self.assertEqual(t13_client.ssh_argv("host", identity, read_results=True)[-1], "p40-t13-qwen-attention-cpuorder-results")
 
     def test_mocked_run_caps_and_restores_both_gpus_and_records_output(self):
         class FinishedProcess:

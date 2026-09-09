@@ -428,3 +428,53 @@ ID, status, hypothesis, prediction, exact change, source/binary/model/prompt ide
   attention and MoE dispatch/placement before designing a separately gated
   microbenchmark; do not sweep generic environment variables.
 - Evidence: [T10 result](../results/T10-dn-lmhead-cpuorder-64-dual-p40-125w.md).
+
+## T11 — exact-Q8 attention-projection full sweep
+
+- Date: 2026-09-09.
+- Status: pass after diagnostic-only correction.
+- Source finding: ten `full_attention` layers execute Q/K/V/O via CPU Q8
+  `matmul_d`; Qwen does not call the backend `coli_cuda_attention_*` path.
+  The ten distinct sets comprise 40 matrices and 272,629,760 Q8 bytes.
+- First invocation: arithmetic internal checks passed but emitted invalidly
+  escaped output JSON. Record it as inconclusive; change serialization only,
+  rebuild, validate dry-run output with `jq`, and repeat after cooldown.
+- Corrected result: all output float bits matched; CPU median 11.0685 ms/sweep
+  and GPU median 3.9619 ms/sweep, 2.79373x. First upload-plus-sweep was
+  42.8771 ms. This clears the strict exactness and 15% speed gates.
+- Safety: GPU0 sampled 35 C under 125 W; GPU1 stayed idle at 36 C; fans
+  2,000–2,100 RPM; cooldown, allocation release, and 250 W restore passed.
+- Decision: design a separate opt-in Q/K/V/O full-model integration canary in
+  a new experimental source copy. Preserve CPU attention math and make no
+  simultaneous MoE/cache/power changes.
+- Evidence: [T11 result](../results/T11-attention-projection-cpuorder-10x-gpu0-125w.md).
+
+## T12 — exact-Q8 attention-projection full-model integration canary
+
+- Date: 2026-09-09.
+- Status: pass for the fixed 16-output integration canary; not a sustained
+  throughput comparison.
+- Exact change: a third isolated experimental source copy adds the opt-in
+  `COLI_CUDA_ATTN_CPUORDER=1` registry flag. It uploads only the ten
+  full-attention layers' Q/K/V/O Q8 matrices (40 total) to the existing
+  CPU-order helper on GPU 0, while retaining the accepted 90 DeltaNet-matrix
+  and LM-head paths. Attention normalization, RoPE, KV handling, score/value
+  math, output gate, MoE routing/cache, GPU count, and power policy are
+  otherwise unchanged.
+- Result: the stdout SHA-256 exactly matched the T04/T09 16-output oracle;
+  the required 90+1+40 cache marker appeared and no CUDA diagnostic or helper
+  fallback occurred. Engine rate was 4.98 tok/s (3.2 s for 16 outputs; TTFT
+  0.92 s). Decode timing was DeltaNet 47.35, attention 8.24, MoE 91.62,
+  LM head 3.53, and total 150.76 ms/token. Compared with the T09 short canary,
+  attention fell from 123.21 ms/token. All 10,240 experts stayed resident:
+  zero CPU expert misses and zero swaps.
+- Safety: fan RPM was 2,000–2,100; sampled peak GPU temperatures were
+  42 C / 43 C and VRAM 8,155 / 7,893 MiB. The guard released both allocations,
+  completed cooldown, and restored both 250 W caps.
+- Decision: retain the exact attention-projection path. After a no-workload
+  break and fresh two-sample cool/idle preflight, run one separately guarded,
+  hash-pinned 64-output T13 comparison changing only output length. The next
+  optimization target is MoE/shared-expert work, but do not alter it before
+  establishing T12 sustained behavior.
+- Evidence: [T12 result](008-qwen-attention-exact-integration.md) and
+  `research/results/raw/T12-qwen-attention-cpuorder-8952b573.*`.

@@ -1,0 +1,57 @@
+--- a/c/qwen36.c
++++ b/c/qwen36.c
+@@ -990,6 +990,7 @@
+ #define QDW_MAX 1024
+ #define QDW_DN_CPUORDER 1u
+ #define QDW_LMHEAD_CPUORDER 2u
++#define QDW_ATTN_CPUORDER 4u
+ typedef struct {
+@@ -1037,6 +1038,7 @@
+ static int dn_cpuorder_on(void){ const char *e=getenv("COLI_CUDA_DN_CPUORDER"); return e && !strcmp(e,"1"); }
+ static int lmhead_cpuorder_on(void){ const char *e=getenv("COLI_CUDA_LMHEAD_CPUORDER"); return e && !strcmp(e,"1"); }
++static int attn_cpuorder_on(void){ const char *e=getenv("COLI_CUDA_ATTN_CPUORDER"); return e && !strcmp(e,"1"); }
+ static int dn_cpuorder_device(void){
+@@ -1045,7 +1047,8 @@
+ static int qdw_cpuorder_requested(unsigned flags){
+     return ((flags & QDW_DN_CPUORDER) && dn_cpuorder_on()) ||
+-           ((flags & QDW_LMHEAD_CPUORDER) && lmhead_cpuorder_on());
++           ((flags & QDW_LMHEAD_CPUORDER) && lmhead_cpuorder_on()) ||
++           ((flags & QDW_ATTN_CPUORDER) && attn_cpuorder_on());
+ }
+@@ -1058,7 +1061,7 @@
+ static int qdw_dn_cpuorder_prepare(int device){
+-    int dn_count=0, lmhead_count=0;
++    int dn_count=0, lmhead_count=0, attn_count=0;
+@@ -1068,9 +1071,11 @@
+         if(g_qdw[i].flags & QDW_DN_CPUORDER) dn_count++;
+         if(g_qdw[i].flags & QDW_LMHEAD_CPUORDER) lmhead_count++;
++        if(g_qdw[i].flags & QDW_ATTN_CPUORDER) attn_count++;
+     }
+     if(dn_count != (dn_cpuorder_on() ? 90 : 0) ||
+-       lmhead_count != (lmhead_cpuorder_on() ? 1 : 0)){
++       lmhead_count != (lmhead_cpuorder_on() ? 1 : 0) ||
++       attn_count != (attn_cpuorder_on() ? 40 : 0)){
+@@ -2773,8 +2778,11 @@
+         int q_out = qc->q_heads * qc->q_head_dim, kv_out = qc->kv_heads * qc->k_head_dim;
+         for (int i = 0; i < qc->n_layers; i++) {
+             Layer *l = &m.L[i];
+-            qdw_register(l->q, D2, q_out); qdw_register(l->k, D2, kv_out);
+-            qdw_register(l->v, D2, kv_out); qdw_register(l->o, qc->o_in, D2);
++            unsigned attn_flags = attn_cpuorder_on() ? QDW_ATTN_CPUORDER : 0;
++            qdw_register_with_flags(l->q, D2, q_out, attn_flags);
++            qdw_register_with_flags(l->k, D2, kv_out, attn_flags);
++            qdw_register_with_flags(l->v, D2, kv_out, attn_flags);
++            qdw_register_with_flags(l->o, qc->o_in, D2, attn_flags);
+@@ -2844,14 +2852,18 @@
+-    if(dn_cpuorder_on() || lmhead_cpuorder_on()){
++    if(dn_cpuorder_on() || lmhead_cpuorder_on() || attn_cpuorder_on()){
+         int device=dn_cpuorder_device();
+@@ -2859,6 +2871,10 @@
+-            if(dn_cpuorder_on() && lmhead_cpuorder_on())
++            if(dn_cpuorder_on() && lmhead_cpuorder_on() && attn_cpuorder_on())
++                fprintf(stderr,"[dn-cpuorder] exact Q8 cache active: 90 DeltaNet matrices, LM head, and 40 attention Q/K/V/O matrices on GPU %d\\n",device);
++            else if(dn_cpuorder_on() && lmhead_cpuorder_on())
+                 fprintf(stderr,"[dn-cpuorder] exact Q8 cache active: 90 DeltaNet matrices plus LM head on GPU %d\\n",device);
++            else if(attn_cpuorder_on())
++                fprintf(stderr,"[dn-cpuorder] exact Q8 cache active: 40 attention Q/K/V/O matrices on GPU %d\\n",device);
+             else if(dn_cpuorder_on())
