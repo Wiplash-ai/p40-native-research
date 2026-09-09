@@ -696,3 +696,25 @@ ID, status, hypothesis, prediction, exact change, source/binary/model/prompt ide
   reduction, beginning with DeltaNet and then shared MLP/attention.
 - Evidence: [T22 result](../results/T22-exact-qwen-async-expert-profile.md)
   and `research/results/raw/T22-qwen-async-profile-846a85bb-38ab-4f45-a54d-80b24cdf0780.*`.
+
+## T23 — exact Qwen DeltaNet QKV/Z pair issue/join canary
+
+- Date: 2026-09-09.
+- Status: exactness and safety pass; fixed 64-token performance comparison pending.
+- Exact change: in an isolated T16-derived engine, `COLI_CUDA_DN_PAIR=1`
+  uploads the shared DeltaNet hidden vector once, issues unchanged Q8 QKV/Z
+  kernels on the existing dedicated stream, computes independent B/A on CPU,
+  and joins QKV/Z immediately before the recurrent update. The path permits
+  only one pending pair and falls back to serial exact Q8 on issue/join failure.
+- Result: 16-token stdout SHA-256 exactly matched the accepted oracle. The
+  required pair marker appeared. The 15-token decode timer was DeltaNet 25.25,
+  attention 5.28, MoE 31.14, LM head 3.34, and total 65.01 ms/token. This
+  short-response number is not a T16/T22 comparison; a pinned 64-token run is
+  required before claiming a speedup.
+- Safety: 43 C / 44 C peaks, ~7.5 GiB/card maximum reported residency,
+  2,000–2,100 RPM fans, no guard action, cooldown pass, allocation release,
+  and both 250 W limits restored.
+- Decision: proceed only to fixed T24 64-token exact comparison. Do not apply
+  the change to production or advance approximate W4A8 work.
+- Evidence: [T23 result](../results/T23-exact-qwen-deltanet-pair-canary.md)
+  and `research/results/raw/T23-qwen-deltanet-pair-7b453043-a9c2-4132-9d4a-95e4597570af.*`.

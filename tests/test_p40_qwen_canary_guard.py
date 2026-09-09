@@ -96,6 +96,18 @@ assert T22_SPEC and T22_SPEC.loader
 sys.modules[T22_SPEC.name] = t22
 T22_SPEC.loader.exec_module(t22)
 
+T23_SPEC = importlib.util.spec_from_file_location("p40_t23_qwen_deltanet_pair", ROOT / "remote/p40-t23-qwen-deltanet-pair-guard.py")
+t23 = importlib.util.module_from_spec(T23_SPEC)
+assert T23_SPEC and T23_SPEC.loader
+sys.modules[T23_SPEC.name] = t23
+T23_SPEC.loader.exec_module(t23)
+
+T24_SPEC = importlib.util.spec_from_file_location("p40_t24_qwen_deltanet_pair", ROOT / "remote/p40-t24-qwen-deltanet-pair-guard.py")
+t24 = importlib.util.module_from_spec(T24_SPEC)
+assert T24_SPEC and T24_SPEC.loader
+sys.modules[T24_SPEC.name] = t24
+T24_SPEC.loader.exec_module(t24)
+
 CLIENT_SPEC = importlib.util.spec_from_file_location("p40_qwen_control_client", ROOT / "scripts/p40_qwen_control_client.py")
 client = importlib.util.module_from_spec(CLIENT_SPEC)
 assert CLIENT_SPEC and CLIENT_SPEC.loader
@@ -173,6 +185,18 @@ t22_client = importlib.util.module_from_spec(T22_CLIENT_SPEC)
 assert T22_CLIENT_SPEC and T22_CLIENT_SPEC.loader
 sys.modules[T22_CLIENT_SPEC.name] = t22_client
 T22_CLIENT_SPEC.loader.exec_module(t22_client)
+
+T23_CLIENT_SPEC = importlib.util.spec_from_file_location("p40_t23_qwen_deltanet_pair_client", ROOT / "scripts/p40_t23_qwen_deltanet_pair_client.py")
+t23_client = importlib.util.module_from_spec(T23_CLIENT_SPEC)
+assert T23_CLIENT_SPEC and T23_CLIENT_SPEC.loader
+sys.modules[T23_CLIENT_SPEC.name] = t23_client
+T23_CLIENT_SPEC.loader.exec_module(t23_client)
+
+T24_CLIENT_SPEC = importlib.util.spec_from_file_location("p40_t24_qwen_deltanet_pair_client", ROOT / "scripts/p40_t24_qwen_deltanet_pair_client.py")
+t24_client = importlib.util.module_from_spec(T24_CLIENT_SPEC)
+assert T24_CLIENT_SPEC and T24_CLIENT_SPEC.loader
+sys.modules[T24_CLIENT_SPEC.name] = t24_client
+T24_CLIENT_SPEC.loader.exec_module(t24_client)
 
 
 class QwenCanaryGuardTests(unittest.TestCase):
@@ -395,6 +419,32 @@ class QwenCanaryGuardTests(unittest.TestCase):
         identity = Path("/tmp/p40-t22-test-key")
         self.assertEqual(t22_client.ssh_argv("host", identity)[-1], "p40-t22-qwen-async-profile")
         self.assertEqual(t22_client.ssh_argv("host", identity, read_results=True)[-1], "p40-t22-qwen-async-profile-results")
+
+    def test_t23_pins_pair_binary_exact_oracle_and_opt_in_marker(self):
+        self.assertEqual(t23.EXPECTED_ORIGINAL_COMMAND, "p40-t23-qwen-deltanet-pair")
+        self.assertEqual(t23.PROFILE_ID, "t23-exact-qwen-deltanet-pair-16")
+        self.assertEqual(t23.ENGINE_SHA256, "c014b491249b6692995a95f8d3e3ed5d0ae3dae657df4e5ae98e1c501dea21d7")
+        self.assertEqual(t23.EXPECTED_STDOUT_SHA256, "43095be2395844a0c7f321ea2496689325d5ae890f91ab53bb31c55e37a0877a")
+        argv = t23.model_argv()
+        self.assertIn("COLI_CUDA_DN_PAIR=1", argv)
+        self.assertIn(str(t23.ENGINE), argv)
+        self.assertFalse(t23.run({"dry_run": True})["cuda_initialized"])
+        identity = Path("/tmp/p40-t23-test-key")
+        self.assertEqual(t23_client.ssh_argv("host", identity)[-1], "p40-t23-qwen-deltanet-pair")
+        self.assertEqual(t23_client.ssh_argv("host", identity, read_results=True)[-1], "p40-t23-qwen-deltanet-pair-results")
+
+    def test_t24_reuses_pair_binary_with_64_token_oracle_only(self):
+        self.assertEqual(t24.EXPECTED_ORIGINAL_COMMAND, "p40-t24-qwen-deltanet-pair")
+        self.assertEqual(t24.PROFILE_ID, "t24-exact-qwen-deltanet-pair-64")
+        self.assertEqual(t24.ENGINE_SHA256, t23.ENGINE_SHA256)
+        self.assertEqual(t24.EXPECTED_STDOUT_SHA256, "5909fad89de2faac1b77af72bf8b25f56b8f33853df59d35cb04120e9ce1f35f")
+        argv = t24.model_argv()
+        self.assertIn("N_NEW=64", argv)
+        self.assertNotIn("N_NEW=16", argv)
+        self.assertIn("COLI_CUDA_DN_PAIR=1", argv)
+        identity = Path("/tmp/p40-t24-test-key")
+        self.assertEqual(t24_client.ssh_argv("host", identity)[-1], "p40-t24-qwen-deltanet-pair")
+        self.assertEqual(t24_client.ssh_argv("host", identity, read_results=True)[-1], "p40-t24-qwen-deltanet-pair-results")
 
     def test_mocked_run_caps_and_restores_both_gpus_and_records_output(self):
         class FinishedProcess:

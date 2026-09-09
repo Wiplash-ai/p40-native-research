@@ -1,0 +1,160 @@
+--- a/c/qwen36.c
++++ b/c/qwen36.c
+@@ -1041,6 +1041,7 @@
+ static int lmhead_cpuorder_on(void){ const char *e=getenv("COLI_CUDA_LMHEAD_CPUORDER"); return e && !strcmp(e,"1"); }
+ static int attn_cpuorder_on(void){ const char *e=getenv("COLI_CUDA_ATTN_CPUORDER"); return e && !strcmp(e,"1"); }
+ static int shared_cpuorder_on(void){ const char *e=getenv("COLI_CUDA_SHARED_CPUORDER"); return e && !strcmp(e,"1"); }
++static int dn_pair_on(void){ const char *e=getenv("COLI_CUDA_DN_PAIR"); return e && !strcmp(e,"1"); }
+ static int dn_cpuorder_device(void){
+     const char *e=getenv("COLI_CUDA_DN_DEVICE"); char *end=NULL;
+     if(!e || !*e) return 0;
+@@ -1087,6 +1088,13 @@
+     g_dn_cpuorder_active=1;
+     return 1;
+ }
++static P40QwenDnTensor *qdw_cpuorder_tensor(const float *W, int I, int O){
++    for(int i=0;i<g_qdw_n;i++)
++        if(g_qdw[i].w==W && g_qdw[i].I==I && g_qdw[i].O==O &&
++           (g_qdw[i].flags & QDW_DN_CPUORDER) && g_qdw[i].cpuorder)
++            return g_qdw[i].cpuorder;
++    return NULL;
++}
+ #endif
+ static void matmul_d(float *y, const float *x, const float *W, int S, int I, int O){
+ #ifdef COLI_QWEN_BATCH_TEST
+@@ -2123,11 +2131,33 @@
+         const float *xs = x + (int64_t)s * H;
+         extern double g_dn_sub[4];
+         double _d0 = tm_on()? tm_now():0;
++        int pair_issued = 0;
+         /* projections (single-token matmuls) */
++#ifdef COLI_CUDA
++        if(S==1 && g_dn_cpuorder_active && dn_pair_on()){
++            P40QwenDnTensor *qkv_t=qdw_cpuorder_tensor(l->dn_qkv,H,conv_dim);
++            P40QwenDnTensor *z_t=qdw_cpuorder_tensor(l->dn_z,H,value_dim);
++            if(qkv_t && z_t && p40_qwen_dn_pair_issue(qkv_t,z_t,xs)) pair_issued=1;
++            else {
++                fprintf(stderr,"[dn-cpuorder] QKV/Z pair issue failed; reverting to serial exact Q8\n");
++                qdw_dn_cpuorder_shutdown();
++            }
++        }
++#endif
++        if(!pair_issued){
+         matmul_d(qkv, xs, l->dn_qkv, 1, H, conv_dim);
+         matmul_d(z,   xs, l->dn_z,   1, H, value_dim);
++        }
+         matmul(b,   xs, l->dn_b,   1, H, vh);
+         matmul(a,   xs, l->dn_a,   1, H, vh);
++#ifdef COLI_CUDA
++        if(pair_issued && !p40_qwen_dn_pair_take(qkv,z)){
++            fprintf(stderr,"[dn-cpuorder] QKV/Z pair join failed; reverting to serial exact Q8\n");
++            qdw_dn_cpuorder_shutdown();
++            matmul_d(qkv, xs, l->dn_qkv, 1, H, conv_dim);
++            matmul_d(z,   xs, l->dn_z,   1, H, value_dim);
++        }
++#endif
+         if (tm_on() && S==1){ double t=tm_now(); g_dn_sub[0]+=t-_d0; _d0=t; }
+         for (int h = 0; h < vh; h++) {
+             beta[h] = 1.f / (1.f + expf(-b[h]));
+@@ -2877,6 +2907,8 @@
+                 fprintf(stderr,"[dn-cpuorder] exact Q8 cache active: 90 DeltaNet matrices on GPU %d\n",device);
+             else
+                 fprintf(stderr,"[dn-cpuorder] exact Q8 cache active: LM head on GPU %d\n",device);
++            if(dn_cpuorder_on() && dn_pair_on())
++                fprintf(stderr,"[dn-cpuorder] exact Q8 QKV/Z pair issue/join active; CPU B/A overlap enabled\n");
+             atexit(qdw_dn_cpuorder_shutdown);
+         }
+     }
+--- a/c/qwen_dn_cpuorder_cuda.cu
++++ b/c/qwen_dn_cpuorder_cuda.cu
+@@ -23,8 +23,12 @@
+   cudaStream_t stream = nullptr;
+   float *input = nullptr;
+   float *output = nullptr;
++  float *pair_output = nullptr;
+   size_t input_capacity = 0;
+   size_t output_capacity = 0;
++  size_t pair_output_capacity = 0;
++  P40QwenDnTensor *pair_first = nullptr;
++  P40QwenDnTensor *pair_second = nullptr;
+ } context;
+ 
+ bool cuda_ok(cudaError_t status, const char *operation) {
+@@ -119,6 +123,57 @@
+   return 1;
+ }
+ 
++/* QKV and Z have the same hidden input in a DeltaNet block. Keep their
++ * unchanged exact-Q8 kernels in the dedicated stream until the caller has
++ * completed independent CPU B/A work, then copy both results back together.
++ * This is deliberately a single pending pair: it cannot reorder dependent
++ * recurrent state or share buffers with another projection. */
++extern "C" int p40_qwen_dn_pair_issue(P40QwenDnTensor *first,
++                                       P40QwenDnTensor *second,
++                                       const float *input) {
++  if (!first || !second || !input || context.pair_first || context.pair_second ||
++      first->input != second->input || !select_context()) return 0;
++  const size_t input_bytes = static_cast<size_t>(first->input) * sizeof(float);
++  const size_t first_bytes = static_cast<size_t>(first->output) * sizeof(float);
++  const size_t second_bytes = static_cast<size_t>(second->output) * sizeof(float);
++  if (!reserve(&context.input, &context.input_capacity, input_bytes) ||
++      !reserve(&context.output, &context.output_capacity, first_bytes) ||
++      !reserve(&context.pair_output, &context.pair_output_capacity, second_bytes) ||
++      !cuda_ok(cudaMemcpyAsync(context.input, input, input_bytes,
++                               cudaMemcpyHostToDevice, context.stream),
++               "pair input upload")) return 0;
++  qwen_dn_cpuorder_q8_matvec<<<first->output, 32, 0, context.stream>>>(
++      context.output, context.input, first->weights, first->scales, first->input);
++  qwen_dn_cpuorder_q8_matvec<<<second->output, 32, 0, context.stream>>>(
++      context.pair_output, context.input, second->weights, second->scales,
++      second->input);
++  if (!cuda_ok(cudaGetLastError(), "pair kernel launch")) return 0;
++  context.pair_first = first;
++  context.pair_second = second;
++  return 1;
++}
++
++extern "C" int p40_qwen_dn_pair_take(float *first_output,
++                                      float *second_output) {
++  if (!first_output || !second_output || !context.pair_first ||
++      !context.pair_second || !select_context()) return 0;
++  P40QwenDnTensor *first = context.pair_first;
++  P40QwenDnTensor *second = context.pair_second;
++  const size_t first_bytes = static_cast<size_t>(first->output) * sizeof(float);
++  const size_t second_bytes = static_cast<size_t>(second->output) * sizeof(float);
++  const int ok =
++      cuda_ok(cudaMemcpyAsync(first_output, context.output, first_bytes,
++                              cudaMemcpyDeviceToHost, context.stream),
++              "pair first download") &&
++      cuda_ok(cudaMemcpyAsync(second_output, context.pair_output, second_bytes,
++                              cudaMemcpyDeviceToHost, context.stream),
++              "pair second download") &&
++      cuda_ok(cudaStreamSynchronize(context.stream), "pair synchronization");
++  context.pair_first = nullptr;
++  context.pair_second = nullptr;
++  return ok;
++}
++
+ extern "C" void p40_qwen_dn_tensor_free(P40QwenDnTensor *tensor) {
+   if (!tensor || !select_context()) return;
+   cudaFree(tensor->weights);
+@@ -132,6 +187,7 @@
+     cudaStreamSynchronize(context.stream);
+     cudaFree(context.input);
+     cudaFree(context.output);
++    cudaFree(context.pair_output);
+     cudaStreamDestroy(context.stream);
+   }
+   context = Context{};
+--- a/c/qwen_dn_cpuorder_cuda.h
++++ b/c/qwen_dn_cpuorder_cuda.h
+@@ -13,6 +13,9 @@
+                        const float *scales, int input, int output);
+ int p40_qwen_dn_matvec(P40QwenDnTensor *tensor, float *output,
+                         const float *input);
++int p40_qwen_dn_pair_issue(P40QwenDnTensor *first, P40QwenDnTensor *second,
++                           const float *input);
++int p40_qwen_dn_pair_take(float *first_output, float *second_output);
+ void p40_qwen_dn_tensor_free(P40QwenDnTensor *tensor);
+ void p40_qwen_dn_shutdown(void);
+ #ifdef __cplusplus

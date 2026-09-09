@@ -24,3 +24,7 @@ approximate execution; the exact production path was not changed.
 `T22-exact-qwen-async-expert-profile.md` adds nonzero async Qwen routed-expert
 event timing and establishes that its device work is kernel-dominated rather
 than PCIe-transfer-bound.
+
+`T23-exact-qwen-deltanet-pair-canary.md` records the exact-output canary for
+the DeltaNet QKV/Z pair issue/join path. It clears correctness and safety only;
+the fixed 64-token comparison remains the performance gate.

@@ -1,6 +1,7 @@
 # E018 / T23 - exact Q8 projection launch/synchronization control
 
-Status: designed; intentionally not run during the post-T22 GPU break.
+Status: implementation in progress; no performance claim until the actual-Qwen
+gates below pass.
 
 ## Hypothesis
 
@@ -8,7 +9,9 @@ The largest remaining exact-Q8 stages lose meaningful time to the CPU-order
 helper's per-projection boundary: host-to-device input copy, one kernel,
 device-to-host output copy, then synchronization. In a DeltaNet block, the
 2048-to-8192 QKV projection and the 2048-to-4096 Z projection share the same
-hidden input and can be issued before either result is needed by the host.
+hidden input. The B and A projections are independent CPU work, so QKV and Z
+can be issued once, B/A can run while their GPU work is pending, and the host
+can join QKV/Z only immediately before the recurrence requires them.
 
 ## Smallest falsification
 
@@ -18,7 +21,8 @@ kernel and real DeltaNet pair shapes. Compare only:
 1. Current serial boundary: upload hidden, QKV, download/synchronize; then
    upload the identical hidden vector, Z, download/synchronize.
 2. Pair boundary: upload hidden once, launch the unchanged QKV kernel and
-   unchanged Z kernel in one stream, download both outputs, synchronize once.
+   unchanged Z kernel in one stream, run the independent CPU B/A projections,
+   then download both outputs and synchronize once.
 
 The subsequent CPU boundary and 4096-to-2048 output projection remain exactly
 the same in both arms. A 30-layer cache-aware sweep must retain distinct Q8
@@ -35,6 +39,9 @@ weights and scales, so host cache locality cannot fabricate a win.
   declared control budget, to justify a Qwen integration canary.
 
 This is an exact launch/synchronization test, not a new arithmetic kernel.
-If it fails, reject pair batching and assess CUDA Graph capture separately.
-If it passes, integration must preserve the QKV/Z host boundary and use a new
-exact-output 16-token Qwen canary before any 64-token comparison.
+The model-free control exists only to debug the boundary safely; it is not
+evidence of a Qwen speedup. If it fails, reject pair batching and assess CUDA
+Graph capture separately. If it passes, integration must preserve the QKV/Z
+host boundary and pass a new exact-output 16-token Qwen canary before a fixed
+64-token Qwen comparison. Only the latter may be recorded as a performance
+result.
