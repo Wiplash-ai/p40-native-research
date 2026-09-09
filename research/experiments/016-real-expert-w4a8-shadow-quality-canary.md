@@ -1,6 +1,6 @@
 # E016 / T21 — real Qwen expert W4A8 shadow-quality canary
 
-Status: design only; no source copy, model load, or GPU run yet.
+Status: isolated implementation and static checks complete; no model load or GPU run yet.
 
 ## Source-grounded target
 
@@ -24,6 +24,11 @@ already-selected homogeneous `fmt == 2`, decode-sized group. It will:
    W4A32 kernels and preserve their output as the only value returned to Qwen.
 4. After the existing stream synchronization, emit group-level relative L2,
    max absolute error, and finite-value status to stderr only.
+
+Implementation review caught and corrected a signed-nibble packing error before
+hardware use: Colibri W4 nibbles are two's-complement values, not offset
+binary. The shadow kernel now maps `0..7` to `0..7` and `8..15` to `-8..-1`
+before packing each DP4A operand.
 
 The source copy will own separate device/pinned shadow allocations; it may not
 reuse unrelated attention/KV scratch. `shadow` cannot change model text. The

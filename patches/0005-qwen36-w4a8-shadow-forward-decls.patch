@@ -1,0 +1,14 @@
+diff --git a/c/backend_cuda.cu b/c/backend_cuda.cu
+--- a/c/backend_cuda.cu
++++ b/c/backend_cuda.cu
+@@ -817,6 +817,10 @@ __global__ static void grouped_hidden_w4_dual(float *gate,float *up,const float
+     if(!threadIdx.x){size_t z=(size_t)(d.offset+s)*I+o;
+         float g=gp[0]*d.gs[o],u=upv[0]*d.us[o];
+         gate[z]=(g/(1.0f+expf(-g)))*u;(void)up;}
+ }
++static int reserve(float **ptr,size_t *cap,size_t bytes);
++static int reserve_bytes(void **ptr,size_t *cap,size_t bytes);
++static int reserve_pinned(float **ptr,size_t *cap,size_t bytes);
++
+ 
+ /* Pascal shadow control: packed per-row W4 with signed Q8 activations.  This

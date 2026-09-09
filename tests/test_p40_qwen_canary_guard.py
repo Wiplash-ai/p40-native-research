@@ -84,6 +84,12 @@ assert T16_SPEC and T16_SPEC.loader
 sys.modules[T16_SPEC.name] = t16
 T16_SPEC.loader.exec_module(t16)
 
+T21_SPEC = importlib.util.spec_from_file_location("p40_t21_qwen_w4a8_shadow", ROOT / "remote/p40-t21-qwen-w4a8-shadow-guard.py")
+t21 = importlib.util.module_from_spec(T21_SPEC)
+assert T21_SPEC and T21_SPEC.loader
+sys.modules[T21_SPEC.name] = t21
+T21_SPEC.loader.exec_module(t21)
+
 CLIENT_SPEC = importlib.util.spec_from_file_location("p40_qwen_control_client", ROOT / "scripts/p40_qwen_control_client.py")
 client = importlib.util.module_from_spec(CLIENT_SPEC)
 assert CLIENT_SPEC and CLIENT_SPEC.loader
@@ -149,6 +155,12 @@ t16_client = importlib.util.module_from_spec(T16_CLIENT_SPEC)
 assert T16_CLIENT_SPEC and T16_CLIENT_SPEC.loader
 sys.modules[T16_CLIENT_SPEC.name] = t16_client
 T16_CLIENT_SPEC.loader.exec_module(t16_client)
+
+T21_CLIENT_SPEC = importlib.util.spec_from_file_location("p40_t21_qwen_w4a8_shadow_client", ROOT / "scripts/p40_t21_qwen_w4a8_shadow_client.py")
+t21_client = importlib.util.module_from_spec(T21_CLIENT_SPEC)
+assert T21_CLIENT_SPEC and T21_CLIENT_SPEC.loader
+sys.modules[T21_CLIENT_SPEC.name] = t21_client
+T21_CLIENT_SPEC.loader.exec_module(t21_client)
 
 
 class QwenCanaryGuardTests(unittest.TestCase):
@@ -331,6 +343,26 @@ class QwenCanaryGuardTests(unittest.TestCase):
         identity = Path("/tmp/p40-t16-test-key")
         self.assertEqual(t16_client.ssh_argv("host", identity)[-1], "p40-t16-qwen-shared-cpuorder")
         self.assertEqual(t16_client.ssh_argv("host", identity, read_results=True)[-1], "p40-t16-qwen-shared-cpuorder-results")
+
+    def test_t21_shadow_is_exact_output_and_default_off(self):
+        self.assertEqual(t21.EXPECTED_ORIGINAL_COMMAND, "p40-t21-qwen-w4a8-shadow")
+        self.assertEqual(t21.PROFILE_ID, "t21-w4a8-real-expert-shadow-16")
+        self.assertEqual(t21.ENGINE_SHA256, "e59c5b5129004fe6753a7966123197a6ee8483aea0ea15c2f8df8387af6abe7b")
+        self.assertEqual(t21.EXPECTED_STDOUT_SHA256, "43095be2395844a0c7f321ea2496689325d5ae890f91ab53bb31c55e37a0877a")
+        argv = t21.model_argv()
+        self.assertIn("COLI_CUDA_W4A8_DP4A=shadow", argv)
+        self.assertIn(str(t21.ENGINE), argv)
+        identity = Path("/tmp/p40-t21-test-key")
+        self.assertEqual(t21_client.main.__name__, "main")
+        self.assertEqual(t21_client.__doc__.splitlines()[0], "Client for the fixed T21 exact-output W4A8 shadow canary.")
+
+    def test_t21_patch_preserves_signed_nibble_semantics_and_exact_fallback(self):
+        patch = (ROOT / "patches" / "0004-qwen36-w4a8-dp4a-shadow.patch").read_text()
+        self.assertIn("a=(a&8?a-16:a)&255", patch)
+        self.assertIn("b=(b&8?b-16:b)&255", patch)
+        self.assertIn("COLI_CUDA_W4A8_DP4A", patch)
+        self.assertIn("grouped_hidden_w4_dual<<<hg,256,0,ctx->stream>>>", patch)
+        self.assertIn("return ctx->host_y", patch)
 
     def test_mocked_run_caps_and_restores_both_gpus_and_records_output(self):
         class FinishedProcess:
