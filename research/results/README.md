@@ -47,3 +47,7 @@ overhead.
 activation W4A8 shadow control. It materially improves the rejected per-row
 formulation but still has 48 of 2,397 records above the 5% L2 gate, so it is
 not an approximate-output or production candidate.
+
+`T29-real-qwen-groupwise-w4a8-outlier-shadow.md` records the fixed top-8
+residual correction control. It preserves exact Qwen output but only reduces
+the 48 failing groupwise records to 47, so top-8 sparse correction is rejected.

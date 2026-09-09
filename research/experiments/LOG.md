@@ -821,3 +821,25 @@ ID, status, hypothesis, prediction, exact change, source/binary/model/prompt ide
   Qwen output until it removes the remaining error tail.
 - Evidence: [T28 result](../results/T28-real-qwen-groupwise-w4a8-shadow.md)
   and `research/results/raw/T28-qwen-groupwise-shadow-f7d95342-57b4-4cab-86b6-f5d53221aaeb.*`.
+
+## T29 — real Qwen groupwise W4A8 top-8 residual shadow
+
+- Date: 2026-09-09.
+- Status: rejected for approximate Qwen expert execution; production unchanged.
+- Exact change: an isolated T28-derived engine selected the eight largest
+  groupwise Q8 residuals before gate/up and again before down, then added
+  their FP32 residual times the exact signed W4 weight and per-output scale.
+  The mode was default-off `COLI_CUDA_W4A8_DP4A=groupwise-outlier-shadow` and
+  all returned values still came from the unchanged exact W4/FP32 path.
+- Result: all 2,397 records were finite and the fixed 16-token stdout SHA-256
+  exactly matched. Relative L2 was 2.39% median, 3.02% p95, 8.19% p99, and
+  14.17% maximum; 47 records exceeded 5%. Versus T28, this lowers central
+  error slightly but removes only one failing record and worsens the maximum.
+- Safety: peak sampled temperatures were 44 C / 45 C and VRAM 7,895 MiB/card
+  at 125 W. Fans remained 2,000–2,100 RPM; cooldown passed, allocations were
+  released, and both 250 W caps were restored.
+- Decision: reject the top-8 hypothesis. The next admissible test changes one
+  variable only: top-K from 8 to 32 under the same actual-Qwen shadow canary.
+  Do not integrate or time either sparse residual formulation.
+- Evidence: [T29 result](../results/T29-real-qwen-groupwise-w4a8-outlier-shadow.md)
+  and `research/results/raw/T29-qwen-groupwise-outlier-shadow-d506ad55-6d7b-4104-8197-9412b9cf1ec1.*`.

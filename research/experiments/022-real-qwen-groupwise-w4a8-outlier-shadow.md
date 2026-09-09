@@ -1,6 +1,6 @@
 # E022 / T29 — real-Qwen groupwise W4A8 top-K residual shadow
 
-Status: designed; implementation and guarded run pending.
+Status: complete — rejected for approximate expert execution; production unchanged.
 
 ## Hypothesis
 
@@ -47,3 +47,16 @@ still owns the tail.
 
 No approximate-output, logit, token-agreement, or speed claim is authorized by
 this experiment.
+
+## Result
+
+The exact returned-output SHA-256 matched and all 2,397 records were finite.
+Top-8 correction made only a marginal numerical change from T28: relative L2
+was 2.39% median, 3.02% p95, 8.19% p99, and 14.17% maximum, with 47 records
+above 5%. T28 had 2.46%, 3.12%, 8.46%, 13.18%, and 48, respectively.
+
+The hypothesis that eight residuals explain the remaining tail is rejected.
+The next experiment is allowed to change one variable only: top-K capacity
+from 8 to 32, with all groupwise arithmetic, source control, prompt, model,
+guard, and exact-output oracle held fixed. It remains a shadow-only numerical
+test; no quality or performance inference is permitted from this result.
