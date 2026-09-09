@@ -865,3 +865,60 @@ ID, status, hypothesis, prediction, exact change, source/binary/model/prompt ide
   gate/up versus exact gate/up before approximate down.
 - Evidence: [T30 result](../results/T30-real-qwen-groupwise-w4a8-outlier32-shadow.md)
   and `research/results/raw/T30-qwen-groupwise-outlier32-shadow-4f339e4d-dcd5-4c52-b3c7-407c1197d72d.*`.
+=======
+## Repository comprehension and local verification — 2026-09-09
+
+- Scope: user-requested reading of repository state at `8e44734`; no numbered
+  experiment was started or advanced. Read the execution contract, research
+  plans, experiment specifications/results, CUDA controls/patches, local and
+  remote runner code, tests, and marathon controller.
+- Current evidence: T24 remains the retained exact-Q8 experimental path;
+  its fixed 64-output result is 12.92 engine tok/s. T26 shared pairing is
+  rejected, and T27 is instrumentation evidence. T28 has a checked-in patch,
+  fixed guard/client, and static tests, but no recorded runtime result.
+  Discovery-era status text in README/EXECUTION_PLAN and several research
+  summaries does not describe the latest experiment state.
+- Verification actually run:
+  `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v` —
+  121 tests passed. These are CPU-only mock/parser/source-contract tests and
+  disposable local process checks, not CUDA correctness or thermal acceptance.
+- Limits: the complete experimental Colibri sources/binaries live outside
+  this checkout. The checked-in remote runners do not show the host-wide
+  workload lock or independent watchdog required by the policy; their
+  synchronous telemetry loop also does not implement its stale/slope checks.
+  No installed remote wrapper or current hardware state was inspected.
+- Measurements: `not_measured` this session. No SSH, GPU/model/training work,
+  builds, device-setting changes, production changes, or deployment occurred.
+- Changed paths: `research/experiments/LOG.md` only, as required by AGENTS.md.
+- Next task ID: T28 remains pending; reconcile its source/build evidence and
+  runner prerequisites before a guarded shadow canary. This review does not
+  establish workload readiness or approve an approximate-output path.
+
+## Research hypotheses report — 2026-09-09
+
+- Scope: user-requested scientific challenge of current Colibri/P40 assumptions,
+  grounded in repository `8e447340c7d88a6f5cc35b3986e6e9a634bc9801`, recorded
+  T20–T28 evidence, pinned engine source, and primary research publications.
+  No numbered experiment was started or advanced.
+- Artifact: [REPORT.md](../../REPORT.md) contains ten mathematical/architectural
+  hypotheses and five ranked experiments with equations, bounded first
+  falsifiers, proposed numerical screens, cost ceilings, and implementation
+  prerequisites. R1–R5 are report-local labels, not execution task IDs.
+- Leading investigations: sparse activation-residual correction, low-rank
+  quantization-error response, co-selected expert anchors, sparse temporal
+  innovations, and an oracle exact speculative verifier. The report separates
+  operator gains from whole-model gains: eliminating T24's entire inclusive
+  MoE interval alone has a 1.926× analytical decode ceiling.
+- Verification actually run: CPU-only toy checks of eight algebraic
+  relationships, including 100 random signed-W4 bitplane cases; report
+  structure and local-link checks; `git diff --check`. All passed. The math
+  check script is a temporary local artifact at `/tmp/p40-report-math-check.py`.
+  No model accuracy, CUDA correctness, thermal acceptance, or speed was tested.
+- Measurements: all proposed outcomes remain `not_measured`. No server access,
+  inference, training, GPU workload, device-setting change, production change,
+  or deployment occurred. Published results are precedents, not measurements
+  of our checkpoint or hardware; no novelty is claimed.
+- Changed paths: `REPORT.md` and `research/experiments/LOG.md`.
+- Next task ID: T28 remains pending. Complete its existing comparison and
+  reconcile runner prerequisites before a separately identified bounded
+  capture/replay task; this report does not advance that workload.
