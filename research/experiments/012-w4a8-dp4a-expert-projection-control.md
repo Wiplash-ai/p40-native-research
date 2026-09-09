@@ -1,7 +1,7 @@
 # E012 / T17 — P40 W4A8/DP4A MoE-projection control
 
-Status: source implementation pending CPU-only compilation and guarded runtime
-acceptance.
+Status: pass for the synthetic projection control; no model integration is
+authorized.
 
 ## Hypothesis
 
@@ -43,3 +43,23 @@ Advance only if integer parity, error, fan/thermal/cleanup, and at least 1.15x
 transfer-inclusive W4A32/W4A8 speed all pass. A positive result still does not
 authorize a Colibri patch; the next stage would be the actual gate/up/down MLP
 with an explicit model-quality plan.
+
+## Guarded result
+
+The CPU-hidden `sm_61` build emitted `IDP.4A.S8.S8` in SASS. The guarded GPU0
+run (`run_id` `cfb76b1a-4a07-4a1c-85a0-05c3ae82aabb`) passed exact integer
+parity, the numerical gate, and all safety/cleanup gates. Its W4A8 DP4A median
+was 0.0609619 ms per four-expert projection versus 0.098694 ms for identical
+W4/FP32 boundaries: **1.61895x**. Quantization caused 0.00384378 relative-L2
+error (0.384%), with 0.06047 maximum absolute error; this is below the 2%
+control threshold but is not a model-quality evaluation.
+
+GPU0 peaked at 37 C; GPU1 remained idle at 37 C. Fans stayed 2,000--2,100 RPM,
+the allocation was released, cooldown passed, and GPU0's 250 W cap restored.
+
+## Next variant
+
+Test only the `#pragma unroll` decision next. The new binary forces
+`#pragma unroll 1`; shape, packed W4 layout, Q8 quantization, output tile,
+input/output transfers, seed, and 125 W guard remain fixed. If it is not
+faster, retain the unrolled loop and advance to an independent tile-size test.

@@ -571,3 +571,23 @@ ID, status, hypothesis, prediction, exact change, source/binary/model/prompt ide
   integer checks and measured quantization error before any engine integration.
 - Evidence: [T16 result](../results/T16-qwen-shared-cpuorder-64-dual-p40-125w.md)
   and `research/results/raw/T16-qwen-shared-cpuorder-6047e0b6.*`.
+
+## T17 — Pascal W4A8/DP4A routed-expert projection control
+
+- Date: 2026-09-09.
+- Status: pass as a synthetic, approximate arithmetic control only.
+- Exact change: one GPU0-only four-expert `2048→512` packed-W4 projection
+  control. W4A8 quantizes each FP32 input row on-device and uses explicit
+  `__dp4a`; W4/FP32 keeps the same weights, tile, H2D/D2H boundaries, and
+  output shape. No model, Colibri source, or production engine changed.
+- Result: CPU/GPU integer W4/Q8 accumulators exactly matched. SASS contains
+  `IDP.4A.S8.S8`. W4A8 median was 0.0609619 ms versus W4/FP32 0.098694 ms:
+  1.61895x. Relative L2 error against W4/FP32 was 0.00384378 (0.384%), below
+  the declared 2% control gate.
+- Safety: GPU0 peak 37 C at 125 W; GPU1 idle at 37 C; fans 2,000–2,100 RPM;
+  allocations released, cooldown passed, and GPU0 restored to 250 W.
+- Decision: retain W4A8 as a promising approximate primitive. Change only
+  loop-unroll policy in T18. It is not evidence of Qwen quality or permission
+  for engine integration.
+- Evidence: [T17 result](../results/T17-w4a8-dp4a-expert-projection-gpu0-125w.md)
+  and `research/results/raw/T17-w4a8-dp4a-cfb76b1a.*`.

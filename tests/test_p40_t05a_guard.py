@@ -140,6 +140,18 @@ assert T17_CLIENT_SPEC and T17_CLIENT_SPEC.loader
 sys.modules[T17_CLIENT_SPEC.name] = t17_client
 T17_CLIENT_SPEC.loader.exec_module(t17_client)
 
+T18_SPEC = importlib.util.spec_from_file_location("p40_t18_w4a8_dp4a_guard", ROOT / "remote/p40-t18-w4a8-dp4a-no-unroll-guard.py")
+t18 = importlib.util.module_from_spec(T18_SPEC)
+assert T18_SPEC and T18_SPEC.loader
+sys.modules[T18_SPEC.name] = t18
+T18_SPEC.loader.exec_module(t18)
+
+T18_CLIENT_SPEC = importlib.util.spec_from_file_location("p40_t18_w4a8_dp4a_client", ROOT / "scripts/p40_t18_w4a8_dp4a_no_unroll_client.py")
+t18_client = importlib.util.module_from_spec(T18_CLIENT_SPEC)
+assert T18_CLIENT_SPEC and T18_CLIENT_SPEC.loader
+sys.modules[T18_CLIENT_SPEC.name] = t18_client
+T18_CLIENT_SPEC.loader.exec_module(t18_client)
+
 
 class T05AGuardTests(unittest.TestCase):
     def test_dry_run_never_initializes_cuda(self):
@@ -253,6 +265,16 @@ class T05AGuardTests(unittest.TestCase):
         identity = Path("/tmp/p40-t17-test-key")
         self.assertEqual(t17_client.ssh_argv("host", identity)[-1], "p40-t17-w4a8-dp4a")
         self.assertEqual(t17_client.ssh_argv("host", identity, read_results=True)[-1], "p40-t17-w4a8-dp4a-results")
+
+    def test_t18_changes_only_the_forced_no_unroll_binary(self):
+        self.assertEqual(t18.t17.t05.EXPECTED_ORIGINAL_COMMAND, "p40-t18-w4a8-dp4a-no-unroll")
+        self.assertEqual(t18.t17.t05.PROFILE_ID, "t18-w4a8-dp4a-expert-projection-no-unroll")
+        self.assertEqual(t18.t17.t05.BENCHMARK_SHA256, "73de70569099e2425e0fdf5c5f4075493d07dc2cbe05dcc9692a7939565b48fb")
+        self.assertIn("qwen_w4a8_dp4a_no_unroll_control", str(t18.t17.t05.BENCHMARK))
+        self.assertEqual(t18.t17.t05.FIXED_ARGUMENTS, t17.t05.FIXED_ARGUMENTS)
+        identity = Path("/tmp/p40-t18-test-key")
+        self.assertEqual(t18_client.ssh_argv("host", identity)[-1], "p40-t18-w4a8-dp4a-no-unroll")
+        self.assertEqual(t18_client.ssh_argv("host", identity, read_results=True)[-1], "p40-t18-w4a8-dp4a-no-unroll-results")
 
     def test_mocked_run_caps_restores_and_records_output(self):
         class FinishedProcess:

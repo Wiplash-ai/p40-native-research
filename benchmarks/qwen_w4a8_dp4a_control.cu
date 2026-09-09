@@ -22,6 +22,9 @@ constexpr int kOutput = 512;      // Qwen routed expert intermediate width
 constexpr int kTile = 8;          // eight warp-per-row outputs per CTA
 constexpr const char* kProfile = "w4a8-dp4a-expert-proj-4x-2048-512";
 constexpr const char* kSchema = "t17-w4a8-dp4a-expert-proj-v1";
+#ifndef P40_W4A8_UNROLL
+#define P40_W4A8_UNROLL 1
+#endif
 
 struct Options {
   std::string profile;
@@ -248,7 +251,11 @@ __global__ void w4a8_dp4a_rows(const uint8_t* weights, const int8_t* input, int3
   const uint8_t* weight = weights + output_index * (kInput / 2);
   const int8_t* activation = input + static_cast<size_t>(expert) * kInput;
   int accumulator = 0;
+#if P40_W4A8_UNROLL
 #pragma unroll
+#else
+#pragma unroll 1
+#endif
   for (int column = lane * 4; column < kInput; column += 32 * 4) {
     const uint16_t packed = static_cast<uint16_t>(weight[column / 2]) |
                             (static_cast<uint16_t>(weight[column / 2 + 1]) << 8);
@@ -377,6 +384,7 @@ int run(const Options& options) {
   std::cout << "{\"schema_version\":\"" << kSchema << "\",\"profile\":\"" << kProfile
             << "\",\"cuda_initialized\":true,\"tile\":" << kTile
             << ",\"experts\":" << kExperts << ",\"integer_exact\":true"
+            << ",\"unrolled\":" << (P40_W4A8_UNROLL ? "true" : "false")
             << ",\"relative_l2_error\":" << relative_l2
             << ",\"max_absolute_error\":" << error.max_absolute
             << ",\"max_relative_error\":" << error.max_relative
