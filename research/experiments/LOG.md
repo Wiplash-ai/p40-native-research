@@ -609,3 +609,23 @@ ID, status, hypothesis, prediction, exact change, source/binary/model/prompt ide
   Qwen gain or modify Colibri.
 - Evidence: [T18 result](../results/T18-w4a8-dp4a-no-unroll-gpu0-125w.md)
   and `research/results/raw/T18-w4a8-dp4a-no-unroll-32a72ef5.*`.
+
+## T19 — Pascal W4A8/DP4A 16-warp CTA-tile control
+
+- Date: 2026-09-09.
+- Status: pass as a measurement; reject Tile16 as the preferred kernel.
+- Exact change: compile only `P40_W4A8_TILE=16`, retaining T17's full
+  unrolling. Qwen-shaped projection, four experts, W4 layout, Q8 input,
+  transfers, seed, integer reference, GPU0 cap, and fixed guard were held.
+- Result: integer parity, 0.00384378 relative-L2 error, and `IDP.4A` SASS
+  repeated. W4A8 median was 0.0808166 ms, 1.32569x slower than T17 Tile8's
+  0.0609619 ms. Its own W4/FP32 baseline was 0.115078 ms (1.42394x), which is
+  not a cross-binary selection metric.
+- Safety: GPU0/GPU1 maxima were 36 C/36 C; fans 2,000–2,100 RPM; allocation
+  release, cooldown, and 250 W restore passed.
+- Decision: retain the unrolled eight-warp tile. The 64/96 output-tiling idea
+  from a differently structured llama.cpp MMQ kernel does not transfer to this
+  one-warp-per-output GEMV. The next test, if any, must widen the synthetic
+  primitive to the complete routed MLP before considering model integration.
+- Evidence: [T19 result](../results/T19-w4a8-dp4a-tile16-gpu0-125w.md) and
+  `research/results/raw/T19-w4a8-dp4a-tile16-549bcc04-f0ba-43b4-a9f2-326454db1a6c.*`.
