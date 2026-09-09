@@ -108,6 +108,12 @@ assert T24_SPEC and T24_SPEC.loader
 sys.modules[T24_SPEC.name] = t24
 T24_SPEC.loader.exec_module(t24)
 
+T25_SPEC = importlib.util.spec_from_file_location("p40_t25_qwen_shared_pair", ROOT / "remote/p40-t25-qwen-shared-pair-guard.py")
+t25 = importlib.util.module_from_spec(T25_SPEC)
+assert T25_SPEC and T25_SPEC.loader
+sys.modules[T25_SPEC.name] = t25
+T25_SPEC.loader.exec_module(t25)
+
 CLIENT_SPEC = importlib.util.spec_from_file_location("p40_qwen_control_client", ROOT / "scripts/p40_qwen_control_client.py")
 client = importlib.util.module_from_spec(CLIENT_SPEC)
 assert CLIENT_SPEC and CLIENT_SPEC.loader
@@ -197,6 +203,12 @@ t24_client = importlib.util.module_from_spec(T24_CLIENT_SPEC)
 assert T24_CLIENT_SPEC and T24_CLIENT_SPEC.loader
 sys.modules[T24_CLIENT_SPEC.name] = t24_client
 T24_CLIENT_SPEC.loader.exec_module(t24_client)
+
+T25_CLIENT_SPEC = importlib.util.spec_from_file_location("p40_t25_qwen_shared_pair_client", ROOT / "scripts/p40_t25_qwen_shared_pair_client.py")
+t25_client = importlib.util.module_from_spec(T25_CLIENT_SPEC)
+assert T25_CLIENT_SPEC and T25_CLIENT_SPEC.loader
+sys.modules[T25_CLIENT_SPEC.name] = t25_client
+T25_CLIENT_SPEC.loader.exec_module(t25_client)
 
 
 class QwenCanaryGuardTests(unittest.TestCase):
@@ -445,6 +457,19 @@ class QwenCanaryGuardTests(unittest.TestCase):
         identity = Path("/tmp/p40-t24-test-key")
         self.assertEqual(t24_client.ssh_argv("host", identity)[-1], "p40-t24-qwen-deltanet-pair")
         self.assertEqual(t24_client.ssh_argv("host", identity, read_results=True)[-1], "p40-t24-qwen-deltanet-pair-results")
+
+    def test_t25_pins_shared_pair_binary_exact_oracle_and_two_markers(self):
+        self.assertEqual(t25.EXPECTED_ORIGINAL_COMMAND, "p40-t25-qwen-shared-pair")
+        self.assertEqual(t25.PROFILE_ID, "t25-exact-qwen-shared-pair-16")
+        self.assertEqual(t25.ENGINE_SHA256, "a9dac675ea2f37e1ba9ffb53353400e0d6e3127d035fddeecb91b17794194104")
+        argv = t25.model_argv()
+        self.assertIn("COLI_CUDA_DN_PAIR=1", argv)
+        self.assertIn("COLI_CUDA_SHARED_PAIR=1", argv)
+        self.assertIn(str(t25.ENGINE), argv)
+        self.assertFalse(t25.run({"dry_run": True})["cuda_initialized"])
+        identity = Path("/tmp/p40-t25-test-key")
+        self.assertEqual(t25_client.ssh_argv("host", identity)[-1], "p40-t25-qwen-shared-pair")
+        self.assertEqual(t25_client.ssh_argv("host", identity, read_results=True)[-1], "p40-t25-qwen-shared-pair-results")
 
     def test_mocked_run_caps_and_restores_both_gpus_and_records_output(self):
         class FinishedProcess:

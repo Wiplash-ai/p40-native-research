@@ -28,3 +28,7 @@ than PCIe-transfer-bound.
 `T23-exact-qwen-deltanet-pair-canary.md` records the exact-output canary for
 the DeltaNet QKV/Z pair issue/join path. It clears correctness and safety only;
 the fixed 64-token comparison remains the performance gate.
+
+`T24-exact-qwen-deltanet-pair-64.md` is that fixed comparison. It accepts the
+exact DeltaNet pair path at 12.92 tok/s, with total decode reduced 9.6% from
+the matched T16 baseline; it is experimental-only, not a production change.

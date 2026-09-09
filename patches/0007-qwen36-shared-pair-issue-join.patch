@@ -1,0 +1,84 @@
+--- a/c/qwen36.c
++++ b/c/qwen36.c
+@@ -1041,6 +1041,7 @@
+ static int lmhead_cpuorder_on(void){ const char *e=getenv("COLI_CUDA_LMHEAD_CPUORDER"); return e && !strcmp(e,"1"); }
+ static int attn_cpuorder_on(void){ const char *e=getenv("COLI_CUDA_ATTN_CPUORDER"); return e && !strcmp(e,"1"); }
+ static int shared_cpuorder_on(void){ const char *e=getenv("COLI_CUDA_SHARED_CPUORDER"); return e && !strcmp(e,"1"); }
++static int shared_pair_on(void){ const char *e=getenv("COLI_CUDA_SHARED_PAIR"); return e && !strcmp(e,"1"); }
+ static int dn_pair_on(void){ const char *e=getenv("COLI_CUDA_DN_PAIR"); return e && !strcmp(e,"1"); }
+ static int dn_cpuorder_device(void){
+     const char *e=getenv("COLI_CUDA_DN_DEVICE"); char *end=NULL;
+@@ -1088,10 +1089,10 @@
+     g_dn_cpuorder_active=1;
+     return 1;
+ }
+-static P40QwenDnTensor *qdw_cpuorder_tensor(const float *W, int I, int O){
++static P40QwenDnTensor *qdw_cpuorder_tensor_for(const float *W, int I, int O, unsigned flag){
+     for(int i=0;i<g_qdw_n;i++)
+         if(g_qdw[i].w==W && g_qdw[i].I==I && g_qdw[i].O==O &&
+-           (g_qdw[i].flags & QDW_DN_CPUORDER) && g_qdw[i].cpuorder)
++           (g_qdw[i].flags & flag) && g_qdw[i].cpuorder)
+             return g_qdw[i].cpuorder;
+     return NULL;
+ }
+@@ -2046,16 +2047,38 @@
+             {
+                 double _ts2 = tm_on() ? tm_now() : 0.0;
+                 int Ish = c->shared_inter;
++                int shared_pair_issued = 0;
++#ifdef COLI_CUDA
++                if(S==1 && g_dn_cpuorder_active && shared_pair_on()){
++                    P40QwenDnTensor *g_t=qdw_cpuorder_tensor_for(l->sh_g,D,Ish,QDW_SHARED_CPUORDER);
++                    P40QwenDnTensor *u_t=qdw_cpuorder_tensor_for(l->sh_u,D,Ish,QDW_SHARED_CPUORDER);
++                    if(g_t && u_t && p40_qwen_dn_pair_issue(g_t,u_t,xs)) shared_pair_issued=1;
++                    else {
++                        fprintf(stderr,"[dn-cpuorder] shared gate/up pair issue failed; reverting to serial exact Q8\n");
++                        qdw_dn_cpuorder_shutdown();
++                    }
++                }
++#endif
++                if(!shared_pair_issued){
+                 matmul_d(sh, xs, l->sh_g, 1, D, Ish);
+                 matmul_d(shu, xs, l->sh_u, 1, D, Ish);
+-                for (int i = 0; i < Ish; i++) { float sv = sh[i]; sh[i] = (sv / (1.f + expf(-sv))) * shu[i]; }
+-                matmul_d(shd, sh, l->sh_d, 1, Ish, D);
++                }
+                 float sgate = 1.f;
+                 if (l->sh_gate) {
+                     float sg = 0.f; const float *wg = l->sh_gate;
+                     for (int i = 0; i < D; i++) sg += xs[i] * wg[i];
+                     sgate = 1.f / (1.f + expf(-sg));
+                 }
++#ifdef COLI_CUDA
++                if(shared_pair_issued && !p40_qwen_dn_pair_take(sh,shu)){
++                    fprintf(stderr,"[dn-cpuorder] shared gate/up pair join failed; reverting to serial exact Q8\n");
++                    qdw_dn_cpuorder_shutdown();
++                    matmul_d(sh, xs, l->sh_g, 1, D, Ish);
++                    matmul_d(shu, xs, l->sh_u, 1, D, Ish);
++                }
++#endif
++                for (int i = 0; i < Ish; i++) { float sv = sh[i]; sh[i] = (sv / (1.f + expf(-sv))) * shu[i]; }
++                matmul_d(shd, sh, l->sh_d, 1, Ish, D);
+                 float *os = out + (int64_t)s*D;
+                 for (int d = 0; d < D; d++) os[d] += sgate * shd[d];
+                 if (tm_on()) tm_add(S, 3, tm_now()-_ts2);
+@@ -2135,8 +2158,8 @@
+         /* projections (single-token matmuls) */
+ #ifdef COLI_CUDA
+         if(S==1 && g_dn_cpuorder_active && dn_pair_on()){
+-            P40QwenDnTensor *qkv_t=qdw_cpuorder_tensor(l->dn_qkv,H,conv_dim);
+-            P40QwenDnTensor *z_t=qdw_cpuorder_tensor(l->dn_z,H,value_dim);
++            P40QwenDnTensor *qkv_t=qdw_cpuorder_tensor_for(l->dn_qkv,H,conv_dim,QDW_DN_CPUORDER);
++            P40QwenDnTensor *z_t=qdw_cpuorder_tensor_for(l->dn_z,H,value_dim,QDW_DN_CPUORDER);
+             if(qkv_t && z_t && p40_qwen_dn_pair_issue(qkv_t,z_t,xs)) pair_issued=1;
+             else {
+                 fprintf(stderr,"[dn-cpuorder] QKV/Z pair issue failed; reverting to serial exact Q8\n");
+@@ -2909,6 +2932,8 @@
+                 fprintf(stderr,"[dn-cpuorder] exact Q8 cache active: LM head on GPU %d\n",device);
+             if(dn_cpuorder_on() && dn_pair_on())
+                 fprintf(stderr,"[dn-cpuorder] exact Q8 QKV/Z pair issue/join active; CPU B/A overlap enabled\n");
++            if(shared_cpuorder_on() && shared_pair_on())
++                fprintf(stderr,"[dn-cpuorder] exact Q8 shared gate/up pair issue/join active; scalar gate overlap enabled\n");
+             atexit(qdw_dn_cpuorder_shutdown);
+         }
+     }

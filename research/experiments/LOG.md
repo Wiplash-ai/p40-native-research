@@ -718,3 +718,24 @@ ID, status, hypothesis, prediction, exact change, source/binary/model/prompt ide
   the change to production or advance approximate W4A8 work.
 - Evidence: [T23 result](../results/T23-exact-qwen-deltanet-pair-canary.md)
   and `research/results/raw/T23-qwen-deltanet-pair-7b453043-a9c2-4132-9d4a-95e4597570af.*`.
+
+## T24 — exact Qwen DeltaNet QKV/Z pair 64-token comparison
+
+- Date: 2026-09-09.
+- Status: pass; promote to the experimental exact-Q8 line only.
+- Exact change: same T23 binary, model, prompt, two P40s, 125 W/card policy,
+  exact-Q8 caches, and output protocol as T16. Only `COLI_CUDA_DN_PAIR=1`
+  activates the single-pending QKV/Z issue/join path.
+- Result: 64-token stdout SHA-256 exactly matched. T24 measured DeltaNet
+  24.38 vs T16's 31.36 ms/token (-22.3%); total decode 64.04 vs 70.81
+  ms/token (-9.6%); reported speed 12.92 vs 11.84 tok/s (+9.1%). Attention
+  and MoE are within 1.1% and 0.5% of T16, respectively, so no cross-phase
+  gain is claimed.
+- Safety: 45 C / 46 C maxima, 2,000–2,100 RPM fans, no safety action,
+  allocations released, cooldown passed, and post-run telemetry confirmed
+  zero VRAM and both 250 W caps restored.
+- Decision: retain the exact DeltaNet pair optimization in the isolated
+  experimental engine. Next audit/build target is an exact shared gate/up
+  issue/join path; do not return to approximate W4A8 yet.
+- Evidence: [T24 result](../results/T24-exact-qwen-deltanet-pair-64.md)
+  and `research/results/raw/T24-qwen-deltanet-pair-67da18c4-4922-4bf3-92f9-b11140c7a19b.*`.
