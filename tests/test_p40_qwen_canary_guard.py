@@ -126,6 +126,12 @@ assert T27_SPEC and T27_SPEC.loader
 sys.modules[T27_SPEC.name] = t27
 T27_SPEC.loader.exec_module(t27)
 
+T28_SPEC = importlib.util.spec_from_file_location("p40_t28_qwen_groupwise_shadow", ROOT / "remote/p40-t28-qwen-groupwise-shadow-guard.py")
+t28 = importlib.util.module_from_spec(T28_SPEC)
+assert T28_SPEC and T28_SPEC.loader
+sys.modules[T28_SPEC.name] = t28
+T28_SPEC.loader.exec_module(t28)
+
 CLIENT_SPEC = importlib.util.spec_from_file_location("p40_qwen_control_client", ROOT / "scripts/p40_qwen_control_client.py")
 client = importlib.util.module_from_spec(CLIENT_SPEC)
 assert CLIENT_SPEC and CLIENT_SPEC.loader
@@ -233,6 +239,12 @@ t27_client = importlib.util.module_from_spec(T27_CLIENT_SPEC)
 assert T27_CLIENT_SPEC and T27_CLIENT_SPEC.loader
 sys.modules[T27_CLIENT_SPEC.name] = t27_client
 T27_CLIENT_SPEC.loader.exec_module(t27_client)
+
+T28_CLIENT_SPEC = importlib.util.spec_from_file_location("p40_t28_qwen_groupwise_shadow_client", ROOT / "scripts/p40_t28_qwen_groupwise_shadow_client.py")
+t28_client = importlib.util.module_from_spec(T28_CLIENT_SPEC)
+assert T28_CLIENT_SPEC and T28_CLIENT_SPEC.loader
+sys.modules[T28_CLIENT_SPEC.name] = t28_client
+T28_CLIENT_SPEC.loader.exec_module(t28_client)
 
 
 class QwenCanaryGuardTests(unittest.TestCase):
@@ -520,6 +532,18 @@ class QwenCanaryGuardTests(unittest.TestCase):
         identity = Path("/tmp/p40-t27-test-key")
         self.assertEqual(t27_client.ssh_argv("host", identity)[-1], "p40-t27-qwen-attention-profile")
         self.assertEqual(t27_client.ssh_argv("host", identity, read_results=True)[-1], "p40-t27-qwen-attention-profile-results")
+
+    def test_t28_pins_groupwise_shadow_engine_and_exact_output_oracle(self):
+        self.assertEqual(t28.EXPECTED_ORIGINAL_COMMAND, "p40-t28-qwen-groupwise-shadow")
+        self.assertEqual(t28.PROFILE_ID, "t28-w4a8-real-expert-groupwise-shadow-16")
+        self.assertEqual(t28.ENGINE_SHA256, "45f60341ac465f2ca441df35edb9c07405c0e60b4fefc8979683a388d5126175")
+        self.assertEqual(t28.EXPECTED_STDOUT_SHA256, t21.EXPECTED_STDOUT_SHA256)
+        argv = t28.model_argv()
+        self.assertIn("COLI_CUDA_W4A8_DP4A=groupwise-shadow", argv)
+        self.assertNotIn("COLI_CUDA_W4A8_DP4A=shadow", argv)
+        identity = Path("/tmp/p40-t28-test-key")
+        self.assertEqual(t28_client.ssh_argv("host", identity)[-1], "p40-t28-qwen-groupwise-shadow")
+        self.assertEqual(t28_client.ssh_argv("host", identity, read_results=True)[-1], "p40-t28-qwen-groupwise-shadow-results")
 
     def test_mocked_run_caps_and_restores_both_gpus_and_records_output(self):
         class FinishedProcess:

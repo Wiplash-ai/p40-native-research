@@ -38,8 +38,9 @@ still supply the value returned to Qwen.
 - Fixed group size is 256, divisible by four and shared by the quantizer and
   DP4A kernels. It is an eight-scale input control, not a claim that 256 is
   optimal.
-- Fork the accepted T24 exact-Q8/DeltaNet-pair engine; do not combine the
-  rejected shared pair or T27 timing instrumentation.
+- Fork the already accepted T21 exact-output shadow engine; its purpose is
+  numerical comparison on real routed Qwen activations, not end-to-end speed.
+  Do not combine the rejected shared pair or T27 timing instrumentation.
 - The 16-token actual-Qwen canary retains T21's exact stdout oracle and emits
   separately parseable groupwise metrics.
 - Record group count, finite status, relative L2 median/p95/p99/max, max-abs,
