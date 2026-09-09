@@ -1,7 +1,7 @@
 # E010 / T15 — Qwen exact-Q8 shared-MLP integration
 
-Status: static acceptance pass; guarded GPU canary pending a fresh cool/idle
-preflight.
+Status: pass for the fixed 16-output guarded integration canary; a sustained
+64-output comparison has not yet run.
 
 ## Hypothesis
 
@@ -42,9 +42,32 @@ power restoration. It accepts only the previous exact stdout SHA-256
 new cache marker explicitly naming all 120 shared matrices. A preflight must
 show two idle/cool samples at least 60 seconds apart before it can run.
 
+## Guarded canary result
+
+The first eligible run (`run_id`
+`8e19ccde-0eb4-4257-bdf7-253f0e50baff`) passed the exact output oracle and
+the required 90+1+40+120 cache marker. It produced the established stdout
+SHA-256 `43095be2395844a0c7f321ea2496689325d5ae890f91ab53bb31c55e37a0877a`,
+with no helper fallback or CUDA diagnostic.
+
+The engine reported 8.18 tok/s (2.0 seconds for 16 outputs; TTFT 0.87 s).
+Across 15 decode steps, the shared MLP phase was 17.14 ms/token, down from
+69.86 ms/token in the otherwise equivalent T12 short canary. Total decode
+time was 71.25 ms/token; DeltaNet was 31.92 ms, attention 5.29 ms, MoE total
+30.70 ms, router 7.52 ms, and LM head 3.35 ms. The canary demonstrates that
+the exact path works and the intended phase moved; it is not a sustained
+throughput claim, because a separate cold process and short output length can
+affect other phase measurements.
+
+All 10,240 experts remained resident with zero actual CPU expert misses or
+swaps. The guard recorded a 42 C / 43 C peak, 7,537 / 7,517 MiB peak sampled
+VRAM, 2,000--2,100 RPM on every fan, allocation release, cooldown to 37 C /
+39 C, and restoration of both 250 W caps.
+
 ## Decision gate
 
-Record the canary outcome before choosing a 64-output comparison. A passing
-hash demonstrates implementation parity only; retain it only if a later,
-separate 64-output measurement improves total decode time without a safety
-failure. Do not combine its measurement with W4A8/DP4A or MoE-tier changes.
+The canary passed both parity and phase-improvement gates. Run one separate
+64-output comparison changing only `N_NEW`, still requiring the established
+64-output stdout hash. Retain the path only if it improves total decode time
+without a safety failure. Do not combine that measurement with W4A8/DP4A or
+MoE-tier changes.

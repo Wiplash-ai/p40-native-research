@@ -78,6 +78,12 @@ assert T15_SPEC and T15_SPEC.loader
 sys.modules[T15_SPEC.name] = t15
 T15_SPEC.loader.exec_module(t15)
 
+T16_SPEC = importlib.util.spec_from_file_location("p40_t16_qwen_shared", ROOT / "remote/p40-t16-qwen-shared-cpuorder-guard.py")
+t16 = importlib.util.module_from_spec(T16_SPEC)
+assert T16_SPEC and T16_SPEC.loader
+sys.modules[T16_SPEC.name] = t16
+T16_SPEC.loader.exec_module(t16)
+
 CLIENT_SPEC = importlib.util.spec_from_file_location("p40_qwen_control_client", ROOT / "scripts/p40_qwen_control_client.py")
 client = importlib.util.module_from_spec(CLIENT_SPEC)
 assert CLIENT_SPEC and CLIENT_SPEC.loader
@@ -137,6 +143,12 @@ t15_client = importlib.util.module_from_spec(T15_CLIENT_SPEC)
 assert T15_CLIENT_SPEC and T15_CLIENT_SPEC.loader
 sys.modules[T15_CLIENT_SPEC.name] = t15_client
 T15_CLIENT_SPEC.loader.exec_module(t15_client)
+
+T16_CLIENT_SPEC = importlib.util.spec_from_file_location("p40_t16_qwen_client", ROOT / "scripts/p40_t16_qwen_shared_cpuorder_client.py")
+t16_client = importlib.util.module_from_spec(T16_CLIENT_SPEC)
+assert T16_CLIENT_SPEC and T16_CLIENT_SPEC.loader
+sys.modules[T16_CLIENT_SPEC.name] = t16_client
+T16_CLIENT_SPEC.loader.exec_module(t16_client)
 
 
 class QwenCanaryGuardTests(unittest.TestCase):
@@ -306,6 +318,19 @@ class QwenCanaryGuardTests(unittest.TestCase):
         identity = Path("/tmp/p40-t15-test-key")
         self.assertEqual(t15_client.ssh_argv("host", identity)[-1], "p40-t15-qwen-shared-cpuorder")
         self.assertEqual(t15_client.ssh_argv("host", identity, read_results=True)[-1], "p40-t15-qwen-shared-cpuorder-results")
+
+    def test_t16_changes_only_length_and_uses_the_established_64_output_oracle(self):
+        self.assertEqual(t16.EXPECTED_ORIGINAL_COMMAND, "p40-t16-qwen-shared-cpuorder")
+        self.assertEqual(t16.PROFILE_ID, "t16-dn-lmhead-attention-shared-cpuorder-64")
+        self.assertEqual(t16.t15.ENGINE_SHA256, t15.ENGINE_SHA256)
+        self.assertEqual(t16.EXPECTED_STDOUT_SHA256, "5909fad89de2faac1b77af72bf8b25f56b8f33853df59d35cb04120e9ce1f35f")
+        argv = t16.model_argv()
+        self.assertIn("N_NEW=64", argv)
+        self.assertNotIn("N_NEW=16", argv)
+        self.assertIn("COLI_CUDA_SHARED_CPUORDER=1", argv)
+        identity = Path("/tmp/p40-t16-test-key")
+        self.assertEqual(t16_client.ssh_argv("host", identity)[-1], "p40-t16-qwen-shared-cpuorder")
+        self.assertEqual(t16_client.ssh_argv("host", identity, read_results=True)[-1], "p40-t16-qwen-shared-cpuorder-results")
 
     def test_mocked_run_caps_and_restores_both_gpus_and_records_output(self):
         class FinishedProcess:

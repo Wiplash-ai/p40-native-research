@@ -524,3 +524,28 @@ ID, status, hypothesis, prediction, exact change, source/binary/model/prompt ide
   No W4A8/DP4A or expert-tier change may share that run.
 - Evidence: [T14 result](../results/T14-shared-expert-cpuorder-40x-gpu0-125w.md)
   and `research/results/raw/T14-shared-expert-cpuorder-63e129e0.*`.
+
+## T15 — exact-Q8 shared-MLP full-model integration canary
+
+- Date: 2026-09-09.
+- Status: pass for the fixed 16-output canary; not a sustained comparison.
+- Exact change: fourth isolated source copy, with only
+  `COLI_CUDA_SHARED_CPUORDER=1` added to the accepted T12 exact-Q8 profile.
+  It registers the 40 layers' `sh_g`, `sh_u`, and `sh_d` matrices under a new
+  flag and fails cache preparation unless all 120 appear. CPU SiLU/gating,
+  routed W4A32 experts, tier placement, model/prompt, GPU count, and 125 W
+  thermal policy are unchanged.
+- Result: the 16-output response exactly matched the established oracle. The
+  required 90+1+40+120 marker appeared, with no helper fallback or CUDA
+  diagnostic. Engine rate was 8.18 tok/s (2.0 s; TTFT 0.87 s); decode phases
+  were DeltaNet 31.92, attention 5.29, MoE 30.70 (shared 17.14; router 7.52),
+  LM head 3.35, total 71.25 ms/token. All 10,240 experts were resident and
+  the explicit actual CPU cache-miss counter stayed zero.
+- Safety: maximum sampled temperatures were 42 C / 43 C and VRAM 7,537 /
+  7,517 MiB. Fans stayed 2,000–2,100 RPM; allocations released, cooldown
+  passed at 37 C / 39 C, and both caps restored to 250 W.
+- Decision: run only an independent 64-output guard that changes `N_NEW`.
+  Treat the short-canary speed as provisional until its hash-pinned longer
+  comparison completes. No W4A8/DP4A or MoE-tier change may share the run.
+- Evidence: [T15 result](../results/T15-qwen-shared-cpuorder-16-dual-p40-125w.md)
+  and `research/results/raw/T15-qwen-shared-cpuorder-8e19ccde.*`.
