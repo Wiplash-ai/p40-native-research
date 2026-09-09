@@ -164,6 +164,18 @@ assert T19_CLIENT_SPEC and T19_CLIENT_SPEC.loader
 sys.modules[T19_CLIENT_SPEC.name] = t19_client
 T19_CLIENT_SPEC.loader.exec_module(t19_client)
 
+T20_SPEC = importlib.util.spec_from_file_location("p40_t20_w4a8_dp4a_guard", ROOT / "remote/p40-t20-w4a8-dp4a-mlp-guard.py")
+t20 = importlib.util.module_from_spec(T20_SPEC)
+assert T20_SPEC and T20_SPEC.loader
+sys.modules[T20_SPEC.name] = t20
+T20_SPEC.loader.exec_module(t20)
+
+T20_CLIENT_SPEC = importlib.util.spec_from_file_location("p40_t20_w4a8_dp4a_client", ROOT / "scripts/p40_t20_w4a8_dp4a_mlp_client.py")
+t20_client = importlib.util.module_from_spec(T20_CLIENT_SPEC)
+assert T20_CLIENT_SPEC and T20_CLIENT_SPEC.loader
+sys.modules[T20_CLIENT_SPEC.name] = t20_client
+T20_CLIENT_SPEC.loader.exec_module(t20_client)
+
 
 class T05AGuardTests(unittest.TestCase):
     def test_dry_run_never_initializes_cuda(self):
@@ -297,6 +309,17 @@ class T05AGuardTests(unittest.TestCase):
         identity = Path("/tmp/p40-t19-test-key")
         self.assertEqual(t19_client.ssh_argv("host", identity)[-1], "p40-t19-w4a8-dp4a-tile16")
         self.assertEqual(t19_client.ssh_argv("host", identity, read_results=True)[-1], "p40-t19-w4a8-dp4a-tile16-results")
+
+    def test_t20_pins_the_full_gate_up_silu_down_control(self):
+        self.assertEqual(t20.t17.t05.EXPECTED_ORIGINAL_COMMAND, "p40-t20-w4a8-dp4a-mlp")
+        self.assertEqual(t20.t17.t05.PROFILE_ID, "t20-w4a8-dp4a-expert-mlp-4x")
+        self.assertEqual(t20.t17.t05.BENCHMARK_SHA256, "cabeebe044008c931df0f1d08e12c8201bd571c91015cf8bd89ceea3cdc0b42e")
+        self.assertIn("qwen_w4a8_dp4a_mlp_control", str(t20.t17.t05.BENCHMARK))
+        self.assertIn("w4a8-dp4a-expert-mlp-4x-2048-512-2048", t20.t17.t05.FIXED_ARGUMENTS)
+        self.assertEqual(t20.t17.t05.FIXED_ARGUMENTS[-6:], ("--repetitions", "3", "--calls-per-sample", "32", "--memory-cap-mib", "32", "--seed", "1")[-6:])
+        identity = Path("/tmp/p40-t20-test-key")
+        self.assertEqual(t20_client.ssh_argv("host", identity)[-1], "p40-t20-w4a8-dp4a-mlp")
+        self.assertEqual(t20_client.ssh_argv("host", identity, read_results=True)[-1], "p40-t20-w4a8-dp4a-mlp-results")
 
     def test_mocked_run_caps_restores_and_records_output(self):
         class FinishedProcess:

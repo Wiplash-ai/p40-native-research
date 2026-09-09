@@ -157,6 +157,19 @@ class T05Q8ControlSourceTests(unittest.TestCase):
         self.assertIn('qwen_w4a8_dp4a_no_unroll_control:', MAKEFILE)
         self.assertIn('qwen_w4a8_dp4a_tile16_control:', MAKEFILE)
 
+    def test_w4a8_dp4a_full_mlp_control_keeps_gate_up_silu_and_down_stages(self):
+        control = (ROOT / "benchmarks" / "qwen_w4a8_dp4a_mlp_control.cu").read_text()
+        self.assertIn('constexpr int kExperts = 4;', control)
+        self.assertIn('constexpr int kHidden = 2048;', control)
+        self.assertIn('constexpr int kIntermediate = 512;', control)
+        self.assertIn('dp4a_rows<kHidden, kIntermediate>', control)
+        self.assertIn('dp4a_rows<kIntermediate, kHidden>', control)
+        self.assertIn('silu_mul', control)
+        self.assertIn('a8.hiddenq != chq', control)
+        self.assertIn('relative L2 gate failed', control)
+        self.assertIn('options.calls_per_sample', control.replace('o.calls', 'options.calls_per_sample'))
+        self.assertIn('qwen_w4a8_dp4a_mlp_control:', MAKEFILE)
+
 
 if __name__ == "__main__":
     unittest.main()
