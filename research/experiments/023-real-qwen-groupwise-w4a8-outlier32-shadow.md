@@ -1,6 +1,6 @@
 # E023 / T30 — real-Qwen groupwise W4A8 top-32 residual shadow
 
-Status: designed; implementation and guarded run pending.
+Status: complete — rejected for approximate expert execution; production unchanged.
 
 ## Rationale
 
@@ -22,3 +22,16 @@ stdout matches, all 2,397 records are finite, and every record is at or below
 If this single capacity change fails, record it as a rejection. Do not select
 another K without first diagnosing whether the remaining error is activation
 quantization, W4 representation/scaling, or nonlinear error propagation.
+
+## Result
+
+The fixed real-Qwen canary passed exact-output and finite-value controls, but
+top-32 still leaves 46 of 2,397 records above 5% relative L2. It improves T29
+to 2.21% median, 2.79% p95, 7.40% p99, and 12.63% maximum, but does not clear
+the quality gate.
+
+The top-K capacity direction is therefore closed. The next admissible control
+must attribute error by stage: top-32 groupwise input correction followed by
+an exact down projection, versus an exact gate/up projection followed by
+top-32 groupwise down correction. That diagnostic may not become an
+approximate-output or performance path.

@@ -51,3 +51,7 @@ not an approximate-output or production candidate.
 `T29-real-qwen-groupwise-w4a8-outlier-shadow.md` records the fixed top-8
 residual correction control. It preserves exact Qwen output but only reduces
 the 48 failing groupwise records to 47, so top-8 sparse correction is rejected.
+
+`T30-real-qwen-groupwise-w4a8-outlier32-shadow.md` records the one-variable top-32
+control. It improves the distribution but still has 46 failing records; do not
+continue increasing K without stage attribution.

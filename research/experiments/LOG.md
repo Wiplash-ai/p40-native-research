@@ -843,3 +843,25 @@ ID, status, hypothesis, prediction, exact change, source/binary/model/prompt ide
   Do not integrate or time either sparse residual formulation.
 - Evidence: [T29 result](../results/T29-real-qwen-groupwise-w4a8-outlier-shadow.md)
   and `research/results/raw/T29-qwen-groupwise-outlier-shadow-d506ad55-6d7b-4104-8197-9412b9cf1ec1.*`.
+
+## T30 — real Qwen groupwise W4A8 top-32 residual shadow
+
+- Date: 2026-09-09.
+- Status: rejected for approximate Qwen expert execution; production unchanged.
+- Exact change: same T29 actual-Qwen shadow engine with only
+  `DP8_OUTLIER_TOPK` changed from 8 to 32. The dispatch label differs solely
+  to pin the experimental binary and parser; all arithmetic, source control,
+  prompt, model, exact return, and guard settings remained fixed.
+- Result: all 2,397 records were finite and exact 16-token stdout matched.
+  Relative L2 was 2.21% median, 2.79% p95, 7.40% p99, and 12.63% maximum;
+  46 records exceeded 5%. This improves top-8 values but fails the same 5%
+  all-record quality gate and reduces failures by only one.
+- Safety: peak sampled temperatures were 46 C / 47 C and VRAM 7,895 MiB/card
+  at 125 W. The workload used more sustained GPU time but stayed below the
+  65 C abort threshold; fans held 2,000–2,100 RPM, cooldown passed, and 250 W
+  caps were restored.
+- Decision: close the top-K capacity direction. Next build an actual-Qwen
+  stage-attribution shadow control, not top-64: exact down after approximate
+  gate/up versus exact gate/up before approximate down.
+- Evidence: [T30 result](../results/T30-real-qwen-groupwise-w4a8-outlier32-shadow.md)
+  and `research/results/raw/T30-qwen-groupwise-outlier32-shadow-4f339e4d-dcd5-4c52-b3c7-407c1197d72d.*`.
