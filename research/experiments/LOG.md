@@ -629,3 +629,24 @@ ID, status, hypothesis, prediction, exact change, source/binary/model/prompt ide
   primitive to the complete routed MLP before considering model integration.
 - Evidence: [T19 result](../results/T19-w4a8-dp4a-tile16-gpu0-125w.md) and
   `research/results/raw/T19-w4a8-dp4a-tile16-549bcc04-f0ba-43b4-a9f2-326454db1a6c.*`.
+
+## T20 — Pascal W4A8/DP4A full routed-MoE MLP control
+
+- Date: 2026-09-09.
+- Status: pass as a synthetic approximate primitive; no engine integration.
+- Exact change: four Qwen-shaped `2048 -> 512 -> 2048` routed MLPs with W4
+  gate/up, SiLU product, intermediate Q8, and W4 down. W4A8 uses DP4A only
+  with the selected unrolled Tile8 shape. W4A32 retains the same host input and
+  final output transfers, weights, nonlinearity, seed, GPU0 cap, and guard.
+- Result: input-Q8, gate, up, hidden-Q8, and down integer values exactly
+  matched independent CPU references. Final relative L2 was 0.0213725, below
+  the declared 5% gate. W4A8 was 0.179808 ms versus W4A32 0.304594 ms, 1.694x
+  faster. The max-relative final output deviation was 0.352025.
+- Safety: GPU0/GPU1 maxima were 36 C/36 C; all fans 2,000–2,100 RPM;
+  allocation release, cooldown, and GPU0's 250 W restore passed.
+- Decision: retain W4A8/DP4A as an empirically viable full synthetic MoE
+  arithmetic candidate. Do not alter Colibri yet: it must first use actual
+  expert weights in an isolated opt-in quality canary, with text/quality
+  evaluation rather than an impossible exact-output oracle.
+- Evidence: [T20 result](../results/T20-w4a8-dp4a-full-routed-mlp-gpu0-125w.md)
+  and `research/results/raw/T20-w4a8-dp4a-mlp-402ac3b2-3d58-40ae-ad2b-6b8750e3e3d2.*`.
