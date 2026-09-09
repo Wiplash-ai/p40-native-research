@@ -1,0 +1,108 @@
+--- a/c/backend_cuda.cu
++++ b/c/backend_cuda.cu
+@@ -82,10 +82,10 @@
+     int compute_major,compute_minor;
+     float *x, *y, *gate, *up;
+     size_t x_cap, y_cap, gate_cap, up_cap;
+-    float *dp8_y,*host_dp8_y,*dp8_scale,*dp8_outlier_residual;
++    float *dp8_y,*host_dp8_y,*dp8_stage_y,*host_dp8_stage_y,*dp8_scale,*dp8_outlier_residual;
+     int8_t *dp8_q;
+     int *dp8_outlier_index;
+-    size_t dp8_y_cap,host_dp8_y_cap,dp8_scale_cap,dp8_q_cap,
++    size_t dp8_y_cap,host_dp8_y_cap,dp8_stage_y_cap,host_dp8_stage_y_cap,dp8_scale_cap,dp8_q_cap,
+            dp8_outlier_residual_cap,dp8_outlier_index_cap;
+     uint8_t *qx; float *qscale;
+     size_t qx_cap, qscale_cap;
+@@ -1012,6 +1012,30 @@
+     if(!cuda_ok(cudaGetLastError(),"W4A8 groupwise outlier shadow launch")||!cuda_ok(cudaMemcpyAsync(ctx->host_dp8_y,ctx->dp8_y,xb,cudaMemcpyDeviceToHost,ctx->stream),"W4A8 groupwise outlier shadow download"))return 0;
+     ctx->dp8_shadow_pending=1;ctx->dp8_shadow_rows=total;ctx->dp8_shadow_width=D;return 1;
+ }
++__global__ static void grouped_down_w4(float *y,const float *x,const GroupDesc *desc,int D,int I);
++/* T31 reports two isolated sources of error using the same top-32 groupwise
++ * control: approximate gate/up with exact down, then exact gate/up with
++ * approximate down. Both outputs are shadow-only and are queued before the
++ * unchanged exact return path. */
++static int dp8_groupwise_stage_shadow_launch(DeviceContext *ctx,GroupDesc *dev,int total,int D,int I,int max_rows,int count){
++    size_t xb=(size_t)total*D*sizeof(float),qb=(size_t)total*(D>I?D:I);
++    size_t sb=(size_t)total*((D+DP8_GROUPWISE_WIDTH-1)/DP8_GROUPWISE_WIDTH)*sizeof(float);
++    size_t ob=(size_t)total*DP8_OUTLIER_TOPK;
++    if(!reserve(&ctx->dp8_y,&ctx->dp8_y_cap,xb)||!reserve(&ctx->dp8_stage_y,&ctx->dp8_stage_y_cap,xb)||!reserve_bytes((void**)&ctx->dp8_q,&ctx->dp8_q_cap,qb)||!reserve(&ctx->dp8_scale,&ctx->dp8_scale_cap,sb)||!reserve_bytes((void**)&ctx->dp8_outlier_index,&ctx->dp8_outlier_index_cap,ob*sizeof(int))||!reserve(&ctx->dp8_outlier_residual,&ctx->dp8_outlier_residual_cap,ob*sizeof(float))||!reserve_pinned(&ctx->host_dp8_y,&ctx->host_dp8_y_cap,xb)||!reserve_pinned(&ctx->host_dp8_stage_y,&ctx->host_dp8_stage_y_cap,xb))return 0;
++    dim3 hg((unsigned)I,(unsigned)max_rows,(unsigned)count),og((unsigned)D,(unsigned)max_rows,(unsigned)count);
++    /* Input side: groupwise Q8 + top-32 correction for gate/up, exact W4 down. */
++    dp8_quant_rows_groupwise<<<dim3((unsigned)total,(unsigned)((D+DP8_GROUPWISE_WIDTH-1)/DP8_GROUPWISE_WIDTH)),256,0,ctx->stream>>>(ctx->dp8_q,ctx->dp8_scale,ctx->x,total,D);
++    dp8_select_groupwise_outliers<<<total,1,0,ctx->stream>>>(ctx->x,ctx->dp8_q,ctx->dp8_scale,ctx->dp8_outlier_index,ctx->dp8_outlier_residual,total,D);
++    grouped_hidden_w4a8_groupwise_outlier_shadow<<<dim3((I+7)/8,max_rows,count),256,0,ctx->stream>>>(ctx->gate,ctx->dp8_q,ctx->dp8_scale,ctx->dp8_outlier_index,ctx->dp8_outlier_residual,dev,I,D);
++    grouped_down_w4<<<og,256,0,ctx->stream>>>(ctx->dp8_y,ctx->gate,dev,D,I);
++    /* Hidden side: exact gate/up, then groupwise Q8 + top-32 correction for down. */
++    grouped_hidden_w4_dual<<<hg,256,0,ctx->stream>>>(ctx->up,ctx->gate,ctx->x,dev,I,D);
++    dp8_quant_rows_groupwise<<<dim3((unsigned)total,(unsigned)((I+DP8_GROUPWISE_WIDTH-1)/DP8_GROUPWISE_WIDTH)),256,0,ctx->stream>>>(ctx->dp8_q,ctx->dp8_scale,ctx->up,total,I);
++    dp8_select_groupwise_outliers<<<total,1,0,ctx->stream>>>(ctx->up,ctx->dp8_q,ctx->dp8_scale,ctx->dp8_outlier_index,ctx->dp8_outlier_residual,total,I);
++    grouped_down_w4a8_groupwise_outlier_shadow<<<dim3((D+7)/8,max_rows,count),256,0,ctx->stream>>>(ctx->dp8_stage_y,ctx->dp8_q,ctx->dp8_scale,ctx->dp8_outlier_index,ctx->dp8_outlier_residual,dev,D,I);
++    if(!cuda_ok(cudaGetLastError(),"W4A8 stage shadow launch")||!cuda_ok(cudaMemcpyAsync(ctx->host_dp8_y,ctx->dp8_y,xb,cudaMemcpyDeviceToHost,ctx->stream),"W4A8 stage input download")||!cuda_ok(cudaMemcpyAsync(ctx->host_dp8_stage_y,ctx->dp8_stage_y,xb,cudaMemcpyDeviceToHost,ctx->stream),"W4A8 stage hidden download"))return 0;
++    ctx->dp8_shadow_pending=1;ctx->dp8_shadow_rows=total;ctx->dp8_shadow_width=D;return 1;
++}
+ 
+ __global__ static void grouped_down_w4(float *y,const float *x,const GroupDesc *desc,int D,int I){
+     int o=blockIdx.x,s=blockIdx.y,c=blockIdx.z;GroupDesc d=desc[c];if(s>=d.rows)return;
+@@ -1466,10 +1490,10 @@
+         if (ctx->y) cudaFree(ctx->y);
+         if (ctx->gate) cudaFree(ctx->gate);
+         if (ctx->up) cudaFree(ctx->up);
+-        if(ctx->dp8_y)cudaFree(ctx->dp8_y);if(ctx->dp8_q)cudaFree(ctx->dp8_q);
+-        if(ctx->dp8_scale)cudaFree(ctx->dp8_scale);if(ctx->host_dp8_y)cudaFreeHost(ctx->host_dp8_y);
+-        ctx->dp8_y=ctx->host_dp8_y=ctx->dp8_scale=nullptr;ctx->dp8_q=nullptr;
+-        ctx->dp8_y_cap=ctx->host_dp8_y_cap=ctx->dp8_scale_cap=ctx->dp8_q_cap=0;ctx->dp8_shadow_pending=0;
++        if(ctx->dp8_y)cudaFree(ctx->dp8_y);if(ctx->dp8_stage_y)cudaFree(ctx->dp8_stage_y);if(ctx->dp8_q)cudaFree(ctx->dp8_q);
++        if(ctx->dp8_scale)cudaFree(ctx->dp8_scale);if(ctx->host_dp8_y)cudaFreeHost(ctx->host_dp8_y);if(ctx->host_dp8_stage_y)cudaFreeHost(ctx->host_dp8_stage_y);
++        ctx->dp8_y=ctx->host_dp8_y=ctx->dp8_stage_y=ctx->host_dp8_stage_y=ctx->dp8_scale=nullptr;ctx->dp8_q=nullptr;
++        ctx->dp8_y_cap=ctx->host_dp8_y_cap=ctx->dp8_stage_y_cap=ctx->host_dp8_stage_y_cap=ctx->dp8_scale_cap=ctx->dp8_q_cap=0;ctx->dp8_shadow_pending=0;
+         if (ctx->qx) cudaFree(ctx->qx);
+         if (ctx->qscale) cudaFree(ctx->qscale);
+         if(ctx->aq)cudaFree(ctx->aq);if(ctx->al)cudaFree(ctx->al);if(ctx->ar)cudaFree(ctx->ar);if(ctx->ac)cudaFree(ctx->ac);
+@@ -2300,6 +2324,13 @@
+          * sync dispatch, silu fused in the dual epilogue. */
+         f8_group_launch(ctx,(GroupDesc*)ctx->group_desc,I,D,max_rows,count);
+     }else if(all_s4&&ctx->compute_major==6&&ctx->compute_minor>=1&&getenv("COLI_CUDA_W4A8_DP4A")&&
++             !strcmp(getenv("COLI_CUDA_W4A8_DP4A"),"groupwise-stage-shadow")){
++        GroupDesc *dev=(GroupDesc*)ctx->group_desc;
++        if(!dp8_groupwise_stage_shadow_launch(ctx,dev,total,D,I,max_rows,count))return 0;
++        dim3 hg((unsigned)I,(unsigned)max_rows,(unsigned)count),og((unsigned)D,(unsigned)max_rows,(unsigned)count);
++        grouped_hidden_w4_dual<<<hg,256,0,ctx->stream>>>(ctx->gate,ctx->up,ctx->x,dev,I,D);
++        grouped_down_w4<<<og,256,0,ctx->stream>>>(ctx->y,ctx->gate,dev,D,I);
++    }else if(all_s4&&ctx->compute_major==6&&ctx->compute_minor>=1&&getenv("COLI_CUDA_W4A8_DP4A")&&
+              !strcmp(getenv("COLI_CUDA_W4A8_DP4A"),"groupwise-outlier32-shadow")){
+         GroupDesc *dev=(GroupDesc*)ctx->group_desc;
+         if(!dp8_groupwise_outlier_shadow_launch(ctx,dev,total,D,I,max_rows,count))return 0;
+@@ -2378,6 +2409,12 @@
+     return 1;
+ }
+ 
++static void dp8_shadow_report(const char *tag,const DeviceContext *ctx,const float *approx,const float *exact){
++    double se=0,sr=0,dot=0,sa=0,sb=0,ma=0;int finite=1;size_t n=(size_t)ctx->dp8_shadow_rows*ctx->dp8_shadow_width;
++    for(size_t i=0;i<n;i++){double a=approx[i],b=exact[i],d=a-b;if(!std::isfinite(a)||!std::isfinite(b))finite=0;se+=d*d;sr+=b*b;dot+=a*b;sa+=a*a;sb+=b*b;if(fabs(d)>ma)ma=fabs(d);}
++    std::fprintf(stderr,"[%s] rows=%d width=%d rel_l2=%.8g max_abs=%.8g cosine=%.8g finite=%d\n",tag,ctx->dp8_shadow_rows,ctx->dp8_shadow_width,sqrt(se/(sr>1e-30?sr:1e-30)),ma,dot/(sqrt(sa*sb)>1e-30?sqrt(sa*sb):1e-30),finite);
++}
++
+ extern "C" const float *coli_cuda_expert_group_take(int device) {
+     DeviceContext *ctx=find_ctx(device);
+     if(!ctx||!ctx->group_pending) return nullptr;
+@@ -2385,10 +2422,15 @@
+     if(!select_ctx(ctx)) return nullptr;
+     if(!cuda_ok(cudaStreamSynchronize(ctx->stream),"expert group take")) return nullptr;
+     if(ctx->dp8_shadow_pending){
+-        double se=0,sr=0,dot=0,sa=0,sb=0,ma=0;int finite=1;size_t n=(size_t)ctx->dp8_shadow_rows*ctx->dp8_shadow_width;
+-        for(size_t i=0;i<n;i++){double a=ctx->host_dp8_y[i],b=ctx->host_y[i],d=a-b;if(!std::isfinite(a)||!std::isfinite(b))finite=0;se+=d*d;sr+=b*b;dot+=a*b;sa+=a*a;sb+=b*b;if(fabs(d)>ma)ma=fabs(d);}
+-        const char *dp8_mode=getenv("COLI_CUDA_W4A8_DP4A");const char *tag=dp8_mode&&!strcmp(dp8_mode,"groupwise-outlier32-shadow")?"w4a8-groupwise-outlier32-shadow":(dp8_mode&&!strcmp(dp8_mode,"groupwise-shadow")?"w4a8-groupwise-shadow":"w4a8-shadow");
+-        std::fprintf(stderr,"[%s] rows=%d width=%d rel_l2=%.8g max_abs=%.8g cosine=%.8g finite=%d\n",tag,ctx->dp8_shadow_rows,ctx->dp8_shadow_width,sqrt(se/(sr>1e-30?sr:1e-30)),ma,dot/(sqrt(sa*sb)>1e-30?sqrt(sa*sb):1e-30),finite);ctx->dp8_shadow_pending=0;
++        const char *dp8_mode=getenv("COLI_CUDA_W4A8_DP4A");
++        if(dp8_mode&&!strcmp(dp8_mode,"groupwise-stage-shadow")){
++            dp8_shadow_report("w4a8-stage-input",ctx,ctx->host_dp8_y,ctx->host_y);
++            dp8_shadow_report("w4a8-stage-hidden",ctx,ctx->host_dp8_stage_y,ctx->host_y);
++        }else{
++            const char *tag=dp8_mode&&!strcmp(dp8_mode,"groupwise-outlier32-shadow")?"w4a8-groupwise-outlier32-shadow":(dp8_mode&&!strcmp(dp8_mode,"groupwise-shadow")?"w4a8-groupwise-shadow":"w4a8-shadow");
++            dp8_shadow_report(tag,ctx,ctx->host_dp8_y,ctx->host_y);
++        }
++        ctx->dp8_shadow_pending=0;
+     }
+     return ctx->host_y;
+ }
