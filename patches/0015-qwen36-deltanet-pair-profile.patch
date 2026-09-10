@@ -1,0 +1,263 @@
+diff --git a/c/qwen36.c b/c/qwen36.c
+--- a/c/qwen36.c
++++ b/c/qwen36.c
+@@ -711,8 +711,15 @@ static double g_tm_dec[6], g_tm_pre[6];   /* 0=deltanet 1=attention 2=moe_total
+ static long g_tm_dec_tokens = 0, g_tm_pre_tokens = 0;
+ static double tm_now(void){ struct timespec ts; clock_gettime(CLOCK_MONOTONIC,&ts); return ts.tv_sec*1e3 + ts.tv_nsec/1e6; }
+ static int tm_on(void){ if(g_timers<0){ const char *e=getenv("COLI_TIMERS"); g_timers = (e && *e=='1'); } return g_timers; }
++static int g_dn_pair_profile = -1;
++static int dn_pair_profile_on(void){
++    if(g_dn_pair_profile < 0){ const char *e=getenv("COLI_DN_PAIR_PROFILE"); g_dn_pair_profile = (e && !strcmp(e,"1")); }
++    return g_dn_pair_profile;
++}
+ double g_qt_iss=0, g_qt_cpu=0, g_qt_tak=0;   /* QTIER-Phasen (Decode) */
+ double g_dn_sub[4];                           /* DN: proj, conv+split, l2n+rec, norm+out */
++static double g_dn_pair_host[3];              /* issue, independent CPU B/A, join */
++static long g_dn_pair_host_calls = 0;
+ double g_tm_step=0;                           /* step() total (decode) */
+ static double g_tm_win_moe=0; static int g_tm_win_n=0;
+ static void tm_add(int S, int idx, double ms){
+@@ -743,6 +750,12 @@ static void tm_report(void){
+     if(g_dn_sub[0]+g_dn_sub[1]+g_dn_sub[2]+g_dn_sub[3]>0)
+         fprintf(stderr,"[timers]   dn-sub: proj %.1f | conv %.1f | l2n+rec %.1f | norm+out %.1f ms/token\n",
+             g_dn_sub[0]/g_tm_dec_tokens,g_dn_sub[1]/g_tm_dec_tokens,g_dn_sub[2]/g_tm_dec_tokens,g_dn_sub[3]/g_tm_dec_tokens);
++    if(g_dn_pair_host_calls>0)
++        fprintf(stderr,"[timers]   dn-pair-host: issue %.3f | b+a %.3f | join %.3f ms/pair (calls %ld)\n",
++            g_dn_pair_host[0]/g_dn_pair_host_calls,
++            g_dn_pair_host[1]/g_dn_pair_host_calls,
++            g_dn_pair_host[2]/g_dn_pair_host_calls,
++            g_dn_pair_host_calls);
+     if(g_qt_iss+g_qt_cpu+g_qt_tak>0)
+         fprintf(stderr,"[timers]   qtier: issue %.2f | cpu-miss %.2f | take %.2f ms/token\n",
+                 g_qt_iss/g_tm_dec_tokens, g_qt_cpu/g_tm_dec_tokens, g_qt_tak/g_tm_dec_tokens);
+@@ -2132,12 +2145,18 @@ static void deltanet(Model *m, Layer *l, int layer, float *x, int S, int pos_bas
+         extern double g_dn_sub[4];
+         double _d0 = tm_on()? tm_now():0;
+         int pair_issued = 0;
++        const int pair_profile = tm_on() && S==1 && dn_pair_profile_on();
++        double pair_issue_ms=0, pair_ba_ms=0, pair_join_ms=0;
+         /* projections (single-token matmuls) */
+ #ifdef COLI_CUDA
+         if(S==1 && g_dn_cpuorder_active && dn_pair_on()){
+             P40QwenDnTensor *qkv_t=qdw_cpuorder_tensor(l->dn_qkv,H,conv_dim);
+             P40QwenDnTensor *z_t=qdw_cpuorder_tensor(l->dn_z,H,value_dim);
+-            if(qkv_t && z_t && p40_qwen_dn_pair_issue(qkv_t,z_t,xs)) pair_issued=1;
++            double pair_issue_start = pair_profile ? tm_now() : 0;
++            if(qkv_t && z_t && p40_qwen_dn_pair_issue(qkv_t,z_t,xs)){
++                pair_issued=1;
++                if(pair_profile) pair_issue_ms=tm_now()-pair_issue_start;
++            }
+             else {
+                 fprintf(stderr,"[dn-cpuorder] QKV/Z pair issue failed; reverting to serial exact Q8\n");
+                 qdw_dn_cpuorder_shutdown();
+@@ -2148,14 +2167,25 @@ static void deltanet(Model *m, Layer *l, int layer, float *x, int S, int pos_bas
+         matmul_d(qkv, xs, l->dn_qkv, 1, H, conv_dim);
+         matmul_d(z,   xs, l->dn_z,   1, H, value_dim);
+         }
++        double pair_ba_start = (pair_issued && pair_profile) ? tm_now() : 0;
+         matmul(b,   xs, l->dn_b,   1, H, vh);
+         matmul(a,   xs, l->dn_a,   1, H, vh);
++        if(pair_issued && pair_profile) pair_ba_ms=tm_now()-pair_ba_start;
+ #ifdef COLI_CUDA
+-        if(pair_issued && !p40_qwen_dn_pair_take(qkv,z)){
+-            fprintf(stderr,"[dn-cpuorder] QKV/Z pair join failed; reverting to serial exact Q8\n");
+-            qdw_dn_cpuorder_shutdown();
+-            matmul_d(qkv, xs, l->dn_qkv, 1, H, conv_dim);
+-            matmul_d(z,   xs, l->dn_z,   1, H, value_dim);
++        if(pair_issued){
++            double pair_join_start = pair_profile ? tm_now() : 0;
++            if(!p40_qwen_dn_pair_take(qkv,z)){
++                fprintf(stderr,"[dn-cpuorder] QKV/Z pair join failed; reverting to serial exact Q8\n");
++                qdw_dn_cpuorder_shutdown();
++                matmul_d(qkv, xs, l->dn_qkv, 1, H, conv_dim);
++                matmul_d(z,   xs, l->dn_z,   1, H, value_dim);
++            } else if(pair_profile){
++                pair_join_ms=tm_now()-pair_join_start;
++                g_dn_pair_host[0]+=pair_issue_ms;
++                g_dn_pair_host[1]+=pair_ba_ms;
++                g_dn_pair_host[2]+=pair_join_ms;
++                g_dn_pair_host_calls++;
++            }
+         }
+ #endif
+         if (tm_on() && S==1){ double t=tm_now(); g_dn_sub[0]+=t-_d0; _d0=t; }
+diff --git a/c/qwen_dn_cpuorder_cuda.cu b/c/qwen_dn_cpuorder_cuda.cu
+--- a/c/qwen_dn_cpuorder_cuda.cu
++++ b/c/qwen_dn_cpuorder_cuda.cu
+@@ -7,7 +7,9 @@
+ #include <cuda_runtime.h>
+ 
+ #include <cstddef>
++#include <cstdlib>
+ #include <cstdio>
++#include <cstring>
+ #include <new>
+ 
+ struct P40QwenDnTensor {
+@@ -29,6 +31,18 @@ struct Context {
+   size_t pair_output_capacity = 0;
+   P40QwenDnTensor *pair_first = nullptr;
+   P40QwenDnTensor *pair_second = nullptr;
++  bool pair_profile = false;
++  bool pair_profile_pending = false;
++  cudaEvent_t pair_begin = nullptr;
++  cudaEvent_t pair_after_h2d = nullptr;
++  cudaEvent_t pair_after_qkv = nullptr;
++  cudaEvent_t pair_after_z = nullptr;
++  cudaEvent_t pair_after_d2h = nullptr;
++  unsigned long long pair_samples = 0;
++  double pair_h2d_ms = 0.0;
++  double pair_qkv_ms = 0.0;
++  double pair_z_ms = 0.0;
++  double pair_d2h_ms = 0.0;
+ } context;
+ 
+ bool cuda_ok(cudaError_t status, const char *operation) {
+@@ -42,6 +56,53 @@ bool select_context(void) {
+   return context.device >= 0 && coli_cuda_select_device(context.device);
+ }
+ 
++bool pair_profile_requested(void) {
++  const char *value = std::getenv("COLI_DN_PAIR_PROFILE");
++  return value && std::strcmp(value, "1") == 0;
++}
++
++void destroy_pair_profile_events(void) {
++  if (context.pair_begin) cudaEventDestroy(context.pair_begin);
++  if (context.pair_after_h2d) cudaEventDestroy(context.pair_after_h2d);
++  if (context.pair_after_qkv) cudaEventDestroy(context.pair_after_qkv);
++  if (context.pair_after_z) cudaEventDestroy(context.pair_after_z);
++  if (context.pair_after_d2h) cudaEventDestroy(context.pair_after_d2h);
++  context.pair_begin = nullptr;
++  context.pair_after_h2d = nullptr;
++  context.pair_after_qkv = nullptr;
++  context.pair_after_z = nullptr;
++  context.pair_after_d2h = nullptr;
++}
++
++bool init_pair_profile_events(void) {
++  if (!pair_profile_requested()) return true;
++  if (!cuda_ok(cudaEventCreate(&context.pair_begin), "pair-profile begin event") ||
++      !cuda_ok(cudaEventCreate(&context.pair_after_h2d), "pair-profile h2d event") ||
++      !cuda_ok(cudaEventCreate(&context.pair_after_qkv), "pair-profile qkv event") ||
++      !cuda_ok(cudaEventCreate(&context.pair_after_z), "pair-profile z event") ||
++      !cuda_ok(cudaEventCreate(&context.pair_after_d2h), "pair-profile d2h event")) {
++    destroy_pair_profile_events();
++    std::fprintf(stderr, "[dn-pair-gpu] profile disabled: CUDA event allocation failed\n");
++    return true;
++  }
++  context.pair_profile = true;
++  return true;
++}
++
++void disable_pair_profile(const char *operation) {
++  std::fprintf(stderr, "[dn-pair-gpu] profile disabled: %s: %s\n", operation,
++               cudaGetErrorString(cudaGetLastError()));
++  context.pair_profile = false;
++  context.pair_profile_pending = false;
++}
++
++bool record_pair_event(cudaEvent_t event, const char *operation) {
++  if (!context.pair_profile_pending) return false;
++  if (cudaEventRecord(event, context.stream) == cudaSuccess) return true;
++  disable_pair_profile(operation);
++  return false;
++}
++
+ bool reserve(float **pointer, size_t *capacity, size_t bytes) {
+   if (*capacity >= bytes) return true;
+   if (*pointer) cudaFree(*pointer);
+@@ -79,6 +140,7 @@ extern "C" int p40_qwen_dn_init(int device) {
+   if (!cuda_ok(cudaStreamCreateWithFlags(&context.stream, cudaStreamNonBlocking),
+                "dedicated stream creation")) return 0;
+   context.device = device;
++  init_pair_profile_events();
+   return 1;
+ }
+ 
+@@ -138,15 +200,23 @@ extern "C" int p40_qwen_dn_pair_issue(P40QwenDnTensor *first,
+   const size_t second_bytes = static_cast<size_t>(second->output) * sizeof(float);
+   if (!reserve(&context.input, &context.input_capacity, input_bytes) ||
+       !reserve(&context.output, &context.output_capacity, first_bytes) ||
+-      !reserve(&context.pair_output, &context.pair_output_capacity, second_bytes) ||
+-      !cuda_ok(cudaMemcpyAsync(context.input, input, input_bytes,
++      !reserve(&context.pair_output, &context.pair_output_capacity, second_bytes)) return 0;
++  context.pair_profile_pending = context.pair_profile;
++  record_pair_event(context.pair_begin, "pair-profile begin record");
++  if (!cuda_ok(cudaMemcpyAsync(context.input, input, input_bytes,
+                                cudaMemcpyHostToDevice, context.stream),
+-               "pair input upload")) return 0;
++               "pair input upload")) {
++    context.pair_profile_pending = false;
++    return 0;
++  }
++  record_pair_event(context.pair_after_h2d, "pair-profile h2d record");
+   qwen_dn_cpuorder_q8_matvec<<<first->output, 32, 0, context.stream>>>(
+       context.output, context.input, first->weights, first->scales, first->input);
++  record_pair_event(context.pair_after_qkv, "pair-profile qkv record");
+   qwen_dn_cpuorder_q8_matvec<<<second->output, 32, 0, context.stream>>>(
+       context.pair_output, context.input, second->weights, second->scales,
+       second->input);
++  record_pair_event(context.pair_after_z, "pair-profile z record");
+   if (!cuda_ok(cudaGetLastError(), "pair kernel launch")) return 0;
+   context.pair_first = first;
+   context.pair_second = second;
+@@ -161,6 +231,7 @@ extern "C" int p40_qwen_dn_pair_take(float *first_output,
+   P40QwenDnTensor *second = context.pair_second;
+   const size_t first_bytes = static_cast<size_t>(first->output) * sizeof(float);
+   const size_t second_bytes = static_cast<size_t>(second->output) * sizeof(float);
++  const bool pair_profile_pending = context.pair_profile_pending;
+   const int ok =
+       cuda_ok(cudaMemcpyAsync(first_output, context.output, first_bytes,
+                               cudaMemcpyDeviceToHost, context.stream),
+@@ -168,9 +239,34 @@ extern "C" int p40_qwen_dn_pair_take(float *first_output,
+       cuda_ok(cudaMemcpyAsync(second_output, context.pair_output, second_bytes,
+                               cudaMemcpyDeviceToHost, context.stream),
+               "pair second download") &&
++      (!pair_profile_pending || record_pair_event(context.pair_after_d2h,
++                                                  "pair-profile d2h record")) &&
+       cuda_ok(cudaStreamSynchronize(context.stream), "pair synchronization");
++  if (ok && context.pair_profile_pending) {
++    float h2d_ms = 0.0f, qkv_ms = 0.0f, z_ms = 0.0f, d2h_ms = 0.0f;
++    const cudaError_t h2d_status = cudaEventElapsedTime(&h2d_ms, context.pair_begin,
++                                                          context.pair_after_h2d);
++    const cudaError_t qkv_status = cudaEventElapsedTime(&qkv_ms, context.pair_after_h2d,
++                                                          context.pair_after_qkv);
++    const cudaError_t z_status = cudaEventElapsedTime(&z_ms, context.pair_after_qkv,
++                                                        context.pair_after_z);
++    const cudaError_t d2h_status = cudaEventElapsedTime(&d2h_ms, context.pair_after_z,
++                                                          context.pair_after_d2h);
++    if (h2d_status == cudaSuccess && qkv_status == cudaSuccess && z_status == cudaSuccess &&
++        d2h_status == cudaSuccess) {
++      context.pair_h2d_ms += h2d_ms;
++      context.pair_qkv_ms += qkv_ms;
++      context.pair_z_ms += z_ms;
++      context.pair_d2h_ms += d2h_ms;
++      ++context.pair_samples;
++    } else {
++      std::fprintf(stderr, "[dn-pair-gpu] profile disabled: CUDA elapsed-time query failed\n");
++      context.pair_profile = false;
++    }
++  }
+   context.pair_first = nullptr;
+   context.pair_second = nullptr;
++  context.pair_profile_pending = false;
+   return ok;
+ }
+ 
+@@ -185,6 +281,15 @@ extern "C" void p40_qwen_dn_shutdown(void) {
+   if (context.device < 0) return;
+   if (select_context()) {
+     cudaStreamSynchronize(context.stream);
++    if (context.pair_samples > 0) {
++      const double total_ms = context.pair_h2d_ms + context.pair_qkv_ms +
++                              context.pair_z_ms + context.pair_d2h_ms;
++      std::fprintf(stderr,
++                   "[dn-pair-gpu] samples=%llu h2d_total_ms=%.3f qkv_total_ms=%.3f z_total_ms=%.3f d2h_total_ms=%.3f total_ms=%.3f\n",
++                   context.pair_samples, context.pair_h2d_ms, context.pair_qkv_ms,
++                   context.pair_z_ms, context.pair_d2h_ms, total_ms);
++    }
++    destroy_pair_profile_events();
+     cudaFree(context.input);
+     cudaFree(context.output);
+     cudaFree(context.pair_output);

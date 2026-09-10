@@ -72,3 +72,13 @@ change or a performance claim.
 the full routed Qwen path: it preserves exact output but is rejected because
 the 45-record tail remains and its per-group GPU kernels cost 9.72x the
 same-stream exact stage at median.
+
+`T35-exact-qwen-deltanet-pair-rebaseline.md` repeats the retained exact-Q8
+T24 configuration after the approximation studies. Its byte-identical output,
+12.88 tok/s rate, and 64.20 ms/token total show the control remains stable;
+it is the pre-instrumentation baseline for the next DeltaNet timing audit.
+
+`T36-exact-qwen-deltanet-pair-profile.md` validates that the accepted pair
+already overlaps CPU B/A with QKV/Z GPU work. It rules out CUDA Graphs for
+this pair as a material next step and directs the exact-path audit to the
+remaining DeltaNet conv, recurrent-state, and norm/output time.

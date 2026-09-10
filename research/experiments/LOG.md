@@ -999,3 +999,47 @@ ID, status, hypothesis, prediction, exact change, source/binary/model/prompt ide
   cooldown, and restoration to 250 W/card.
 - Decision: reject all-column proxy16. It neither clears the real routed-group
   tail nor pays for its extra memory traffic and launches.
+
+## T35 — exact Qwen DeltaNet-pair rebaseline
+
+- Date: 2026-09-10.
+- Status: complete; retained exact path is reproducible, production unchanged.
+- Exact change: none. The fixed T24 64-output two-P40 QKV/Z pair configuration
+  was repeated under the same hash-pinned binary, exact stdout oracle,
+  125 W/card cap, two idle preflights, and full cooldown.
+- Result: canonical stdout SHA-256 matched. It generated 63 decode steps at
+  12.88 tok/s, 64.20 ms/token total, and 24.39 ms/token DeltaNet, versus the
+  accepted T24's 12.92 tok/s, 64.04 ms/token, and 24.38 ms/token. The 0.2–0.3%
+  difference establishes a current control, not a speed claim.
+- Safety: 43 C / 43 C peak, 9,725 MiB / 7,895 MiB peak VRAM, all fans at
+  2,000–2,100 RPM, allocation release, cooldown, and restoration to 250 W/card
+  passed.
+- Decision: instrument the same exact QKV/Z pair next to decompose host issue,
+  CPU B/A overlap, join, and stream H2D/QKV/Z/D2H timing. Treat the resulting
+  run as a diagnostic, not a performance comparison.
+- Evidence: [T35 result](../results/T35-exact-qwen-deltanet-pair-rebaseline.md)
+  and `research/results/raw/T35-qwen-deltanet-pair-rebaseline-96f4feb4-17ea-4af1-87a6-5d21ce38c33e.*`.
+
+## T36 — exact Qwen DeltaNet-pair dependency profile
+
+- Date: 2026-09-10.
+- Status: complete; instrumentation evidence passed, production unchanged.
+- Exact change: `COLI_DN_PAIR_PROFILE=1` adds opt-in persistent CUDA events to
+  the existing QKV/Z pair stream and host clocks around issue, independent CPU
+  B/A, and join. It does not change pair ordering, buffers, arithmetic, or the
+  canonical exact return path.
+- Result: all 1,890 expected pair records were finite and the canonical stdout
+  SHA-256 matched. GPU H2D/QKV/Z/D2H totalled 8.932 ms/token; QKV and Z were
+  4.206 and 2.632 ms/token. Host issue and join totalled only 1.890 ms/token,
+  while CPU B/A (7.380 ms/token) was already overlapped with the GPU pair.
+  Instrumented total decode was 65.24 ms/token and is deliberately not
+  compared to the non-instrumented control.
+- Safety: after manual idle preflights >60 seconds apart, the locked 125 W/card
+  run peaked at 44 C / 44 C and 9,725 MiB / 7,895 MiB. Fans stayed at
+  2,000–2,100 RPM; cooldown, release, and restoration to 250 W/card passed.
+- Decision: reject CUDA Graph work for this pair as low headroom. Profile the
+  remaining DeltaNet conv, recurrence, and norm/output components with the
+  same exact-path discipline before implementing another execution change.
+- Evidence: [E028](028-exact-qwen-deltanet-pair-profile.md),
+  [T36 result](../results/T36-exact-qwen-deltanet-pair-profile.md), and
+  `research/results/raw/T36-qwen-deltanet-pair-profile-ad91ae78-6890-41a3-8c37-05e8f0d0b6d4.*`.
