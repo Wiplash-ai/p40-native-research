@@ -1043,3 +1043,26 @@ ID, status, hypothesis, prediction, exact change, source/binary/model/prompt ide
 - Evidence: [E028](028-exact-qwen-deltanet-pair-profile.md),
   [T36 result](../results/T36-exact-qwen-deltanet-pair-profile.md), and
   `research/results/raw/T36-qwen-deltanet-pair-profile-ad91ae78-6890-41a3-8c37-05e8f0d0b6d4.*`.
+
+## T37 — exact Qwen DeltaNet remainder profile
+
+- Date: 2026-09-10.
+- Status: complete; instrumentation evidence passed, production unchanged.
+- Exact change: `COLI_DN_FINE_PROFILE=1` adds host timing for Q/K normalize,
+  recurrence, gated norm, and final out call. Only the final DeltaNet output
+  projection gets opt-in H2D/kernel/D2H CUDA events; it invokes the same
+  exact-Q8 kernel and return path as the normal `matmul_d` dispatch.
+- Result: all 1,890 expected records were finite and the canonical stdout SHA
+  matched. The final out projection was 3.627 ms/token on GPU (2.784 kernel,
+  0.843 transfers) and 3.990 ms/token at its host call. CPU recurrence was
+  5.730 ms/token, Q/K normalization 1.080, and gated norm 2.160. This is
+  instrumentation, so its 64.90 ms/token total is not compared to T35.
+- Safety: two >60-second-separated idle preflights passed; the locked 125
+  W/card run peaked at 43 C / 43 C and 7,893 MiB/card. Fans stayed at
+  2,000–2,100 RPM; cooldown, release, and restoration to 250 W/card passed.
+- Decision: reject CUDA Graph/launch work for final DeltaNet output as low
+  headroom. The next real-Qwen execution experiment targets CPU recurrence
+  scheduling/locality while retaining its exact output oracle.
+- Evidence: [E029](029-exact-qwen-deltanet-remainder-profile.md),
+  [T37 result](../results/T37-exact-qwen-deltanet-remainder-profile.md), and
+  `research/results/raw/T37-qwen-deltanet-remainder-profile-785746c4-53b1-41ef-a710-f540c4530006.*`.

@@ -1,0 +1,254 @@
+diff --git a/c/qwen36.c b/c/qwen36.c
+--- a/c/qwen36.c
++++ b/c/qwen36.c
+@@ -716,10 +716,17 @@ static int dn_pair_profile_on(void){
+     if(g_dn_pair_profile < 0){ const char *e=getenv("COLI_DN_PAIR_PROFILE"); g_dn_pair_profile = (e && !strcmp(e,"1")); }
+     return g_dn_pair_profile;
+ }
++static int g_dn_fine_profile = -1;
++static int dn_fine_profile_on(void){
++    if(g_dn_fine_profile < 0){ const char *e=getenv("COLI_DN_FINE_PROFILE"); g_dn_fine_profile = (e && !strcmp(e,"1")); }
++    return g_dn_fine_profile;
++}
+ double g_qt_iss=0, g_qt_cpu=0, g_qt_tak=0;   /* QTIER-Phasen (Decode) */
+ double g_dn_sub[4];                           /* DN: proj, conv+split, l2n+rec, norm+out */
+ static double g_dn_pair_host[3];              /* issue, independent CPU B/A, join */
+ static long g_dn_pair_host_calls = 0;
++static double g_dn_fine_host[4];              /* qk-normalize, recurrence, gated-norm, output */
++static long g_dn_fine_host_calls = 0;
+ double g_tm_step=0;                           /* step() total (decode) */
+ static double g_tm_win_moe=0; static int g_tm_win_n=0;
+ static void tm_add(int S, int idx, double ms){
+@@ -756,6 +763,13 @@ static void tm_report(void){
+             g_dn_pair_host[1]/g_dn_pair_host_calls,
+             g_dn_pair_host[2]/g_dn_pair_host_calls,
+             g_dn_pair_host_calls);
++    if(g_dn_fine_host_calls>0)
++        fprintf(stderr,"[timers]   dn-fine-host: qk-norm %.3f | recurrence %.3f | gated-norm %.3f | out-call %.3f ms/layer (calls %ld)\n",
++            g_dn_fine_host[0]/g_dn_fine_host_calls,
++            g_dn_fine_host[1]/g_dn_fine_host_calls,
++            g_dn_fine_host[2]/g_dn_fine_host_calls,
++            g_dn_fine_host[3]/g_dn_fine_host_calls,
++            g_dn_fine_host_calls);
+     if(g_qt_iss+g_qt_cpu+g_qt_tak>0)
+         fprintf(stderr,"[timers]   qtier: issue %.2f | cpu-miss %.2f | take %.2f ms/token\n",
+                 g_qt_iss/g_tm_dec_tokens, g_qt_cpu/g_tm_dec_tokens, g_qt_tak/g_tm_dec_tokens);
+@@ -2146,7 +2160,9 @@ static void deltanet(Model *m, Layer *l, int layer, float *x, int S, int pos_bas
+         double _d0 = tm_on()? tm_now():0;
+         int pair_issued = 0;
+         const int pair_profile = tm_on() && S==1 && dn_pair_profile_on();
++        const int fine_profile = tm_on() && S==1 && dn_fine_profile_on();
+         double pair_issue_ms=0, pair_ba_ms=0, pair_join_ms=0;
++        double fine_qk_ms=0, fine_recurrence_ms=0, fine_gated_norm_ms=0, fine_out_ms=0;
+         /* projections (single-token matmuls) */
+ #ifdef COLI_CUDA
+         if(S==1 && g_dn_cpuorder_active && dn_pair_on()){
+@@ -2214,6 +2230,7 @@ static void deltanet(Model *m, Layer *l, int layer, float *x, int S, int pos_bas
+         const float *q_in = conv_out;
+         const float *k_in = conv_out + key_dim_tot;
+         const float *v_in = conv_out + 2 * key_dim_tot;
++        double fine_qk_start = fine_profile ? tm_now() : 0;
+         /* repeat_interleave q/k by rep along head dim (vk heads -> vh heads).
+          * HF semantics (torch repeat_interleave): each key head is repeated
+          * `rep` consecutive times, so VALUE head h takes KEY head (h / rep).
+@@ -2234,8 +2251,10 @@ static void deltanet(Model *m, Layer *l, int layer, float *x, int S, int pos_bas
+             double nk = sqrt(sk);
+             for (int d = 0; d < kdim; d++) kh[d] = (float)((double)kh[d] / nk);
+         }
++        if(fine_profile) fine_qk_ms=tm_now()-fine_qk_start;
+         /* recurrent gated delta rule over the value heads (heads are
+          * independent -> parallel; kv/delta thread-local) */
++        double fine_recurrence_start = fine_profile ? tm_now() : 0;
+         #pragma omp parallel for schedule(static)
+         for (int h = 0; h < vh; h++) {
+             float kvl[512], dl[512];   /* vdim <= 512 */
+@@ -2266,10 +2285,12 @@ static void deltanet(Model *m, Layer *l, int layer, float *x, int S, int pos_bas
+                 for (int vv = 0; vv < vdim; vv++) ov[vv] += qkd * Sr[vv];
+             }
+         }
++        if(fine_profile) fine_recurrence_ms=tm_now()-fine_recurrence_start;
+         if (tm_on() && S==1){ double t=tm_now(); g_dn_sub[2]+=t-_d0; _d0=t; }
+         /* per-head Gated RMSNorm (plain weight, r=1/sqrt(mean+eps)) then silu(z) gate, then out_proj.
+          * HF Qwen3_5MoeRMSNormGated: out = (o*r)*weight * silu(z) = (o*r)*weight * z/(1+e^-z).
+          * NB: it is silu (z in numerator), NOT sigmoid. */
++        double fine_gated_norm_start = fine_profile ? tm_now() : 0;
+         #pragma omp parallel for schedule(static)
+         for (int h = 0; h < vh; h++) {
+             const float *o = outv + (int64_t)h * vdim;
+@@ -2282,7 +2303,28 @@ static void deltanet(Model *m, Layer *l, int layer, float *x, int S, int pos_bas
+                 outr[(int64_t)h * vdim + d] = val * zr[d] / (1.f + expf(-zr[d]));
+             }
+         }
+-        matmul_d(out + (int64_t)s * H, outr, l->dn_out, 1, value_dim, H);
++        if(fine_profile) fine_gated_norm_ms=tm_now()-fine_gated_norm_start;
++        double fine_out_start = fine_profile ? tm_now() : 0;
++        int fine_out_profiled = 0;
++#ifdef COLI_CUDA
++        if(fine_profile && g_dn_cpuorder_active){
++            P40QwenDnTensor *out_t=qdw_cpuorder_tensor(l->dn_out,value_dim,H);
++            if(out_t && p40_qwen_dn_profiled_matvec(out_t,out + (int64_t)s * H,outr)) fine_out_profiled=1;
++            else {
++                fprintf(stderr,"[dn-out-gpu] profiled exact Q8 output failed; reverting to standard path\n");
++                qdw_dn_cpuorder_shutdown();
++            }
++        }
++#endif
++        if(!fine_out_profiled) matmul_d(out + (int64_t)s * H, outr, l->dn_out, 1, value_dim, H);
++        if(fine_profile && fine_out_profiled){
++            fine_out_ms=tm_now()-fine_out_start;
++            g_dn_fine_host[0]+=fine_qk_ms;
++            g_dn_fine_host[1]+=fine_recurrence_ms;
++            g_dn_fine_host[2]+=fine_gated_norm_ms;
++            g_dn_fine_host[3]+=fine_out_ms;
++            g_dn_fine_host_calls++;
++        }
+         if (tm_on() && S==1){ g_dn_sub[3]+=tm_now()-_d0; }
+         if (layer == 0 && s == 0 && getenv("DN_DBG")) {
+             FILE *dbg = fopen(getenv("DN_DBG"), "wb");
+diff --git a/c/qwen_dn_cpuorder_cuda.cu b/c/qwen_dn_cpuorder_cuda.cu
+--- a/c/qwen_dn_cpuorder_cuda.cu
++++ b/c/qwen_dn_cpuorder_cuda.cu
+@@ -43,6 +43,14 @@ struct Context {
+   double pair_qkv_ms = 0.0;
+   double pair_z_ms = 0.0;
+   double pair_d2h_ms = 0.0;
++  cudaEvent_t out_begin = nullptr;
++  cudaEvent_t out_after_h2d = nullptr;
++  cudaEvent_t out_after_kernel = nullptr;
++  cudaEvent_t out_after_d2h = nullptr;
++  unsigned long long out_samples = 0;
++  double out_h2d_ms = 0.0;
++  double out_kernel_ms = 0.0;
++  double out_d2h_ms = 0.0;
+ } context;
+ 
+ bool cuda_ok(cudaError_t status, const char *operation) {
+@@ -74,6 +82,38 @@ void destroy_pair_profile_events(void) {
+   context.pair_after_d2h = nullptr;
+ }
+ 
++void destroy_out_profile_events(void) {
++  if (context.out_begin) cudaEventDestroy(context.out_begin);
++  if (context.out_after_h2d) cudaEventDestroy(context.out_after_h2d);
++  if (context.out_after_kernel) cudaEventDestroy(context.out_after_kernel);
++  if (context.out_after_d2h) cudaEventDestroy(context.out_after_d2h);
++  context.out_begin = nullptr;
++  context.out_after_h2d = nullptr;
++  context.out_after_kernel = nullptr;
++  context.out_after_d2h = nullptr;
++}
++
++bool ensure_out_profile_events(void) {
++  if (context.out_begin) return true;
++  if (!cuda_ok(cudaEventCreate(&context.out_begin), "out-profile begin event") ||
++      !cuda_ok(cudaEventCreate(&context.out_after_h2d), "out-profile h2d event") ||
++      !cuda_ok(cudaEventCreate(&context.out_after_kernel), "out-profile kernel event") ||
++      !cuda_ok(cudaEventCreate(&context.out_after_d2h), "out-profile d2h event")) {
++    destroy_out_profile_events();
++    std::fprintf(stderr, "[dn-out-gpu] profile disabled: CUDA event allocation failed\n");
++    return false;
++  }
++  return true;
++}
++
++bool record_out_event(cudaEvent_t event, const char *operation) {
++  const cudaError_t status = cudaEventRecord(event, context.stream);
++  if (status == cudaSuccess) return true;
++  std::fprintf(stderr, "[dn-out-gpu] profile disabled: %s: %s\n", operation,
++               cudaGetErrorString(status));
++  return false;
++}
++
+ bool init_pair_profile_events(void) {
+   if (!pair_profile_requested()) return true;
+   if (!cuda_ok(cudaEventCreate(&context.pair_begin), "pair-profile begin event") ||
+@@ -168,23 +208,55 @@ extern "C" int p40_qwen_dn_upload(P40QwenDnTensor **tensor,
+   return 1;
+ }
+ 
+-extern "C" int p40_qwen_dn_matvec(P40QwenDnTensor *tensor, float *output,
+-                                    const float *input) {
++int p40_qwen_dn_matvec_impl(P40QwenDnTensor *tensor, float *output,
++                             const float *input, bool collect_profile) {
+   if (!tensor || !output || !input || !select_context()) return 0;
+   const size_t input_bytes = static_cast<size_t>(tensor->input) * sizeof(float);
+   const size_t output_bytes = static_cast<size_t>(tensor->output) * sizeof(float);
+   if (!reserve(&context.input, &context.input_capacity, input_bytes) ||
+-      !reserve(&context.output, &context.output_capacity, output_bytes) ||
+-      !cuda_ok(cudaMemcpyAsync(context.input, input, input_bytes, cudaMemcpyHostToDevice, context.stream), "input upload")) return 0;
++      !reserve(&context.output, &context.output_capacity, output_bytes)) return 0;
++  bool profile = collect_profile && ensure_out_profile_events();
++  if (profile && !record_out_event(context.out_begin, "out-profile begin record")) profile = false;
++  if (!cuda_ok(cudaMemcpyAsync(context.input, input, input_bytes, cudaMemcpyHostToDevice, context.stream), "input upload")) return 0;
++  if (profile && !record_out_event(context.out_after_h2d, "out-profile h2d record")) profile = false;
+   qwen_dn_cpuorder_q8_matvec<<<tensor->output, 32, 0, context.stream>>>(context.output, context.input,
+                                                                           tensor->weights, tensor->scales,
+                                                                           tensor->input);
++  if (profile && !record_out_event(context.out_after_kernel, "out-profile kernel record")) profile = false;
+   if (!cuda_ok(cudaGetLastError(), "kernel launch") ||
+-      !cuda_ok(cudaMemcpyAsync(output, context.output, output_bytes, cudaMemcpyDeviceToHost, context.stream), "output download") ||
+-      !cuda_ok(cudaStreamSynchronize(context.stream), "projection synchronization")) return 0;
++      !cuda_ok(cudaMemcpyAsync(output, context.output, output_bytes, cudaMemcpyDeviceToHost, context.stream), "output download")) return 0;
++  if (profile && !record_out_event(context.out_after_d2h, "out-profile d2h record")) profile = false;
++  if (!cuda_ok(cudaStreamSynchronize(context.stream), "projection synchronization")) return 0;
++  if (profile) {
++    float h2d_ms = 0.0f, kernel_ms = 0.0f, d2h_ms = 0.0f;
++    const cudaError_t h2d_status = cudaEventElapsedTime(&h2d_ms, context.out_begin,
++                                                          context.out_after_h2d);
++    const cudaError_t kernel_status = cudaEventElapsedTime(&kernel_ms, context.out_after_h2d,
++                                                             context.out_after_kernel);
++    const cudaError_t d2h_status = cudaEventElapsedTime(&d2h_ms, context.out_after_kernel,
++                                                          context.out_after_d2h);
++    if (h2d_status == cudaSuccess && kernel_status == cudaSuccess && d2h_status == cudaSuccess) {
++      context.out_h2d_ms += h2d_ms;
++      context.out_kernel_ms += kernel_ms;
++      context.out_d2h_ms += d2h_ms;
++      ++context.out_samples;
++    } else {
++      std::fprintf(stderr, "[dn-out-gpu] profile disabled: CUDA elapsed-time query failed\n");
++    }
++  }
+   return 1;
+ }
+ 
++extern "C" int p40_qwen_dn_matvec(P40QwenDnTensor *tensor, float *output,
++                                    const float *input) {
++  return p40_qwen_dn_matvec_impl(tensor, output, input, false);
++}
++
++extern "C" int p40_qwen_dn_profiled_matvec(P40QwenDnTensor *tensor, float *output,
++                                             const float *input) {
++  return p40_qwen_dn_matvec_impl(tensor, output, input, true);
++}
++
+ /* QKV and Z have the same hidden input in a DeltaNet block. Keep their
+  * unchanged exact-Q8 kernels in the dedicated stream until the caller has
+  * completed independent CPU B/A work, then copy both results back together.
+@@ -289,7 +361,15 @@ extern "C" void p40_qwen_dn_shutdown(void) {
+                    context.pair_samples, context.pair_h2d_ms, context.pair_qkv_ms,
+                    context.pair_z_ms, context.pair_d2h_ms, total_ms);
+     }
++    if (context.out_samples > 0) {
++      const double total_ms = context.out_h2d_ms + context.out_kernel_ms + context.out_d2h_ms;
++      std::fprintf(stderr,
++                   "[dn-out-gpu] samples=%llu h2d_total_ms=%.3f kernel_total_ms=%.3f d2h_total_ms=%.3f total_ms=%.3f\n",
++                   context.out_samples, context.out_h2d_ms, context.out_kernel_ms,
++                   context.out_d2h_ms, total_ms);
++    }
+     destroy_pair_profile_events();
++    destroy_out_profile_events();
+     cudaFree(context.input);
+     cudaFree(context.output);
+     cudaFree(context.pair_output);
+diff --git a/c/qwen_dn_cpuorder_cuda.h b/c/qwen_dn_cpuorder_cuda.h
+--- a/c/qwen_dn_cpuorder_cuda.h
++++ b/c/qwen_dn_cpuorder_cuda.h
+@@ -13,6 +13,8 @@ int p40_qwen_dn_upload(P40QwenDnTensor **tensor, const int8_t *weights,
+                        const float *scales, int input, int output);
+ int p40_qwen_dn_matvec(P40QwenDnTensor *tensor, float *output,
+                         const float *input);
++int p40_qwen_dn_profiled_matvec(P40QwenDnTensor *tensor, float *output,
++                                 const float *input);
+ int p40_qwen_dn_pair_issue(P40QwenDnTensor *first, P40QwenDnTensor *second,
+                            const float *input);
+ int p40_qwen_dn_pair_take(float *first_output, float *second_output);

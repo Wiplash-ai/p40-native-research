@@ -82,3 +82,8 @@ it is the pre-instrumentation baseline for the next DeltaNet timing audit.
 already overlaps CPU B/A with QKV/Z GPU work. It rules out CUDA Graphs for
 this pair as a material next step and directs the exact-path audit to the
 remaining DeltaNet conv, recurrent-state, and norm/output time.
+
+`T37-exact-qwen-deltanet-remainder-profile.md` completes that attribution:
+the final output projection is GPU-kernel-bound, while CPU recurrence is now
+the largest individual DeltaNet remainder. Its next step is a real-Qwen
+CPU-execution experiment rather than another graph or transfer variant.
