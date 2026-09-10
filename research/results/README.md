@@ -67,3 +67,8 @@ real-Qwen sidecar collection. `T33-real-qwen-input-correction-replay.md` then
 validates that sidecar's reconstruction and screens three gate/up input
 correction rankings on held-out routed experts. Neither result is a production
 change or a performance claim.
+
+`T34-real-qwen-proxy16-shadow.md` closes the most practical T33 candidate on
+the full routed Qwen path: it preserves exact output but is rejected because
+the 45-record tail remains and its per-group GPU kernels cost 9.72x the
+same-stream exact stage at median.

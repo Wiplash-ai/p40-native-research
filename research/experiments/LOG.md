@@ -983,3 +983,19 @@ ID, status, hypothesis, prediction, exact change, source/binary/model/prompt ide
 - Decision: if a GPU shadow is justified, use only the fixed K=16 down-norm
   proxy next and profile its correction cost. Do not claim a speedup, language
   quality improvement, or global oracle result.
+
+## T34 — real-Qwen down-norm proxy16 correction shadow
+
+- Date: 2026-09-09.
+- Status: complete and rejected; production unchanged.
+- Exact change: fixed K=16 T33 down-norm proxy ranking over every gate/up
+  input column, exact FP32 residual correction, exact W4 down shadow, then the
+  unchanged canonical W4/FP32 return path. CUDA events separately priced the
+  shadow kernels and same-stream exact expert stage.
+- Result: exact stdout matched and all 2,397 records were finite, but 45
+  records remained above 5% relative L2 (p99 7.739%). Shadow median/p95 GPU
+  kernel time was 3.331/3.935 ms versus 0.352/0.577 ms exact, or 9.72x/17.07x.
+- Safety: 45 C / 46 C peak, 7,895 MiB/card, 125 W/card cap, successful
+  cooldown, and restoration to 250 W/card.
+- Decision: reject all-column proxy16. It neither clears the real routed-group
+  tail nor pays for its extra memory traffic and launches.
