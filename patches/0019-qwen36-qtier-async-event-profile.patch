@@ -1,0 +1,140 @@
+diff --git a/c/backend_cuda.cu b/c/backend_cuda.cu
+--- a/c/backend_cuda.cu
++++ b/c/backend_cuda.cu
+@@ -89,6 +89,9 @@
+     float *pipe_buf[27]; size_t pipe_cap[27];   /* scratch persistenti del resident pipeline */
+     cudaStream_t stream;
+     cudaEvent_t ev_done; int ev_done_ok;        /* resident-group issue completion (#431 PR-C0) */
++    /* Reused only by COLI_QTIER_PROFILE=1. Async decode permits one pending
++     * group per device, so one four-event set is sufficient and default-off. */
++    cudaEvent_t group_ev[4]; int group_ev_ok, group_profile_pending;
+     void *group_desc; size_t group_desc_cap;
+     size_t tensor_count, tensor_bytes;
+     int group_pending; size_t group_pending_bytes;   /* async expert-group in flight (Inc.4) */
+@@ -118,6 +121,37 @@
+ static double g_device_group_kernel_ms[COLI_CUDA_MAX_DEVICES];
+ static double g_device_group_d2h_ms[COLI_CUDA_MAX_DEVICES];
+ static std::mutex g_group_stats_mu;
++static int g_qtier_profile = -1;
++
++static int qtier_profile_on(void) {
++    if (g_qtier_profile < 0) {
++        const char *e = std::getenv("COLI_QTIER_PROFILE");
++        g_qtier_profile = e && *e == '1';
++    }
++    return g_qtier_profile;
++}
++
++static int qtier_profile_events(DeviceContext *ctx) {
++    if (ctx->group_ev_ok) return 1;
++    for (int i = 0; i < 4; ++i) {
++        if (cudaEventCreate(&ctx->group_ev[i]) != cudaSuccess) {
++            for (int j = 0; j < i; ++j) cudaEventDestroy(ctx->group_ev[j]);
++            std::memset(ctx->group_ev, 0, sizeof(ctx->group_ev));
++            std::fprintf(stderr, "[qtier-profile] unable to create CUDA events on device %d\n", ctx->device);
++            return 0;
++        }
++    }
++    ctx->group_ev_ok = 1;
++    return 1;
++}
++
++static int qtier_profile_record(cudaEvent_t event, cudaStream_t stream, int device, const char *phase) {
++    cudaError_t status = cudaEventRecord(event, stream);
++    if (status == cudaSuccess) return 1;
++    std::fprintf(stderr, "[qtier-profile] event record (%s) failed on device %d: %s\n",
++                 phase, device, cudaGetErrorString(status));
++    return 0;
++}
+ #ifdef COLI_ANS
+ static FILE *g_ans_sidecar;
+ static int g_ans_sidecar_pack;
+@@ -1296,6 +1330,7 @@
+         if (ctx->host_x) cudaFreeHost(ctx->host_x);
+         if (ctx->host_y) cudaFreeHost(ctx->host_y);
+         if (ctx->host_kv) cudaFreeHost(ctx->host_kv);
++        if (ctx->group_ev_ok) for (int e = 0; e < 4; ++e) cudaEventDestroy(ctx->group_ev[e]);
+         if (ctx->stream) cudaStreamDestroy(ctx->stream);
+         if (ctx->group_desc) cudaFree(ctx->group_desc);
+ #ifdef COLI_ANS
+@@ -1311,6 +1346,8 @@
+         ctx->qx=nullptr; ctx->qscale=nullptr;
+         ctx->aq=ctx->al=ctx->ar=ctx->ac=nullptr;
+         ctx->host_x=ctx->host_y=ctx->host_kv=nullptr;ctx->stream=nullptr;
++        ctx->group_ev_ok=ctx->group_profile_pending=0;
++        std::memset(ctx->group_ev, 0, sizeof(ctx->group_ev));
+         ctx->x_cap = ctx->y_cap = ctx->gate_cap = ctx->up_cap = 0;
+         ctx->qx_cap=ctx->qscale_cap=0;
+         ctx->aq_cap=ctx->al_cap=ctx->ar_cap=ctx->ac_cap=0;
+@@ -2101,12 +2138,15 @@
+        !reserve_bytes(&ctx->group_desc,&ctx->group_desc_cap,(size_t)count*sizeof(GroupDesc))||
+        !reserve_pinned(&ctx->host_x,&ctx->host_x_cap,xb)||
+        !reserve_pinned(&ctx->host_y,&ctx->host_y_cap,xb)) return 0;
++    int profile = qtier_profile_on() && qtier_profile_events(ctx);
+     std::memcpy(ctx->host_x,x,xb);
++    if(profile) profile=qtier_profile_record(ctx->group_ev[0],ctx->stream,device,"start");
+     if(!cuda_ok(cudaMemcpyAsync(ctx->group_desc,host,(size_t)count*sizeof(GroupDesc),
+                                 cudaMemcpyHostToDevice,ctx->stream),
+                 "expert group issue descriptors")||
+        !cuda_ok(cudaMemcpyAsync(ctx->x,ctx->host_x,xb,cudaMemcpyHostToDevice,ctx->stream),
+                 "expert group issue upload")) return 0;
++    if(profile) profile=qtier_profile_record(ctx->group_ev[1],ctx->stream,device,"post-h2d");
+     if(all_e8){
+         GroupDesc *dev=(GroupDesc*)ctx->group_desc;
+         dim3 hg((unsigned)I,(unsigned)max_rows,(unsigned)count);
+@@ -2164,10 +2204,12 @@
+         quant_matmul<<<dim3((unsigned)D,(unsigned)r),256,0,ctx->stream>>>(y16,g16,
+             host[c].d,host[c].ds,host[c].df,r,I,D,row_bytes(host[c].df,I),0,1);
+     }}
+-    if(!cuda_ok(cudaGetLastError(),"expert group issue launch")||
+-       !cuda_ok(cudaMemcpyAsync(ctx->host_y,ctx->y,xb,cudaMemcpyDeviceToHost,ctx->stream),
+-                "expert group issue download")) return 0;
+-    ctx->group_pending=1; ctx->group_pending_bytes=xb;
++    if(!cuda_ok(cudaGetLastError(),"expert group issue launch")) return 0;
++    if(profile) profile=qtier_profile_record(ctx->group_ev[2],ctx->stream,device,"post-kernel");
++    if(!cuda_ok(cudaMemcpyAsync(ctx->host_y,ctx->y,xb,cudaMemcpyDeviceToHost,ctx->stream),
++                "expert group issue download")) return 0;
++    if(profile) profile=qtier_profile_record(ctx->group_ev[3],ctx->stream,device,"post-d2h");
++    ctx->group_pending=1; ctx->group_pending_bytes=xb; ctx->group_profile_pending=profile;
+     { std::lock_guard<std::mutex> lock(g_group_stats_mu);
+       int index=(int)(ctx-g_ctx);
+       g_group_calls++; g_group_experts+=(uint64_t)count; g_group_rows+=(uint64_t)total;
+@@ -2182,6 +2224,21 @@
+     ctx->group_pending=0;
+     if(!select_ctx(ctx)) return nullptr;
+     if(!cuda_ok(cudaStreamSynchronize(ctx->stream),"expert group take")) return nullptr;
++    if(ctx->group_profile_pending && ctx->group_ev_ok){
++        float h2d=0.f,kernel=0.f,d2h=0.f;
++        cudaError_t a=cudaEventElapsedTime(&h2d,ctx->group_ev[0],ctx->group_ev[1]);
++        cudaError_t b=cudaEventElapsedTime(&kernel,ctx->group_ev[1],ctx->group_ev[2]);
++        cudaError_t c=cudaEventElapsedTime(&d2h,ctx->group_ev[2],ctx->group_ev[3]);
++        if(a==cudaSuccess&&b==cudaSuccess&&c==cudaSuccess){
++            std::lock_guard<std::mutex> lock(g_group_stats_mu);
++            int index=(int)(ctx-g_ctx);
++            g_group_h2d_ms+=h2d; g_group_kernel_ms+=kernel; g_group_d2h_ms+=d2h;
++            g_device_group_h2d_ms[index]+=h2d;
++            g_device_group_kernel_ms[index]+=kernel;
++            g_device_group_d2h_ms[index]+=d2h;
++        }else std::fprintf(stderr,"[qtier-profile] event elapsed query failed on device %d\n",device);
++    }
++    ctx->group_profile_pending=0;
+     return ctx->host_y;
+ }
+ 
+diff --git a/c/qwen36_tier.c b/c/qwen36_tier.c
+--- a/c/qwen36_tier.c
++++ b/c/qwen36_tier.c
+@@ -435,6 +435,13 @@
+       coli_cuda_group_stats(&calls,&ex,&rows,&h2d,&kms,&d2h);
+       if(calls) fprintf(stderr,"[qtier] group_stats: %llu calls, %llu experts | h2d %.0f ms, kernel %.0f ms, d2h %.0f ms\n",
+               (unsigned long long)calls,(unsigned long long)ex,h2d,kms,d2h); }
++    { const char *profile=getenv("COLI_QTIER_PROFILE");
++      if(profile && *profile=='1') for(int i=0;i<G.ndev;i++){
++          uint64_t calls=0,ex=0,rows=0; double h2d=0,kms=0,d2h=0;
++          coli_cuda_group_stats_device(G.dev[i],&calls,&ex,&rows,&h2d,&kms,&d2h);
++          fprintf(stderr,"[qtier]   profile dev %d: %llu groups, %llu experts, %llu rows | event h2d %.2f ms, kernel %.2f ms, d2h %.2f ms\n",
++                  G.dev[i],(unsigned long long)calls,(unsigned long long)ex,(unsigned long long)rows,h2d,kms,d2h);
++      }}
+ }
+ 
+ void qt_shutdown(void){
