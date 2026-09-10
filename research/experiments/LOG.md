@@ -1159,3 +1159,28 @@ ID, status, hypothesis, prediction, exact change, source/binary/model/prompt ide
   [T41 result](../results/T41-exact-qwen-deltanet-recurrence-fuse.md),
   `patches/0018-qwen36-deltanet-recurrence-fuse.patch`, and
   `research/results/raw/T41-qwen-dn-rec-fuse-31c3a614-7b9f-4e03-886a-bb8f3e511936.*`.
+
+## T42 — exact Qwen asynchronous expert-tier event profile
+
+- Date: 2026-09-10.
+- Status: complete attribution; production unchanged.
+- Exact change: an isolated source copy enables only COLI_QTIER_PROFILE=1,
+  reusing four CUDA events per device around the existing resident-expert H2D,
+  kernels, and D2H. Events are read after the existing qt_take() stream
+  synchronization; routing and math remain unchanged.
+- Result: canonical stdout matched. Device 0 / device 1 recorded 18.92 /
+  19.63 ms-token expert-kernel time, while the full MoE stage was 31.87
+  ms-token. The 38.55 ms-token event sum exceeds wall time, so both P40s
+  already overlap useful expert work; do not add their kernel durations or
+  assume serial multi-GPU execution. The profile's 12.68 tok/s is not a
+  performance comparison because event instrumentation is active.
+- Safety: two >60-second-separated idle preflights passed. The locked 125
+  W/card run peaked at 42 C; fans stayed at 2,000–2,100 RPM; release,
+  cooldown, and restoration to 250 W/card passed.
+- Decision: do not implement speculative GPU join parallelism yet. First
+  split the remaining 3.72 ms-token qt_take time into stream wait and host
+  weighted accumulation; only a measured host bottleneck warrants a rewrite.
+- Evidence: [E034](034-exact-qwen-qtier-async-event-profile.md),
+  [T42 result](../results/T42-exact-qwen-qtier-async-profile.md),
+  patches/0019-qwen36-qtier-async-event-profile.patch, and
+  research/results/raw/T42-qwen-qtier-async-profile-2081697d-d180-429f-8cae-2f6edf5ddb54.*.

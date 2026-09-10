@@ -111,3 +111,11 @@ order-preserving recurrence rewrite. Its output is exact, but two fewer state
 rereads do not improve the full model or the DeltaNet stage. The next lead is
 higher-level execution or multi-token work, not another local recurrence loop
 rewrite.
+
+T42-exact-qwen-qtier-async-profile.md supplies the missing real-Qwen
+multi-GPU evidence. The two P40 resident-expert streams overlap: the combined
+38.55 ms-token of expert-kernel CUDA events fits inside a 31.87 ms-token MoE
+wall stage, with device 1's 19.63 ms-token kernel time as the relevant GPU
+critical-path lower bound. The next attribution pass divides the remaining
+3.72 ms-token qt_take host cost into stream wait and CPU accumulation before
+considering a synchronization or expert-parallel rewrite.
