@@ -119,3 +119,9 @@ wall stage, with device 1's 19.63 ms-token kernel time as the relevant GPU
 critical-path lower bound. The next attribution pass divides the remaining
 3.72 ms-token qt_take host cost into stream wait and CPU accumulation before
 considering a synchronization or expert-parallel rewrite.
+
+T43-exact-qwen-qtier-take-host-profile.md shows that the cost is not CPU
+combination work. Device 1 accumulates 250.57 ms of wait across 3,109 groups,
+while both weighted output accumulations total only 8.09 ms across 6,226
+groups. The next exact-Qwen change should target device-1 launch or kernel
+latency, not host join parallelism.

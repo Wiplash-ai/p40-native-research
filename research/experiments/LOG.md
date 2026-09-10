@@ -1184,3 +1184,27 @@ ID, status, hypothesis, prediction, exact change, source/binary/model/prompt ide
   [T42 result](../results/T42-exact-qwen-qtier-async-profile.md),
   patches/0019-qwen36-qtier-async-event-profile.patch, and
   research/results/raw/T42-qwen-qtier-async-profile-2081697d-d180-429f-8cae-2f6edf5ddb54.*.
+
+## T43 — exact Qwen expert-tier host-take profile
+
+- Date: 2026-09-10.
+- Status: complete attribution; production unchanged.
+- Exact change: an isolated source copy enables only COLI_QTIER_TAKE_PROFILE=1
+  and records host time around the existing device take plus the unchanged
+  ordered weighted CPU accumulation. It adds no CUDA events.
+- Result: canonical stdout matched. Device 1 waited 250.57 ms across 3,109
+  groups (80.60 microseconds/group); device 0 waited only 2.61 ms across 3,117
+  groups. CPU accumulation totaled 8.09 ms across all 6,226 groups, about 1.3
+  microseconds/group. The host join is waiting for device 1, not spending
+  meaningful time combining outputs.
+- Safety: dual idle preflights passed. The locked 125 W/card run peaked at 44
+  C; fans stayed at 2,000–2,100 RPM; release, cooldown, and restoration to
+  250 W/card passed.
+- Decision: reject a CPU-accumulation or parallel-take rewrite. T44 should
+  reverse only the device issue order so slower device 1 begins its stream
+  first; it must keep the established device-0 then device-1 output
+  accumulation order and canonical-output oracle.
+- Evidence: [E035](035-exact-qwen-qtier-take-host-profile.md),
+  [T43 result](../results/T43-exact-qwen-qtier-take-host-profile.md),
+  patches/0020-qwen36-qtier-take-host-profile.patch, and
+  research/results/raw/T43-qwen-qtier-take-host-profile-f25fe21f-832f-4758-af75-c94588e56834.*.
