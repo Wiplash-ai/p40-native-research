@@ -1235,7 +1235,7 @@ ID, status, hypothesis, prediction, exact change, source/binary/model/prompt ide
 ## T45 — exact Qwen shared/expert timeline profile
 
 - Date: 2026-09-10.
-- Status: prepared; no GPU workload has run yet; production unchanged.
+- Status: instrumentation contract rejected; production unchanged.
 - Exact change: isolated default-off `COLI_SHARED_EXPERT_TIMELINE=1` records
   CUDA events around the unchanged shared-Q8 stream and existing GPU-0
   resident-expert group completion. Its signed result distinguishes shared
@@ -1244,8 +1244,15 @@ ID, status, hypothesis, prediction, exact change, source/binary/model/prompt ide
   succeeded with `/usr/bin/nvcc`, `CUDA=1`, and `CUDA_ARCH=sm_61`; the
   allowlisted guard dry-run matched its isolated engine SHA, canonical oracle,
   model, environment, lock, and no-CUDA-context requirement.
-- Gate: require exact output, exactly 2,520 decode windows, and the standard
-  thermal protocol. This is instrumentation, not a speed selection.
+- Result: canonical output passed and 2,518 valid windows were collected, but
+  two decode-layer pairs had no GPU-0 routed expert, making a same-device
+  cross-stream value ineligible. The first guard incorrectly classified those
+  two skips as event failures; do not interpret its partial timings as a final
+  attribution. T46 will distinguish skip from failure.
+- Safety: dual idle preflights passed. The locked 125 W/card run peaked at 43
+  C / 44 C and 7,893 MiB/card; fans stayed at 2,000–2,100 RPM, and release,
+  cooldown, and restoration to 250 W/card passed.
 - Evidence: [E037](037-exact-qwen-shared-expert-timeline.md),
+  [T45 result](../results/T45-exact-qwen-shared-expert-timeline.md),
   patches/0022-qwen36-shared-expert-timeline-profile.patch, and
-  `remote/p40-t45-qwen-shared-expert-timeline-guard.py`.
+  `research/results/raw/T45-qwen-shared-expert-timeline-498a37e5-3217-4891-8c57-9fa8f37552c7.*`.

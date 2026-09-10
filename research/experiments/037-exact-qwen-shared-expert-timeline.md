@@ -35,3 +35,13 @@ shared stream is normally hidden by GPU-0 routed experts. If it is consistently
 negative, shared work extends the critical path and deserves a fresh,
 contention-aware redesign. This is attribution only; its instrumented speed is
 not a configuration-selection result.
+
+## T45 outcome
+
+The guarded run preserved canonical output and all thermal cleanup, but the
+profile contract was too strict: 2,518 valid same-device windows were collected
+and two layer/token pairs selected no GPU-0 expert at all. Those pairs cannot
+form a GPU-0 cross-stream comparison and must be reported as ineligible rather
+than as an event failure. T45 is therefore an instrumentation-contract reject,
+not a performance or numerical reject. T46 will retain the exact profile but
+separate no-GPU-0 windows from true CUDA-event failures.
