@@ -949,3 +949,37 @@ ID, status, hypothesis, prediction, exact change, source/binary/model/prompt ide
   shadow result.
 - Evidence: [T31 result](../results/T31-real-qwen-w4a8-stage-attribution-shadow.md)
   and `research/results/raw/T31-qwen-stage-attribution-c60e6556-80c0-43ea-abd3-0cd975c336ab.*`.
+
+## T32 — bounded real-Qwen gate/up capture
+
+- Date: 2026-09-09.
+- Status: complete; exact-output collection passed, production unchanged.
+- Exact change: a dedicated hash-pinned `sm_61` binary copied only the four
+  fixed decode positions at layers 0/20/39: exact input, groupwise-Q8 input,
+  raw gate/up, fused hidden, exact down output, and backend-packed W4 matrices
+  plus scales. The original exact path supplied every model value.
+- Result: the fixed stdout oracle matched. The strict guard accepted 96 records
+  (48 calibration / 48 holdout) in a 154,540,864-byte WGCAP v1 sidecar with
+  SHA-256 `e6e670f1884c33f43c17b7e8acdab102bf9eeec6d182944f2b6f220db7ff051e`.
+  It found zero capture errors and every fixed `(step, layer, route_rank)` tuple
+  exactly once.
+- Safety: 40 C / 41 C peak, 7,895 MiB/card, 2,000–2,100 RPM fans, allocation
+  release, five-minute cooldown, and restoration to 250 W/card passed.
+- Decision: use this sidecar only for T33 replay. Do not compare its runtime to
+  inference or add the capture code to production.
+
+## T33 — real-Qwen input correction replay
+
+- Date: 2026-09-09.
+- Status: complete; replay is a candidate-ranking screen only.
+- Exact change: a CPU-only replay read the T32 sidecar and reconstructed the
+  captured signed-W4 expert stages before testing K=0/4/8/16/32 residual
+  magnitude, all-column down-norm proxy, and nonlinear effect rankings bounded
+  to the top-64 residual candidates.
+- Result: holdout reconstruction floor was below 1e-6 relative L2. At K=16,
+  magnitude/proxy/effect achieved 1.700% / 1.650% / 1.648% aggregate relative
+  L2; at K=32, 1.552% / 1.512% / 1.504%. All 48 held-out expert records stayed
+  below 5% in this exact-down screen. The proxy/effect gains are modest.
+- Decision: if a GPU shadow is justified, use only the fixed K=16 down-norm
+  proxy next and profile its correction cost. Do not claim a speedup, language
+  quality improvement, or global oracle result.

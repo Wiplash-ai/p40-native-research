@@ -1,0 +1,5 @@
+# These are immutable transport/evidence artifacts. Their literal whitespace is
+# part of the captured patch or stderr, so exclude them from source whitespace
+# diagnostics while retaining ordinary checks for implementation files.
+patches/*.patch -whitespace
+research/results/raw/*.stderr.txt -whitespace

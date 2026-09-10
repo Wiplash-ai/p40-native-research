@@ -15,6 +15,7 @@ datasets/
 models/
 marathon/state.json
 marathon/quota.json
+research/results/raw/T32-qwen-gateup.wgcap
 marathon/lock
 marathon/logs/
 marathon/queue/

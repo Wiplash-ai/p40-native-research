@@ -61,3 +61,9 @@ It shows that 45 of the remaining 46-tail-scale failures originate before the
 gate/up projections; the isolated hidden/down approximation has zero records
 above the 5% gate. The next approximation study must focus on gate/up input
 residual selection or representation, not another down-side or top-K variant.
+
+`T32-real-qwen-gateup-capture.md` records the guarded, exact-output 96-record
+real-Qwen sidecar collection. `T33-real-qwen-input-correction-replay.md` then
+validates that sidecar's reconstruction and screens three gate/up input
+correction rankings on held-out routed experts. Neither result is a production
+change or a performance claim.

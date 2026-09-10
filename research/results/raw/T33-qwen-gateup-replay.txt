@@ -1,0 +1,36 @@
+[T33-reconstruction] stage=gate_or_up split=calibration aggregate_rel_l2=6.19568127e-07 p99=7.89805808e-07 max=7.89805808e-07 records=96
+[T33-reconstruction] stage=hidden split=calibration aggregate_rel_l2=9.52461958e-07 p99=1.44151659e-06 max=1.44151659e-06 records=48
+[T33-reconstruction] stage=down split=calibration aggregate_rel_l2=3.8956074e-07 p99=4.6537744e-07 max=4.6537744e-07 records=48
+[T33-reconstruction] stage=gate_or_up split=holdout aggregate_rel_l2=6.03256543e-07 p99=8.01676878e-07 max=8.01676878e-07 records=96
+[T33-reconstruction] stage=hidden split=holdout aggregate_rel_l2=8.46712221e-07 p99=1.22786759e-06 max=1.22786759e-06 records=48
+[T33-reconstruction] stage=down split=holdout aggregate_rel_l2=3.65710831e-07 p99=4.76851784e-07 max=4.76851784e-07 records=48
+[T33] method=residual_magnitude k=0 split=calibration aggregate_rel_l2=0.0104707318 median=0.0144162965 p95=0.0249448182 p99=0.0257004643 max=0.0257004643 above_5pct=0 records=48
+[T33] method=residual_magnitude k=0 split=holdout aggregate_rel_l2=0.0179628506 median=0.0174568213 p95=0.0298640542 p99=0.0315913152 max=0.0315913152 above_5pct=0 records=48
+[T33] method=residual_magnitude k=4 split=calibration aggregate_rel_l2=0.0103468288 median=0.0141588024 p95=0.0247509457 p99=0.0252457447 max=0.0252457447 above_5pct=0 records=48
+[T33] method=residual_magnitude k=4 split=holdout aggregate_rel_l2=0.0175366904 median=0.0173889249 p95=0.0292367378 p99=0.0307891365 max=0.0307891365 above_5pct=0 records=48
+[T33] method=residual_magnitude k=8 split=calibration aggregate_rel_l2=0.0102870404 median=0.0140240999 p95=0.0243836061 p99=0.0248510723 max=0.0248510723 above_5pct=0 records=48
+[T33] method=residual_magnitude k=8 split=holdout aggregate_rel_l2=0.017410109 median=0.0173651099 p95=0.0287322368 p99=0.0310094048 max=0.0310094048 above_5pct=0 records=48
+[T33] method=residual_magnitude k=16 split=calibration aggregate_rel_l2=0.0101075583 median=0.013755653 p95=0.0238506999 p99=0.0249970877 max=0.0249970877 above_5pct=0 records=48
+[T33] method=residual_magnitude k=16 split=holdout aggregate_rel_l2=0.0170000769 median=0.017095861 p95=0.0277416396 p99=0.0320013176 max=0.0320013176 above_5pct=0 records=48
+[T33] method=residual_magnitude k=32 split=calibration aggregate_rel_l2=0.00959839422 median=0.0136732694 p95=0.0233239214 p99=0.023961205 max=0.023961205 above_5pct=0 records=48
+[T33] method=residual_magnitude k=32 split=holdout aggregate_rel_l2=0.0155222879 median=0.0163164173 p95=0.0264761814 p99=0.0280908525 max=0.0280908525 above_5pct=0 records=48
+[T33] method=downnorm_proxy k=0 split=calibration aggregate_rel_l2=0.0104707318 median=0.0144162965 p95=0.0249448182 p99=0.0257004643 max=0.0257004643 above_5pct=0 records=48
+[T33] method=downnorm_proxy k=0 split=holdout aggregate_rel_l2=0.0179628506 median=0.0174568213 p95=0.0298640542 p99=0.0315913152 max=0.0315913152 above_5pct=0 records=48
+[T33] method=downnorm_proxy k=4 split=calibration aggregate_rel_l2=0.010316631 median=0.0141368268 p95=0.0244150654 p99=0.0247937599 max=0.0247937599 above_5pct=0 records=48
+[T33] method=downnorm_proxy k=4 split=holdout aggregate_rel_l2=0.0173938901 median=0.0173937878 p95=0.0289252419 p99=0.0318577157 max=0.0318577157 above_5pct=0 records=48
+[T33] method=downnorm_proxy k=8 split=calibration aggregate_rel_l2=0.010260292 median=0.0141095791 p95=0.0242934561 p99=0.0244579581 max=0.0244579581 above_5pct=0 records=48
+[T33] method=downnorm_proxy k=8 split=holdout aggregate_rel_l2=0.0171363474 median=0.0170502177 p95=0.0281835142 p99=0.0312556047 max=0.0312556047 above_5pct=0 records=48
+[T33] method=downnorm_proxy k=16 split=calibration aggregate_rel_l2=0.0101182887 median=0.0140704807 p95=0.023020969 p99=0.0237217979 max=0.0237217979 above_5pct=0 records=48
+[T33] method=downnorm_proxy k=16 split=holdout aggregate_rel_l2=0.0165030366 median=0.0165880872 p95=0.0273893795 p99=0.0295158218 max=0.0295158218 above_5pct=0 records=48
+[T33] method=downnorm_proxy k=32 split=calibration aggregate_rel_l2=0.00966924391 median=0.0133845215 p95=0.0229945902 p99=0.0240436031 max=0.0240436031 above_5pct=0 records=48
+[T33] method=downnorm_proxy k=32 split=holdout aggregate_rel_l2=0.0151169504 median=0.0157023136 p95=0.0267211319 p99=0.0271087694 max=0.0271087694 above_5pct=0 records=48
+[T33] method=effect_top64 k=0 split=calibration aggregate_rel_l2=0.0104707318 median=0.0144162965 p95=0.0249448182 p99=0.0257004643 max=0.0257004643 above_5pct=0 records=48
+[T33] method=effect_top64 k=0 split=holdout aggregate_rel_l2=0.0179628506 median=0.0174568213 p95=0.0298640542 p99=0.0315913152 max=0.0315913152 above_5pct=0 records=48
+[T33] method=effect_top64 k=4 split=calibration aggregate_rel_l2=0.010295385 median=0.0141802746 p95=0.0242342013 p99=0.0251390727 max=0.0251390727 above_5pct=0 records=48
+[T33] method=effect_top64 k=4 split=holdout aggregate_rel_l2=0.0174625112 median=0.0174165297 p95=0.0287228247 p99=0.0318577163 max=0.0318577163 above_5pct=0 records=48
+[T33] method=effect_top64 k=8 split=calibration aggregate_rel_l2=0.0103320552 median=0.0141095794 p95=0.0240442155 p99=0.0245449002 max=0.0245449002 above_5pct=0 records=48
+[T33] method=effect_top64 k=8 split=holdout aggregate_rel_l2=0.0171246908 median=0.0170917317 p95=0.0287002916 p99=0.0314456239 max=0.0314456239 above_5pct=0 records=48
+[T33] method=effect_top64 k=16 split=calibration aggregate_rel_l2=0.0100277056 median=0.0141286174 p95=0.0235157166 p99=0.0239320536 max=0.0239320536 above_5pct=0 records=48
+[T33] method=effect_top64 k=16 split=holdout aggregate_rel_l2=0.0164807396 median=0.016615406 p95=0.0273343455 p99=0.0299368493 max=0.0299368493 above_5pct=0 records=48
+[T33] method=effect_top64 k=32 split=calibration aggregate_rel_l2=0.00970669093 median=0.0133334436 p95=0.0227707982 p99=0.0229945896 max=0.0229945896 above_5pct=0 records=48
+[T33] method=effect_top64 k=32 split=holdout aggregate_rel_l2=0.0150427446 median=0.0156158456 p95=0.0265702454 p99=0.0271860942 max=0.0271860942 above_5pct=0 records=48
