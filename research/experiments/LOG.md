@@ -1091,3 +1091,24 @@ ID, status, hypothesis, prediction, exact change, source/binary/model/prompt ide
   [DeltaNet locality audit](../architecture_notes/2026-09-10-deltanet-cpu-locality-audit.md),
   `research/results/raw/T38-qwen-omp32-2d2a4bfe-12dd-4914-baec-046fbb32761c.*`,
   and `research/results/raw/T38-gcc13-qwen36-vectorization.log`.
+
+## T39 — exact Qwen blanket NUMA interleave control
+
+- Date: 2026-09-10.
+- Status: complete and rejected; production unchanged.
+- Exact change: prefixed the retained T24 exact-Q8 command with only
+  `/usr/bin/numactl --interleave=all`. This is an OS policy experiment, not a
+  no-op `COLI_NUMA` environment change.
+- Result: canonical stdout matched but rate dropped from T35's 12.88 to 9.84
+  tok/s and total decode grew from 64.20 to 86.60 ms/token. DeltaNet rose from
+  24.39 to 44.94 ms/token, with `l2n+rec` rising from 6.8 to 22.5 ms/token.
+  Blanket page interleaving is rejected.
+- Safety: two idle preflights >60 seconds apart passed; the locked 125 W/card
+  run peaked at 45 C / 45 C and 9,725 MiB / 7,895 MiB. Fans stayed at
+  2,000–2,100 RPM; release, cooldown, and restoration to 250 W/card passed.
+- Decision: retain the default policy. Inspect precise DeltaNet state
+  allocation and initialization; only a narrowly scoped first-touch/locality
+  experiment can follow, with the exact output oracle retained.
+- Evidence: [E031](031-exact-qwen-numa-interleave-control.md),
+  [T39 result](../results/T39-exact-qwen-numa-interleave.md), and
+  `research/results/raw/T39-qwen-numa-interleave-644dfa59-e1e1-49f7-9cc1-2b2f9abcf8ed.*`.

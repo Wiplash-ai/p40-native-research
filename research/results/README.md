@@ -95,3 +95,8 @@ accompanying [DeltaNet locality audit](../architecture_notes/2026-09-10-deltanet
 records that the direct Qwen binary does not consume `COLI_NUMA`, and that its
 recurrence is already AVX2-vectorized; the next guarded control is therefore
 OS-level NUMA interleaving, not another ungrounded SIMD or environment sweep.
+
+`T39-exact-qwen-numa-interleave.md` rejects that OS-level control on actual
+Qwen: it preserves the canonical output but regresses decode 23.6%, almost
+entirely through the DeltaNet recurrence. The next locality work must be a
+precise experimental first-touch/allocation study, not a blanket policy.

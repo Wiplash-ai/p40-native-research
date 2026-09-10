@@ -40,12 +40,20 @@ from 24 to 32 regressed the full model from 12.88 to 12.62 tok/s. DeltaNet
 grew by 8.8%, outweighing a 5.0% MoE reduction. Hyperthreading is rejected for
 this whole-model configuration; retain 24 physical-core workers.
 
+## Blanket interleave result
+
+T39 applied only OS-level `numactl --interleave=all` to the retained exact
+T24 path. It preserved the exact output SHA but fell from 12.88 to 9.84 tok/s.
+DeltaNet's `l2n+rec` timing grew from 6.8 to 22.5 ms/token. Reject blanket
+interleaving: its striped page placement is harmful to this recurrent access
+pattern.
+
 ## Next falsifiable test
 
-The next exact-Qwen control must apply only OS-level
-`numactl --interleave=all` to the process, retaining the T24 binary and every
-engine variable. It is explicitly a blanket memory-policy test, not a
-`COLI_NUMA` test. It must preserve the output SHA and use the normal guarded
-thermal procedure. If it fails or regresses, reject blanket interleaving and
-consider a separately designed source-level first-touch/local-allocation test
-rather than combining policies.
+Inspect the exact source locations that allocate and zero DeltaNet's recurrent
+state. If state allocation is initialized by the main thread before the static
+head-parallel recurrence loop, build one isolated experimental tree that
+first-touches each head's state from its eventual worker. Keep the default OS
+policy, 24 workers, and exact output oracle. Measure effective `numa_maps`
+plus end-to-end Qwen timing. Do not combine this with thread-count, affinity,
+or GPU changes.
