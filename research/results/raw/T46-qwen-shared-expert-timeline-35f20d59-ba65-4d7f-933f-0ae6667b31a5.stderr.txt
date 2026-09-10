@@ -1,0 +1,44 @@
+== qwen36 Phase-2 engine | cache=256/layer bits=4 pilot=0 wide=1 hot=0 smooth=0.30 conf=0.92 ==
+[tok] loaded 248044 pieces (max id 248043) from /mnt/ai-ssd/huggingface/hub/models--Kreuzzelg--qwen36-35b-a3b-colibri-i4/snapshots/9ccfbfa09bc55410a9c9102558ee63077d8a477d/tokenizer.json
+[enc] prompt tokens: 15 | generating 64 new tokens
+[meta] loaded: q_heads=16 kv_heads=2 head_dim=256 q_head_dim=512 k_head_dim=256 v_head_dim=256 o_in=4096 rotary_dim=64 n_experts=256 topk=8 inter=512 shared_inter=512 n_group=1 topk_group=1 attn_output_gate=1 n_active=10
+[meta] DeltaNet: vheads=32 kheads=16 kdim=128 vdim=128 convk=4 conv_dim=8192
+resident weights loaded in 10.7s | RSS after load: 9.23 GB
+[dense-i8] 291 matrices quantized in 0.8 s, 7.2 GB f32 freed
+[CUDA] device 0: Tesla P40, 25.6 GB VRAM, sm_61
+[CUDA] device 1: Tesla P40, 25.6 GB VRAM, sm_61
+[qtier] dev 0: 23.7 GB free, budget 22.7 GB (~15349 experts)
+[qtier] dev 1: 23.7 GB free, budget 22.7 GB (~15349 experts)
+[qtier] CUDA VRAM expert tier active: 2 device(s), 1.52 MB/expert
+[gpu] MoE experts -> CUDA VRAM tier
+[qwen36] int4 packed weights detected — unpacking to int8 in slot
+[qtier] warmstart (parallel): all 10240 experts in RAM (int8 only for non-residents), 10240 in VRAM -- 45.0 s
+[dn-cpuorder] exact Q8 cache active: 90 DeltaNet matrices, LM head, 40 attention Q/K/V/O matrices, and 120 shared MLP matrices on GPU 0
+[dn-cpuorder] exact Q8 QKV/Z pair issue/join active; CPU B/A overlap enabled
+[timers] window: moe 30 ms/token (last 32)
+
+Generated (64 new tokens):
+Text      : 
+TTFT: 0.89 s (time to first token)
+[timers] decode: 63 tokens  (shared/router are subsets of moe_total)
+[timers]   deltanet      1560.1 ms     24.76 ms/token
+[timers]   attention      347.7 ms      5.52 ms/token
+[timers]   moe_total     1917.9 ms     30.44 ms/token
+[timers]   (shared)      1073.8 ms     17.04 ms/token
+[timers]   (router)       441.0 ms      7.00 ms/token
+[timers]   lm_head        210.8 ms      3.35 ms/token
+[timers]   TOTAL         4036.4 ms     64.07 ms/token
+[timers]   step() total: 64.6 ms/token (outside the phases: 0.5)
+[timers]   dn-sub: proj 8.5 | conv 4.0 | l2n+rec 6.5 | norm+out 5.7 ms/token
+[timers]   qtier: issue 2.33 | cpu-miss 17.14 | take 3.42 ms/token
+[shared-expert-timeline] 2518 windows | dense-stream 1060.48 ms | dense-end-to-expert-done -168.91 ms | no-gpu0 2 | failures 0
+[timers] prefill: 15 tokens  dn=445 attn=50 moe=354(sh=253 rt=10) head=4 ms
+[qtier] resident 10240/10240 experts | uploads 10240 | miss(CPU) 0 | q_skips 0
+[qtier]   dev 0: hits 12533 | 15360 tensors, 7.56 GB VRAM used (budget 22.72 GB)
+[qtier]   dev 1: hits 12427 | 15360 tensors, 7.56 GB VRAM used (budget 22.72 GB)
+[qtier] VRAM hit rate: 100.0 % | LFRU swaps 0
+[qtier] group_stats: 6226 calls, 24960 experts | h2d 0 ms, kernel 0 ms, d2h 0 ms
+
+PEAK RSS: 22.52 GB
+Expert cache hit rate: 70.9% (hit=24960 miss=10240)
+Speed: 12.84 tok/s (5.0s for 64 tokens)

@@ -1256,3 +1256,34 @@ ID, status, hypothesis, prediction, exact change, source/binary/model/prompt ide
   [T45 result](../results/T45-exact-qwen-shared-expert-timeline.md),
   patches/0022-qwen36-shared-expert-timeline-profile.patch, and
   `research/results/raw/T45-qwen-shared-expert-timeline-498a37e5-3217-4891-8c57-9fa8f37552c7.*`.
+
+## T46 — exact Qwen shared/expert timeline accounting
+
+- Date: 2026-09-10.
+- Status: complete attribution; production unchanged.
+- Exact change: only T45's profile accounting changed. A decode-layer pair
+  with no GPU-0 resident routed-expert group is counted as `no-gpu0`; CUDA
+  event creation, record, elapsed-query, and unexpected collection failures
+  remain failures. Qwen math, routing, weights, and shared-Q8 event placement
+  are unchanged.
+- Result: canonical stdout matched. The guard reconciled 2,518 valid windows
+  plus 2 `no-gpu0` windows to 63 decode tokens x 40 layers, with zero event
+  failures. The shared GPU-0 Q8 stream took 1,060.48 ms total (0.421
+  ms/window). The signed interval from shared-stream end to same-device expert
+  D2H completion was -168.91 ms total (-0.067 ms/window), meaning expert D2H
+  completed about 67 microseconds before shared completion in each valid local
+  comparison. This is not additive whole-model latency because GPU 1 runs
+  independently and is the slower expert path in T42/T43. The instrumented
+  12.84 tok/s / 64.07 ms-token trace is attribution only, not a speed result.
+- Safety: dual idle preflights passed. The locked 125 W/card run peaked at 44
+  C / 44 C and 7,893 MiB/card; fans remained at 2,000–2,100 RPM. Allocations
+  were released, cooldown completed, and both cards returned to 250 W/card.
+- Decision: T46 closes shared-MLP dispatch as the next lead. Do not revise its
+  scheduling again; obtain an exact-Qwen per-group GPU-1 expert-tail
+  distribution and residency/load-balance feasibility profile before choosing
+  another expert-tier change.
+- Evidence: [E038](038-exact-qwen-shared-expert-timeline-ineligible.md),
+  [T46 result](../results/T46-exact-qwen-shared-expert-timeline.md),
+  patches/0022-qwen36-shared-expert-timeline-profile.patch,
+  patches/0023-qwen36-shared-expert-timeline-ineligible.patch, and
+  `research/results/raw/T46-qwen-shared-expert-timeline-35f20d59-ba65-4d7f-933f-0ae6667b31a5.*`.

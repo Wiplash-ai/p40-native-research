@@ -132,3 +132,15 @@ byte-identical output but records 12.83 tok/s / 64.17 ms-token versus 12.90
 tok/s / 63.93 ms-token for adjacent unchanged T24. The next exact-path audit
 should measure shared-MLP dispatch and overlap, not reorder the host join or
 the device launches again.
+
+`T45-exact-qwen-shared-expert-timeline.md` retains a useful but invalid
+instrumentation attempt: two of 2,520 layer/token pairs had no routed GPU-0
+expert, and the first guard incorrectly counted those ineligible windows as
+failures. It is not performance attribution.
+
+`T46-exact-qwen-shared-expert-timeline.md` corrects that accounting and
+reconciles 2,518 valid windows plus two `no-gpu0` windows with zero failures.
+Shared exact-Q8 work extends GPU-0's local expert tail by about 67 microseconds
+per valid window, but GPU 1 is independent and was slower in prior exact-Qwen
+profiles. Do not sum the interval into total latency or continue shared-MLP
+scheduling work; profile the GPU-1 expert-tail distribution first.
