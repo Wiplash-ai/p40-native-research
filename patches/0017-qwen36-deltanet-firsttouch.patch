@@ -1,0 +1,82 @@
+diff --git a/c/qwen36.c b/c/qwen36.c
+--- a/c/qwen36.c
++++ b/c/qwen36.c
+@@ -57,6 +57,10 @@ static int qwen36_max_ctx(void) {
+ #include <sys/resource.h>
+ #include <unistd.h>
+ #endif
++#ifdef __linux__
++#include <linux/mempolicy.h>
++#include <sys/syscall.h>
++#endif
+ #include "cli_args.h"
+ #include "st.h"
+ #include "json.h"   /* tokenizer.json parsing (reuse minimal parser) */
+@@ -2467,16 +2471,68 @@ static void pilot_prefetch(Model *m, int lnext, const float *x, int S) {
+  * cosine comparison against tools/_ref_dn.py's numpy logits validate the port. */
+ static float *g_last_logit = NULL;
+ 
++/* Experimental only: Linux normally allocates anonymous pages on the CPU that
++ * first writes them. DeltaNet's serial reset used to write all recurrent-state
++ * pages from the launcher thread before the static head-parallel recurrence.
++ * The opt-in path first-touches each independent head from its eventual OpenMP
++ * worker instead. It changes placement only: every written value remains zero.
++ */
++static int g_dn_firsttouch = -1;
++static int g_dn_firsttouch_reported = 0;
++static int dn_firsttouch_on(void){
++    if (g_dn_firsttouch < 0){
++        const char *e = getenv("COLI_DN_FIRSTTOUCH");
++        g_dn_firsttouch = e && !strcmp(e,"1");
++    }
++    return g_dn_firsttouch;
++}
++
++static int dn_page_node(const void *address){
++#ifdef __linux__
++    int node = -1;
++    if (syscall(SYS_get_mempolicy, &node, NULL, 0, (void *)address,
++                MPOL_F_ADDR | MPOL_F_NODE) == 0) return node;
++#else
++    (void)address;
++#endif
++    return -1;
++}
++
+ /* Zero the DeltaNet recurrent state so a new request doesn't inherit the
+  * previous conversation's hidden state. Must be called at the start of every
+  * generation (the CLI runs once, so this is also correct there). */
+ static void reset_recurrent(Model *m){
+     Cfg *c = &m->c;
++    int node0=0, node1=0, unknown=0;
++    int firsttouch = dn_firsttouch_on();
+     for (int i = 0; i < c->n_layers; i++){
+         if (c->is_attn[i]) continue;
+-        if (m->DN_rec[i])  memset(m->DN_rec[i],  0, (size_t)c->dn_vheads * c->dn_kdim * c->dn_vdim * sizeof(float));
++        if (m->DN_rec[i]) {
++            size_t head_cells = (size_t)c->dn_kdim * c->dn_vdim;
++            if (!firsttouch) {
++                memset(m->DN_rec[i], 0, (size_t)c->dn_vheads * head_cells * sizeof(float));
++            } else {
++                int *nodes = calloc((size_t)c->dn_vheads, sizeof(*nodes));
++                if (!nodes) { fprintf(stderr,"OOM DeltaNet first-touch audit\n"); exit(1); }
++                #pragma omp parallel for schedule(static)
++                for (int h = 0; h < c->dn_vheads; h++) {
++                    float *head = m->DN_rec[i] + (size_t)h * head_cells;
++                    memset(head, 0, head_cells * sizeof(float));
++                    nodes[h] = dn_page_node(head);
++                }
++                for (int h = 0; h < c->dn_vheads; h++) {
++                    if (nodes[h] == 0) node0++;
++                    else if (nodes[h] == 1) node1++;
++                    else unknown++;
++                }
++                free(nodes);
++            }
++        }
+         if (m->DN_conv[i]) memset(m->DN_conv[i], 0, (size_t)c->dn_conv_dim * (c->dn_convk - 1) * sizeof(float));
+     }
++    if (firsttouch && !g_dn_firsttouch_reported++)
++        fprintf(stderr,"[dn-firsttouch] active: head pages node0=%d node1=%d unknown=%d\n",
++                node0,node1,unknown);
+ }

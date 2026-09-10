@@ -1112,3 +1112,27 @@ ID, status, hypothesis, prediction, exact change, source/binary/model/prompt ide
 - Evidence: [E031](031-exact-qwen-numa-interleave-control.md),
   [T39 result](../results/T39-exact-qwen-numa-interleave.md), and
   `research/results/raw/T39-qwen-numa-interleave-644dfa59-e1e1-49f7-9cc1-2b2f9abcf8ed.*`.
+
+## T40 — exact Qwen DeltaNet first-touch control
+
+- Date: 2026-09-10.
+- Status: complete and rejected; production unchanged.
+- Exact change: an isolated source copy adds default-off
+  `COLI_DN_FIRSTTOUCH=1`, which resets each recurrent value-head slice from
+  the same static OpenMP partition used by the recurrence. Its Linux page
+  query reported actual placement; all other T24 controls remained pinned.
+- Result: stdout hash matched and all 960 heads were known (599 node 0, 361
+  node 1), but T40 measured 8.21 tok/s / 107.56 ms-token versus its immediate
+  unchanged T24 control at 12.90 tok/s / 63.93 ms-token. DeltaNet rose from
+  24.41 to 55.64 ms-token and every other stage also regressed. Reject it.
+- Safety: both comparison runs followed two >60-second-separated idle
+  preflights under locked 125 W/card caps. T40 peaked at 48 C / 45 C; the
+  control at 47 C / 46 C. Fans stayed at 2,000–2,100 RPM, and each guard
+  released, cooled, and restored 250 W/card limits.
+- Decision: stop isolated NUMA-placement work. Return to the exact CPU
+  recurrence algorithm and its repeated state traversals, which T37 identifies
+  as the remaining local DeltaNet cost.
+- Evidence: [E032](032-exact-qwen-deltanet-firsttouch.md),
+  [T40 result](../results/T40-exact-qwen-deltanet-firsttouch.md),
+  `patches/0017-qwen36-deltanet-firsttouch.patch`, and raw T40/T24-adjacent
+  artifacts under `research/results/raw/`.

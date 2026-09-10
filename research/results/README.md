@@ -100,3 +100,8 @@ OS-level NUMA interleaving, not another ungrounded SIMD or environment sweep.
 Qwen: it preserves the canonical output but regresses decode 23.6%, almost
 entirely through the DeltaNet recurrence. The next locality work must be a
 precise experimental first-touch/allocation study, not a blanket policy.
+
+`T40-exact-qwen-deltanet-firsttouch.md` completes that precise test and
+rejects it, too. It proves two-node recurrent-page placement, but the adjacent
+unchanged baseline is 36.4% faster. NUMA is no longer an optimization lead for
+this exact Qwen path; the next work returns to the recurrence algorithm itself.

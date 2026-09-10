@@ -57,3 +57,13 @@ first-touches each head's state from its eventual worker. Keep the default OS
 policy, 24 workers, and exact output oracle. Measure effective `numa_maps`
 plus end-to-end Qwen timing. Do not combine this with thread-count, affinity,
 or GPU changes.
+
+## Per-head first-touch result
+
+T40 did exactly that and verified 599 of 960 recurrent head slices on node 0,
+361 on node 1, and none unknown. It preserved the fixed Qwen output, but its
+adjacent unchanged control was 12.90 tok/s versus T40's 8.21 tok/s. The
+first-touch path is rejected. Alongside T39, this removes generic and
+per-head NUMA placement from the current exact-Qwen priority list. The next
+CPU lead is reducing the recurrence's repeated full-state passes while
+preserving its arithmetic order and fixed-output oracle.
