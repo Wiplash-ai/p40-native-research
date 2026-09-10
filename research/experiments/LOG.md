@@ -1231,3 +1231,21 @@ ID, status, hypothesis, prediction, exact change, source/binary/model/prompt ide
   [T44 result](../results/T44-exact-qwen-qtier-reverse-issue.md),
   patches/0021-qwen36-qtier-reverse-issue.patch, and
   `research/results/raw/T44-qwen-qtier-reverse-issue-e9435a11-13ae-4502-8d96-4f410d7cabdd.*`.
+
+## T45 — exact Qwen shared/expert timeline profile
+
+- Date: 2026-09-10.
+- Status: prepared; no GPU workload has run yet; production unchanged.
+- Exact change: isolated default-off `COLI_SHARED_EXPERT_TIMELINE=1` records
+  CUDA events around the unchanged shared-Q8 stream and existing GPU-0
+  resident-expert group completion. Its signed result distinguishes shared
+  work hidden before expert completion from shared work that extends the tail.
+- Static validation: local profile-contract tests passed; server CUDA build
+  succeeded with `/usr/bin/nvcc`, `CUDA=1`, and `CUDA_ARCH=sm_61`; the
+  allowlisted guard dry-run matched its isolated engine SHA, canonical oracle,
+  model, environment, lock, and no-CUDA-context requirement.
+- Gate: require exact output, exactly 2,520 decode windows, and the standard
+  thermal protocol. This is instrumentation, not a speed selection.
+- Evidence: [E037](037-exact-qwen-shared-expert-timeline.md),
+  patches/0022-qwen36-shared-expert-timeline-profile.patch, and
+  `remote/p40-t45-qwen-shared-expert-timeline-guard.py`.

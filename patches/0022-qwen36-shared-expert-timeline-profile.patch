@@ -1,0 +1,272 @@
+--- a/c/backend_cuda.cu
++++ b/c/backend_cuda.cu
+@@ -89,6 +89,8 @@
+     float *pipe_buf[27]; size_t pipe_cap[27];   /* scratch persistenti del resident pipeline */
+     cudaStream_t stream;
+     cudaEvent_t ev_done; int ev_done_ok;        /* resident-group issue completion (#431 PR-C0) */
++    cudaEvent_t group_timeline_done;
++    int group_timeline_done_ok, group_timeline_pending;
+     void *group_desc; size_t group_desc_cap;
+     size_t tensor_count, tensor_bytes;
+     int group_pending; size_t group_pending_bytes;   /* async expert-group in flight (Inc.4) */
+@@ -118,6 +120,25 @@
+ static double g_device_group_kernel_ms[COLI_CUDA_MAX_DEVICES];
+ static double g_device_group_d2h_ms[COLI_CUDA_MAX_DEVICES];
+ static std::mutex g_group_stats_mu;
++static int g_shared_expert_timeline=-1;
++
++static int shared_expert_timeline_on(void){
++    if(g_shared_expert_timeline<0){
++        const char *e=std::getenv("COLI_SHARED_EXPERT_TIMELINE");
++        g_shared_expert_timeline=e && *e=='1';
++    }
++    return g_shared_expert_timeline;
++}
++
++static int group_timeline_event(DeviceContext *ctx){
++    if(ctx->group_timeline_done_ok) return 1;
++    if(cudaEventCreate(&ctx->group_timeline_done)!=cudaSuccess){
++        std::fprintf(stderr,"[shared-expert-timeline] expert event creation failed on device %d\n",ctx->device);
++        return 0;
++    }
++    ctx->group_timeline_done_ok=1;
++    return 1;
++}
+ #ifdef COLI_ANS
+ static FILE *g_ans_sidecar;
+ static int g_ans_sidecar_pack;
+@@ -1296,6 +1317,7 @@
+         if (ctx->host_x) cudaFreeHost(ctx->host_x);
+         if (ctx->host_y) cudaFreeHost(ctx->host_y);
+         if (ctx->host_kv) cudaFreeHost(ctx->host_kv);
++        if (ctx->group_timeline_done_ok) cudaEventDestroy(ctx->group_timeline_done);
+         if (ctx->stream) cudaStreamDestroy(ctx->stream);
+         if (ctx->group_desc) cudaFree(ctx->group_desc);
+ #ifdef COLI_ANS
+@@ -1311,6 +1333,8 @@
+         ctx->qx=nullptr; ctx->qscale=nullptr;
+         ctx->aq=ctx->al=ctx->ar=ctx->ac=nullptr;
+         ctx->host_x=ctx->host_y=ctx->host_kv=nullptr;ctx->stream=nullptr;
++        ctx->group_timeline_done_ok=ctx->group_timeline_pending=0;
++        ctx->group_timeline_done=nullptr;
+         ctx->x_cap = ctx->y_cap = ctx->gate_cap = ctx->up_cap = 0;
+         ctx->qx_cap=ctx->qscale_cap=0;
+         ctx->aq_cap=ctx->al_cap=ctx->ar_cap=ctx->ac_cap=0;
+@@ -2167,6 +2191,13 @@
+     if(!cuda_ok(cudaGetLastError(),"expert group issue launch")||
+        !cuda_ok(cudaMemcpyAsync(ctx->host_y,ctx->y,xb,cudaMemcpyDeviceToHost,ctx->stream),
+                 "expert group issue download")) return 0;
++    ctx->group_timeline_pending=0;
++    if(shared_expert_timeline_on() && group_timeline_event(ctx)){
++        if(cudaEventRecord(ctx->group_timeline_done,ctx->stream)==cudaSuccess)
++            ctx->group_timeline_pending=1;
++        else std::fprintf(stderr,"[shared-expert-timeline] expert event record failed on device %d: %s\n",
++                          device,cudaGetErrorString(cudaGetLastError()));
++    }
+     ctx->group_pending=1; ctx->group_pending_bytes=xb;
+     { std::lock_guard<std::mutex> lock(g_group_stats_mu);
+       int index=(int)(ctx-g_ctx);
+@@ -2185,6 +2216,20 @@
+     return ctx->host_y;
+ }
+ 
++extern "C" int coli_cuda_expert_group_timeline_window(
++    int device, void *start, void *end, float *stream_ms, float *end_to_group_ms) {
++    DeviceContext *ctx=find_ctx(device);
++    if(!ctx || !start || !end || !stream_ms || !end_to_group_ms ||
++       !ctx->group_timeline_done_ok || !ctx->group_timeline_pending || !select_ctx(ctx)) return 0;
++    cudaError_t a=cudaEventElapsedTime(stream_ms,(cudaEvent_t)start,(cudaEvent_t)end);
++    cudaError_t b=cudaEventElapsedTime(end_to_group_ms,(cudaEvent_t)end,ctx->group_timeline_done);
++    ctx->group_timeline_pending=0;
++    if(a==cudaSuccess && b==cudaSuccess) return 1;
++    std::fprintf(stderr,"[shared-expert-timeline] event elapsed query failed on device %d: %s / %s\n",
++                 device,cudaGetErrorString(a),cudaGetErrorString(b));
++    return 0;
++}
++
+ 
+ /* The absorb kernels decode `w` through weight_at + absorb_scale, which know
+  * per-row and fmt=4 group scales only. Refuse anything else (fmt=5/6/8) rather
+--- a/c/backend_cuda.h
++++ b/c/backend_cuda.h
+@@ -150,6 +150,14 @@
+                                const int *rows, int count, const float *x);
+ COLI_CUDA_DLLEXPORT const float *coli_cuda_expert_group_take(int device);
+ 
++/* T45 profile-only cross-stream window. start/end are CUDA events created by
++ * the exact-Q8 dense helper on the same device; this returns the helper stream
++ * span and the signed interval from helper end to this resident-group D2H end.
++ * A positive tail means the expert stream still ran after shared work ended. */
++COLI_CUDA_DLLEXPORT int coli_cuda_expert_group_timeline_window(
++                           int device, void *start, void *end,
++                           float *stream_ms, float *end_to_group_ms);
++
+ COLI_CUDA_DLLEXPORT int coli_cuda_expert_group(ColiCudaTensor *const *gates,
+                            ColiCudaTensor *const *ups,
+                            ColiCudaTensor *const *downs,
+--- a/c/qwen36.c
++++ b/c/qwen36.c
+@@ -709,8 +709,15 @@
+ static int g_timers = -1;
+ static double g_tm_dec[6], g_tm_pre[6];   /* 0=deltanet 1=attention 2=moe_total 3=shared 4=router 5=lm_head */
+ static long g_tm_dec_tokens = 0, g_tm_pre_tokens = 0;
++static int g_shared_expert_timeline=-1;
++static uint64_t g_shared_expert_timeline_calls;
++static double g_shared_expert_stream_ms,g_shared_expert_tail_ms;
+ static double tm_now(void){ struct timespec ts; clock_gettime(CLOCK_MONOTONIC,&ts); return ts.tv_sec*1e3 + ts.tv_nsec/1e6; }
+ static int tm_on(void){ if(g_timers<0){ const char *e=getenv("COLI_TIMERS"); g_timers = (e && *e=='1'); } return g_timers; }
++static int shared_expert_timeline_on(void){
++    if(g_shared_expert_timeline<0){const char *e=getenv("COLI_SHARED_EXPERT_TIMELINE");g_shared_expert_timeline=e&&*e=='1';}
++    return g_shared_expert_timeline;
++}
+ double g_qt_iss=0, g_qt_cpu=0, g_qt_tak=0;   /* QTIER-Phasen (Decode) */
+ double g_dn_sub[4];                           /* DN: proj, conv+split, l2n+rec, norm+out */
+ double g_tm_step=0;                           /* step() total (decode) */
+@@ -746,6 +753,10 @@
+     if(g_qt_iss+g_qt_cpu+g_qt_tak>0)
+         fprintf(stderr,"[timers]   qtier: issue %.2f | cpu-miss %.2f | take %.2f ms/token\n",
+                 g_qt_iss/g_tm_dec_tokens, g_qt_cpu/g_tm_dec_tokens, g_qt_tak/g_tm_dec_tokens);
++    if(g_shared_expert_timeline_calls)
++        fprintf(stderr,"[shared-expert-timeline] %llu windows | dense-stream %.2f ms | dense-end-to-expert-done %.2f ms\n",
++                (unsigned long long)g_shared_expert_timeline_calls,g_shared_expert_stream_ms,
++                g_shared_expert_tail_ms);
+     fprintf(stderr,"[timers] prefill: %ld tokens  dn=%.0f attn=%.0f moe=%.0f(sh=%.0f rt=%.0f) head=%.0f ms\n",
+             g_tm_pre_tokens,g_tm_pre[0],g_tm_pre[1],g_tm_pre[2],g_tm_pre[3],g_tm_pre[4],g_tm_pre[5]);
+ }
+@@ -2041,6 +2052,11 @@
+                 float w = val[kk]; float *os = out + (int64_t)s*D;
+                 for (int d = 0; d < D; d++) os[d] += w * hh[d];
+             }
++#ifdef COLI_CUDA
++            int timeline = S==1 && shared_expert_timeline_on() &&
++                g_dn_cpuorder_active && shared_cpuorder_on() && p40_qwen_dn_timeline_begin();
++            void *timeline_start=NULL,*timeline_end=NULL;
++#endif
+             /* Compute the shared expert NOW so it overlaps with the GPU
+              * groups; the common block below is skipped. */
+             {
+@@ -2050,6 +2066,9 @@
+                 matmul_d(shu, xs, l->sh_u, 1, D, Ish);
+                 for (int i = 0; i < Ish; i++) { float sv = sh[i]; sh[i] = (sv / (1.f + expf(-sv))) * shu[i]; }
+                 matmul_d(shd, sh, l->sh_d, 1, Ish, D);
++#ifdef COLI_CUDA
++                if(timeline && !p40_qwen_dn_timeline_end(&timeline_start,&timeline_end)) timeline=0;
++#endif
+                 float sgate = 1.f;
+                 if (l->sh_gate) {
+                     float sg = 0.f; const float *wg = l->sh_gate;
+@@ -2062,6 +2081,16 @@
+             }
+             double _q2 = tm_on()? tm_now():0;
+             qt_take(qmask, val, K, out + (int64_t)s*D);
++#ifdef COLI_CUDA
++            if(timeline){
++                float stream_ms=0.f,tail_ms=0.f;
++                if(qt_timeline_window(dn_cpuorder_device(),timeline_start,timeline_end,&stream_ms,&tail_ms)){
++                    g_shared_expert_timeline_calls++;
++                    g_shared_expert_stream_ms+=stream_ms;
++                    g_shared_expert_tail_ms+=tail_ms;
++                } else fprintf(stderr,"[shared-expert-timeline] window collection failed\n");
++            }
++#endif
+             if (tm_on() && S==1) {
+                 extern double g_qt_iss, g_qt_cpu, g_qt_tak;
+                 g_qt_iss += _q1-_q0; g_qt_cpu += _q2-_q1; g_qt_tak += tm_now()-_q2;
+--- a/c/qwen36_tier.c
++++ b/c/qwen36_tier.c
+@@ -428,6 +428,11 @@
+     pthread_mutex_unlock(&G.mx);
+ }
+ 
++int qt_timeline_window(int device,void *start,void *end,float *stream_ms,float *end_to_group_ms){
++    if(!G.on) return 0;
++    return coli_cuda_expert_group_timeline_window(device,start,end,stream_ms,end_to_group_ms);
++}
++
+ void qt_stats(void){
+     if(!G.on) return;
+     uint64_t hits=0; size_t res=0;
+--- a/c/qwen36_tier.h
++++ b/c/qwen36_tier.h
+@@ -46,6 +46,11 @@
+ /* Collect the GPU results and accumulate val[k]*y_k into out[hidden]. */
+ void qt_take(uint32_t mask, const float *val, int K, float *out);
+ 
++/* T45 profile-only window for the dense helper stream and the resident expert
++ * group on the same device. Must be called after qt_take() for that group. */
++int qt_timeline_window(int device, void *start, void *end,
++                       float *stream_ms, float *end_to_group_ms);
++
+ /* Warmstart: plan the full fill set (heat order, budget reserved), then any
+  * number of loader threads may call qt_note_planned per planned expert. */
+ int  qt_plan_fill(int *layers, int *eids, int max);
+@@ -70,6 +75,7 @@
+ static inline void qt_note(int a,int b,const uint8_t*c,const uint8_t*d,const uint8_t*e,const float*f,const float*g,const float*h){(void)a;(void)b;(void)c;(void)d;(void)e;(void)f;(void)g;(void)h;}
+ static inline uint32_t qt_issue(int a,const int*b,int c,const float*d){(void)a;(void)b;(void)c;(void)d;return 0;}
+ static inline void qt_take(uint32_t a,const float*b,int c,float*d){(void)a;(void)b;(void)c;(void)d;}
++static inline int qt_timeline_window(int a,void*b,void*c,float*d,float*e){(void)a;(void)b;(void)c;(void)d;(void)e;return 0;}
+ static inline int  qt_plan_fill(int*a,int*b,int c){(void)a;(void)b;(void)c;return 0;}
+ static inline void qt_note_planned(int a,int b,const uint8_t*c,const uint8_t*d,const uint8_t*e,const float*f,const float*g,const float*h){(void)a;(void)b;(void)c;(void)d;(void)e;(void)f;(void)g;(void)h;}
+ static inline int  qt_fill_next(int*a,int*b){(void)a;(void)b;return 0;}
+--- a/c/qwen_dn_cpuorder_cuda.cu
++++ b/c/qwen_dn_cpuorder_cuda.cu
+@@ -29,6 +29,9 @@
+   size_t pair_output_capacity = 0;
+   P40QwenDnTensor *pair_first = nullptr;
+   P40QwenDnTensor *pair_second = nullptr;
++  cudaEvent_t timeline_start = nullptr;
++  cudaEvent_t timeline_end = nullptr;
++  int timeline_active = 0;
+ } context;
+ 
+ bool cuda_ok(cudaError_t status, const char *operation) {
+@@ -174,6 +177,26 @@
+   return ok;
+ }
+ 
++extern "C" int p40_qwen_dn_timeline_begin(void) {
++  if (!select_context() || context.timeline_active) return 0;
++  if (!context.timeline_start &&
++      !cuda_ok(cudaEventCreate(&context.timeline_start), "timeline start event creation")) return 0;
++  if (!context.timeline_end &&
++      !cuda_ok(cudaEventCreate(&context.timeline_end), "timeline end event creation")) return 0;
++  if (!cuda_ok(cudaEventRecord(context.timeline_start, context.stream), "timeline start event record")) return 0;
++  context.timeline_active = 1;
++  return 1;
++}
++
++extern "C" int p40_qwen_dn_timeline_end(void **start_event, void **end_event) {
++  if (!start_event || !end_event || !select_context() || !context.timeline_active) return 0;
++  context.timeline_active = 0;
++  if (!cuda_ok(cudaEventRecord(context.timeline_end, context.stream), "timeline end event record")) return 0;
++  *start_event = context.timeline_start;
++  *end_event = context.timeline_end;
++  return 1;
++}
++
+ extern "C" void p40_qwen_dn_tensor_free(P40QwenDnTensor *tensor) {
+   if (!tensor || !select_context()) return;
+   cudaFree(tensor->weights);
+@@ -188,6 +211,8 @@
+     cudaFree(context.input);
+     cudaFree(context.output);
+     cudaFree(context.pair_output);
++    if (context.timeline_start) cudaEventDestroy(context.timeline_start);
++    if (context.timeline_end) cudaEventDestroy(context.timeline_end);
+     cudaStreamDestroy(context.stream);
+   }
+   context = Context{};
+--- a/c/qwen_dn_cpuorder_cuda.h
++++ b/c/qwen_dn_cpuorder_cuda.h
+@@ -16,6 +16,11 @@
+ int p40_qwen_dn_pair_issue(P40QwenDnTensor *first, P40QwenDnTensor *second,
+                            const float *input);
+ int p40_qwen_dn_pair_take(float *first_output, float *second_output);
++/* Profile-only events bracketing an unchanged sequence of synchronous exact
++ * Q8 matvec calls on the dedicated dense stream. Opaque handles remain owned
++ * by this helper and are valid until the next begin or shutdown. */
++int p40_qwen_dn_timeline_begin(void);
++int p40_qwen_dn_timeline_end(void **start_event, void **end_event);
+ void p40_qwen_dn_tensor_free(P40QwenDnTensor *tensor);
+ void p40_qwen_dn_shutdown(void);
+ #ifdef __cplusplus
