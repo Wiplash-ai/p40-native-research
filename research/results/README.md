@@ -125,3 +125,10 @@ combination work. Device 1 accumulates 250.57 ms of wait across 3,109 groups,
 while both weighted output accumulations total only 8.09 ms across 6,226
 groups. The next exact-Qwen change should target device-1 launch or kernel
 latency, not host join parallelism.
+
+T44-exact-qwen-qtier-reverse-issue.md falsifies the smallest device-1 launch
+skew control. Reversing only the two existing expert-group issue calls retains
+byte-identical output but records 12.83 tok/s / 64.17 ms-token versus 12.90
+tok/s / 63.93 ms-token for adjacent unchanged T24. The next exact-path audit
+should measure shared-MLP dispatch and overlap, not reorder the host join or
+the device launches again.

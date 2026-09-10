@@ -1208,3 +1208,26 @@ ID, status, hypothesis, prediction, exact change, source/binary/model/prompt ide
   [T43 result](../results/T43-exact-qwen-qtier-take-host-profile.md),
   patches/0020-qwen36-qtier-take-host-profile.patch, and
   research/results/raw/T43-qwen-qtier-take-host-profile-f25fe21f-832f-4758-af75-c94588e56834.*.
+
+## T44 — exact Qwen expert-tier reverse issue order
+
+- Date: 2026-09-10.
+- Status: complete and rejected; production unchanged.
+- Exact change: an isolated source copy enables only
+  `COLI_QTIER_REVERSE_ISSUE=1`, issuing each device-1 expert group before the
+  existing device-0 group. The `qt_take` device-0 then device-1 collection
+  order, routing, kernels, and arithmetic remain unchanged.
+- Result: canonical stdout and the active marker passed. T44 reached 12.83
+  tok/s / 64.17 ms-token versus adjacent unchanged T24 at 12.90 tok/s / 63.93
+  ms-token. Reversing issue order gives no claimable benefit and trends in the
+  wrong direction.
+- Safety: dual idle preflights passed. The locked 125 W/card run peaked at 44
+  C / 44 C and 7,893 MiB/card; fans stayed at 2,000–2,100 RPM, and release,
+  cooldown, and restoration to 250 W/card passed.
+- Decision: retain normal issue order. T43 and T44 jointly rule out host
+  result accumulation and simple device enqueue order as useful expert-tier
+  latency targets. Audit exact shared-MLP dispatch and overlap next.
+- Evidence: [E036](036-exact-qwen-qtier-reverse-issue.md),
+  [T44 result](../results/T44-exact-qwen-qtier-reverse-issue.md),
+  patches/0021-qwen36-qtier-reverse-issue.patch, and
+  `research/results/raw/T44-qwen-qtier-reverse-issue-e9435a11-13ae-4502-8d96-4f410d7cabdd.*`.
