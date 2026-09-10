@@ -1,0 +1,32 @@
+diff --git a/c/qwen36_tier.c b/c/qwen36_tier.c
+--- a/c/qwen36_tier.c
++++ b/c/qwen36_tier.c
+@@ -50,6 +50,15 @@
+ 
+ static QSlot *qs(int layer, int eid){ return &G.slot[(size_t)layer*G.ne + eid]; }
+ static int home(int eid){ return eid % G.ndev; }
++static int g_reverse_issue=-1;
++static int g_reverse_issue_reported=0;
++static int reverse_issue_on(void){
++    if(g_reverse_issue<0){
++        const char *e=getenv("COLI_QTIER_REVERSE_ISSUE");
++        g_reverse_issue=e && *e=='1';
++    }
++    return g_reverse_issue;
++}
+ 
+ /* Staging: packed int4 (g|u|d) two's-complement -> offset-binary (XOR 0x88,
+  * the upload format of backend_cuda fmt=2) + copy the scales (gs|us|ds). */
+@@ -380,7 +389,11 @@
+     }
+     pthread_mutex_unlock(&G.mx);
+ 
+-    for(int di=0;di<G.ndev;di++){
++    int reverse=reverse_issue_on();
++    if(reverse && !g_reverse_issue_reported++)
++        fprintf(stderr,"[qtier-issue-order] reverse device launch order active\n");
++    for(int oi=0;oi<G.ndev;oi++){
++        int di=reverse ? G.ndev-1-oi : oi;
+         int c=G.is_cnt[di];
+         if(!c) continue;
+         float *xr=G.is_x + (size_t)di*8*G.D;               /* per-device input block */
