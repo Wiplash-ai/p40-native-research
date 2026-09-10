@@ -1,0 +1,54 @@
+--- a/c/backend_cuda.cu
++++ b/c/backend_cuda.cu
+@@ -2219,8 +2219,10 @@
+ extern "C" int coli_cuda_expert_group_timeline_window(
+     int device, void *start, void *end, float *stream_ms, float *end_to_group_ms) {
+     DeviceContext *ctx=find_ctx(device);
+-    if(!ctx || !start || !end || !stream_ms || !end_to_group_ms ||
+-       !ctx->group_timeline_done_ok || !ctx->group_timeline_pending || !select_ctx(ctx)) return 0;
++    if(!ctx || !start || !end || !stream_ms || !end_to_group_ms || !select_ctx(ctx)) return 0;
++    /* No device-local group was issued for this layer/token. That is an
++     * ineligible comparison, not an event API failure. */
++    if(!ctx->group_timeline_done_ok || !ctx->group_timeline_pending) return -1;
+     cudaError_t a=cudaEventElapsedTime(stream_ms,(cudaEvent_t)start,(cudaEvent_t)end);
+     cudaError_t b=cudaEventElapsedTime(end_to_group_ms,(cudaEvent_t)end,ctx->group_timeline_done);
+     ctx->group_timeline_pending=0;
+--- a/c/qwen36.c
++++ b/c/qwen36.c
+@@ -711,6 +711,7 @@
+ static long g_tm_dec_tokens = 0, g_tm_pre_tokens = 0;
+ static int g_shared_expert_timeline=-1;
+ static uint64_t g_shared_expert_timeline_calls;
++static uint64_t g_shared_expert_timeline_no_gpu0,g_shared_expert_timeline_failures;
+ static double g_shared_expert_stream_ms,g_shared_expert_tail_ms;
+ static double tm_now(void){ struct timespec ts; clock_gettime(CLOCK_MONOTONIC,&ts); return ts.tv_sec*1e3 + ts.tv_nsec/1e6; }
+ static int tm_on(void){ if(g_timers<0){ const char *e=getenv("COLI_TIMERS"); g_timers = (e && *e=='1'); } return g_timers; }
+@@ -754,9 +755,10 @@
+         fprintf(stderr,"[timers]   qtier: issue %.2f | cpu-miss %.2f | take %.2f ms/token\n",
+                 g_qt_iss/g_tm_dec_tokens, g_qt_cpu/g_tm_dec_tokens, g_qt_tak/g_tm_dec_tokens);
+     if(g_shared_expert_timeline_calls)
+-        fprintf(stderr,"[shared-expert-timeline] %llu windows | dense-stream %.2f ms | dense-end-to-expert-done %.2f ms\n",
++        fprintf(stderr,"[shared-expert-timeline] %llu windows | dense-stream %.2f ms | dense-end-to-expert-done %.2f ms | no-gpu0 %llu | failures %llu\n",
+                 (unsigned long long)g_shared_expert_timeline_calls,g_shared_expert_stream_ms,
+-                g_shared_expert_tail_ms);
++                g_shared_expert_tail_ms,(unsigned long long)g_shared_expert_timeline_no_gpu0,
++                (unsigned long long)g_shared_expert_timeline_failures);
+     fprintf(stderr,"[timers] prefill: %ld tokens  dn=%.0f attn=%.0f moe=%.0f(sh=%.0f rt=%.0f) head=%.0f ms\n",
+             g_tm_pre_tokens,g_tm_pre[0],g_tm_pre[1],g_tm_pre[2],g_tm_pre[3],g_tm_pre[4],g_tm_pre[5]);
+ }
+@@ -2084,11 +2086,13 @@
+ #ifdef COLI_CUDA
+             if(timeline){
+                 float stream_ms=0.f,tail_ms=0.f;
+-                if(qt_timeline_window(dn_cpuorder_device(),timeline_start,timeline_end,&stream_ms,&tail_ms)){
++                int window=qt_timeline_window(dn_cpuorder_device(),timeline_start,timeline_end,&stream_ms,&tail_ms);
++                if(window>0){
+                     g_shared_expert_timeline_calls++;
+                     g_shared_expert_stream_ms+=stream_ms;
+                     g_shared_expert_tail_ms+=tail_ms;
+-                } else fprintf(stderr,"[shared-expert-timeline] window collection failed\n");
++                } else if(window<0) g_shared_expert_timeline_no_gpu0++;
++                else { g_shared_expert_timeline_failures++; fprintf(stderr,"[shared-expert-timeline] unexpected window collection failure\n"); }
+             }
+ #endif
+             if (tm_on() && S==1) {
