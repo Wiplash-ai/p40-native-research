@@ -1,0 +1,73 @@
+diff --git a/c/qwen36_tier.c b/c/qwen36_tier.c
+--- a/c/qwen36_tier.c
++++ b/c/qwen36_tier.c
+@@ -4,6 +4,7 @@
+ #include <stdlib.h>
+ #include <string.h>
+ #include <pthread.h>
++#include <time.h>
+ #include "qwen36_tier.h"
+ #include "backend_cuda.h"
+ #include "tier.h"
+@@ -40,6 +41,10 @@
+     int is_cnt[QT_MAX_DEV];
+     int is_k[QT_MAX_DEV][32];
+     float *is_x;                          /* count*D input replicas per device */
++    /* Default-off T43 attribution: qt_take's blocking device wait versus
++     * host-side val[k]*row accumulation. */
++    uint64_t take_calls[QT_MAX_DEV];
++    double take_wait_ms[QT_MAX_DEV], take_acc_ms[QT_MAX_DEV];
+     /* M3 */
+     int *fill_order; int fill_cur;        /* warmstart order (heat desc) */
+     int issue_open;                       /* guard: no tensor_free while a group is in flight */
+@@ -50,6 +55,14 @@
+ 
+ static QSlot *qs(int layer, int eid){ return &G.slot[(size_t)layer*G.ne + eid]; }
+ static int home(int eid){ return eid % G.ndev; }
++static int take_profile_on(void){
++    const char *e=getenv("COLI_QTIER_TAKE_PROFILE");
++    return e && *e=='1';
++}
++static double take_profile_now_ms(void){
++    struct timespec ts; clock_gettime(CLOCK_MONOTONIC,&ts);
++    return (double)ts.tv_sec*1e3+(double)ts.tv_nsec/1e6;
++}
+ 
+ /* Staging: packed int4 (g|u|d) two's-complement -> offset-binary (XOR 0x88,
+  * the upload format of backend_cuda fmt=2) + copy the scales (gs|us|ds). */
+@@ -397,16 +410,24 @@
+ void qt_take(uint32_t mask,const float *val,int K,float *out){
+     (void)K;
+     if(!G.on) return;
++    int profile=take_profile_on();
+     if(mask) for(int di=0;di<G.ndev;di++){
+         int c=G.is_cnt[di];
+         if(!c) continue;
++        double t0=profile?take_profile_now_ms():0.0;
+         const float *y=coli_cuda_expert_group_take(G.dev[di]);
++        double t1=profile?take_profile_now_ms():0.0;
+         if(!y) continue;
+         for(int j=0;j<c;j++){
+             float w=val[G.is_k[di][j]];
+             const float *row=y+(size_t)j*G.D;
+             for(int d=0;d<G.D;d++) out[d]+=w*row[d];
+         }
++        if(profile){
++            G.take_calls[di]++;
++            G.take_wait_ms[di]+=t1-t0;
++            G.take_acc_ms[di]+=take_profile_now_ms()-t1;
++        }
+         G.is_cnt[di]=0;
+     }
+     pthread_mutex_lock(&G.mx);
+@@ -435,6 +456,10 @@
+       coli_cuda_group_stats(&calls,&ex,&rows,&h2d,&kms,&d2h);
+       if(calls) fprintf(stderr,"[qtier] group_stats: %llu calls, %llu experts | h2d %.0f ms, kernel %.0f ms, d2h %.0f ms\n",
+               (unsigned long long)calls,(unsigned long long)ex,h2d,kms,d2h); }
++    if(take_profile_on()) for(int i=0;i<G.ndev;i++)
++        fprintf(stderr,"[qtier]   host-take dev %d: %llu calls | wait %.2f ms, accumulate %.2f ms\n",
++                G.dev[i],(unsigned long long)G.take_calls[i],
++                G.take_wait_ms[i],G.take_acc_ms[i]);
+ }
+ 
+ void qt_shutdown(void){
