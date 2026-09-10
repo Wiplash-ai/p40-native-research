@@ -3,3 +3,4 @@
 # diagnostics while retaining ordinary checks for implementation files.
 patches/*.patch -whitespace
 research/results/raw/*.stderr.txt -whitespace
+research/results/raw/*.log -whitespace

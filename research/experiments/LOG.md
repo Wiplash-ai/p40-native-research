@@ -1066,3 +1066,28 @@ ID, status, hypothesis, prediction, exact change, source/binary/model/prompt ide
 - Evidence: [E029](029-exact-qwen-deltanet-remainder-profile.md),
   [T37 result](../results/T37-exact-qwen-deltanet-remainder-profile.md), and
   `research/results/raw/T37-qwen-deltanet-remainder-profile-785746c4-53b1-41ef-a710-f540c4530006.*`.
+
+## T38 — exact Qwen OMP32 CPU control
+
+- Date: 2026-09-10.
+- Status: complete and rejected; production unchanged.
+- Exact change: changed only `OMP_NUM_THREADS=24` to `OMP_NUM_THREADS=32` in
+  the retained T24 binary's otherwise identical fixed-64 profile. The output
+  oracle, pair path, GPUs, affinity policy, power limit, model, and prompt
+  remained pinned.
+- Result: canonical stdout matched, but engine rate fell from T35's 12.88 to
+  12.62 tok/s and total decode grew from 64.20 to 64.99 ms/token. MoE improved
+  from 31.02 to 29.46 ms/token, but DeltaNet worsened from 24.39 to 26.53, so
+  the whole configuration is rejected.
+- Safety: after two idle preflights >60 seconds apart, the 125 W/card run
+  peaked at 44 C / 44 C and 9,723 MiB / 7,895 MiB. Fans stayed at 2,000–2,100
+  RPM; release, cooldown, and restoration to 250 W/card passed.
+- Decision: retain 24 physical-core workers. Inspect compiler vectorization,
+  alignment, and recurrence state locality before another exact-Qwen
+  recurrence implementation experiment; do not sweep whole-model thread
+  counts blindly.
+- Evidence: [E030](030-exact-qwen-omp32-control.md),
+  [T38 result](../results/T38-exact-qwen-omp32.md),
+  [DeltaNet locality audit](../architecture_notes/2026-09-10-deltanet-cpu-locality-audit.md),
+  `research/results/raw/T38-qwen-omp32-2d2a4bfe-12dd-4914-baec-046fbb32761c.*`,
+  and `research/results/raw/T38-gcc13-qwen36-vectorization.log`.

@@ -87,3 +87,11 @@ remaining DeltaNet conv, recurrent-state, and norm/output time.
 the final output projection is GPU-kernel-bound, while CPU recurrence is now
 the largest individual DeltaNet remainder. Its next step is a real-Qwen
 CPU-execution experiment rather than another graph or transfer variant.
+
+`T38-exact-qwen-omp32.md` rejects the first real-Qwen recurrence scheduling
+control: adding hyperthreads improves MoE but slows DeltaNet enough to worsen
+whole-model decode. The retained exact profile stays at 24 workers. The
+accompanying [DeltaNet locality audit](../architecture_notes/2026-09-10-deltanet-cpu-locality-audit.md)
+records that the direct Qwen binary does not consume `COLI_NUMA`, and that its
+recurrence is already AVX2-vectorized; the next guarded control is therefore
+OS-level NUMA interleaving, not another ungrounded SIMD or environment sweep.
