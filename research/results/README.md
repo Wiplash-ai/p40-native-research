@@ -105,3 +105,9 @@ precise experimental first-touch/allocation study, not a blanket policy.
 rejects it, too. It proves two-node recurrent-page placement, but the adjacent
 unchanged baseline is 36.4% faster. NUMA is no longer an optimization lead for
 this exact Qwen path; the next work returns to the recurrence algorithm itself.
+
+`T41-exact-qwen-deltanet-recurrence-fuse.md` rejects that first arithmetic-
+order-preserving recurrence rewrite. Its output is exact, but two fewer state
+rereads do not improve the full model or the DeltaNet stage. The next lead is
+higher-level execution or multi-token work, not another local recurrence loop
+rewrite.

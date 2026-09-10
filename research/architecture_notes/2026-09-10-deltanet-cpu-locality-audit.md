@@ -67,3 +67,11 @@ first-touch path is rejected. Alongside T39, this removes generic and
 per-head NUMA placement from the current exact-Qwen priority list. The next
 CPU lead is reducing the recurrence's repeated full-state passes while
 preserving its arithmetic order and fixed-output oracle.
+
+## Recurrence-pass fusion result
+
+T41 performed that two-pair fusion and preserved the exact Qwen output. Its
+adjacent control remained faster (12.90 versus 12.72 tok/s), while DeltaNet
+itself grew from 24.41 to 25.14 ms/token. That rejects the local rewrite as a
+Pascal/Qwen optimization. Further progress should move up a level: overlap,
+multi-token verification, or serving throughput—not more CPU loop surgery.

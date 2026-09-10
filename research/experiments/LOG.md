@@ -1136,3 +1136,26 @@ ID, status, hypothesis, prediction, exact change, source/binary/model/prompt ide
   [T40 result](../results/T40-exact-qwen-deltanet-firsttouch.md),
   `patches/0017-qwen36-deltanet-firsttouch.patch`, and raw T40/T24-adjacent
   artifacts under `research/results/raw/`.
+
+## T41 — exact Qwen DeltaNet recurrence-pass fusion
+
+- Date: 2026-09-10.
+- Status: complete and rejected; production unchanged.
+- Exact change: default-off `COLI_DN_REC_FUSE=1` fuses only scale→KV and
+  update→output state passes in the CPU recurrence, keeping the unfused code,
+  scalar expressions, and `kk`/`vv` order available and unchanged.
+- Result: canonical stdout and the active marker passed, but adjacent T24 was
+  12.90 tok/s / 63.93 ms-token while T41 was 12.72 tok/s / 64.84 ms-token.
+  DeltaNet rose from 24.41 to 25.14 ms-token. Reject it; no final-logit
+  follow-up is warranted for a non-winning path.
+- Safety: two >60-second-separated idle preflights passed. The guarded 125
+  W/card run peaked at 45 C / 45 C and 7,893 MiB/card; fans stayed at
+  2,000–2,100 RPM, and release, cooldown, and restoration to 250 W/card
+  passed.
+- Decision: stop local recurrence-pass rewrites. The remaining performance
+  ceiling is not moved by NUMA placement or this state-traffic reduction;
+  profile higher-level CPU/GPU overlap or model-level multi-token work next.
+- Evidence: [E033](033-exact-qwen-deltanet-recurrence-fuse.md),
+  [T41 result](../results/T41-exact-qwen-deltanet-recurrence-fuse.md),
+  `patches/0018-qwen36-deltanet-recurrence-fuse.patch`, and
+  `research/results/raw/T41-qwen-dn-rec-fuse-31c3a614-7b9f-4e03-886a-bb8f3e511936.*`.

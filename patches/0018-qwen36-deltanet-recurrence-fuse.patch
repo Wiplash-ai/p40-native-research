@@ -1,0 +1,93 @@
+diff --git a/c/qwen36.c b/c/qwen36.c
+--- a/c/qwen36.c
++++ b/c/qwen36.c
+@@ -1042,6 +1042,12 @@ static int lmhead_cpuorder_on(void){ const char *e=getenv("COLI_CUDA_LMHEAD_CPUO
+ static int attn_cpuorder_on(void){ const char *e=getenv("COLI_CUDA_ATTN_CPUORDER"); return e && !strcmp(e,"1"); }
+ static int shared_cpuorder_on(void){ const char *e=getenv("COLI_CUDA_SHARED_CPUORDER"); return e && !strcmp(e,"1"); }
+ static int dn_pair_on(void){ const char *e=getenv("COLI_CUDA_DN_PAIR"); return e && !strcmp(e,"1"); }
++static int g_dn_rec_fuse = -1;
++static int g_dn_rec_fuse_reported = 0;
++static int dn_rec_fuse_on(void){
++    if(g_dn_rec_fuse < 0){ const char *e=getenv("COLI_DN_REC_FUSE"); g_dn_rec_fuse = e && !strcmp(e,"1"); }
++    return g_dn_rec_fuse;
++}
+ static int dn_cpuorder_device(void){
+     const char *e=getenv("COLI_CUDA_DN_DEVICE"); char *end=NULL;
+     if(!e || !*e) return 0;
+@@ -2206,34 +2212,63 @@
+         }
+         /* recurrent gated delta rule over the value heads (heads are
+          * independent -> parallel; kv/delta thread-local) */
++        const int rec_fuse = dn_rec_fuse_on();
++        if (rec_fuse && !g_dn_rec_fuse_reported++)
++            fprintf(stderr,"[dn-rec-fuse] active: scale+kv and update+out state passes fused\n");
+         #pragma omp parallel for schedule(static)
+         for (int h = 0; h < vh; h++) {
+             float kvl[512], dl[512];   /* vdim <= 512 */
+             float *Sh = rec + (int64_t)h * kdim * vdim;
+             float egh = expf(gg[h]);
+-            for (int t = 0; t < kdim * vdim; t++) Sh[t] *= egh;
+             const float *kd = k + (int64_t)h * kdim;
+             const float *vd = v_in + (int64_t)h * vdim;
+             /* kv = kd @ Sh  (length vdim) */
+             for (int vv = 0; vv < vdim; vv++) kvl[vv] = 0.f;
+-            for (int kk = 0; kk < kdim; kk++) {
+-                float kkd = kd[kk]; const float *Sr = Sh + (int64_t)kk * vdim;
+-                for (int vv = 0; vv < vdim; vv++) kvl[vv] += kkd * Sr[vv];
++            if (!rec_fuse) {
++                for (int t = 0; t < kdim * vdim; t++) Sh[t] *= egh;
++                for (int kk = 0; kk < kdim; kk++) {
++                    float kkd = kd[kk]; const float *Sr = Sh + (int64_t)kk * vdim;
++                    for (int vv = 0; vv < vdim; vv++) kvl[vv] += kkd * Sr[vv];
++                }
++            } else {
++                /* Same rounded state scale then same kk/vv kv accumulation,
++                 * but avoid rereading the just-written state row. */
++                for (int kk = 0; kk < kdim; kk++) {
++                    float kkd = kd[kk]; float *Sr = Sh + (int64_t)kk * vdim;
++                    for (int vv = 0; vv < vdim; vv++) {
++                        float scaled = Sr[vv] * egh;
++                        Sr[vv] = scaled;
++                        kvl[vv] += kkd * scaled;
++                    }
++                }
+             }
+             /* delta = (v - kv) * beta */
+             for (int vv = 0; vv < vdim; vv++) dl[vv] = (vd[vv] - kvl[vv]) * beta[h];
+-            /* Sh += outer(kd, delta) */
+-            for (int kk = 0; kk < kdim; kk++) {
+-                float kkd = kd[kk]; float *Sr = Sh + (int64_t)kk * vdim;
+-                for (int vv = 0; vv < vdim; vv++) Sr[vv] += kkd * dl[vv];
+-            }
+-            /* out = qd @ Sh */
+             const float *qd = q + (int64_t)h * kdim;
+             float *ov = outv + (int64_t)h * vdim;
+             for (int vv = 0; vv < vdim; vv++) ov[vv] = 0.f;
+-            for (int kk = 0; kk < kdim; kk++) {
+-                float qkd = qd[kk]; const float *Sr = Sh + (int64_t)kk * vdim;
+-                for (int vv = 0; vv < vdim; vv++) ov[vv] += qkd * Sr[vv];
++            if (!rec_fuse) {
++                /* Sh += outer(kd, delta), then out = qd @ Sh. */
++                for (int kk = 0; kk < kdim; kk++) {
++                    float kkd = kd[kk]; float *Sr = Sh + (int64_t)kk * vdim;
++                    for (int vv = 0; vv < vdim; vv++) Sr[vv] += kkd * dl[vv];
++                }
++                for (int kk = 0; kk < kdim; kk++) {
++                    float qkd = qd[kk]; const float *Sr = Sh + (int64_t)kk * vdim;
++                    for (int vv = 0; vv < vdim; vv++) ov[vv] += qkd * Sr[vv];
++                }
++            } else {
++                /* Same rounded update then same kk/vv output accumulation,
++                 * with the just-updated state value retained in a register. */
++                for (int kk = 0; kk < kdim; kk++) {
++                    float kkd = kd[kk], qkd = qd[kk];
++                    float *Sr = Sh + (int64_t)kk * vdim;
++                    for (int vv = 0; vv < vdim; vv++) {
++                        float updated = Sr[vv] + kkd * dl[vv];
++                        Sr[vv] = updated;
++                        ov[vv] += qkd * updated;
++                    }
++                }
+             }
+         }
+         if (tm_on() && S==1){ double t=tm_now(); g_dn_sub[2]+=t-_d0; _d0=t; }
