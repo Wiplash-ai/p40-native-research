@@ -1,6 +1,7 @@
 # Software-search swarm: constrained Stage-0 architecture
 
-Status: proposed. No executor models have been downloaded or launched.
+Status: Stage 0 implemented and capacity-probed. Executor dispatch remains
+intentionally disabled.
 
 ## Requirements and hard constraints
 
@@ -11,11 +12,14 @@ Status: proposed. No executor models have been downloaded or launched.
   shell/test permissions.
 - Keep the controller, evidence, and model endpoints private to the server.
 - Compare strategies using fixed task and GPU-minute budgets.
-- Current physical limit: two PCIe P40s, 24 GiB each. The resident Qwen
-  service currently occupies about 9.7 GiB on GPU 0 and 7.9 GiB on GPU 1.
+- Current physical limit: two PCIe P40s, 24 GiB each. At the 2026-09-11
+  capacity probe, the thermal supervisor had Qwen stopped and both cards were
+  empty (35 C / 37 C). This is a safe benchmark state, not evidence that Qwen
+  and an executor fit concurrently.
 
-The current Ollama endpoint is `http://172.17.0.1:11434`; it is healthy but
-holds only 27–35B models. It is not the proposed executor pool. Ollama itself
+The current Ollama endpoint is `http://172.17.0.1:11434`; it is healthy and
+now has a single small executor candidate, `qwen3:8b`, alongside existing
+27–35B models. It is not yet the admitted executor pool. Ollama itself
 loads a model on one GPU when it fits there, otherwise spreads it across GPUs;
 parallel requests expand context memory. See the
 [Ollama FAQ](https://docs.ollama.com/faq). This makes a five-concurrent-model
@@ -83,12 +87,13 @@ ambient SSH credentials, production paths, or destructive permissions.
 
 ## First model pool and why it is deliberately small
 
-Do not pull models yet. Stage 1 benchmarks these candidates at a 4K context
-and one request per model:
+Stage 1 begins with `qwen3:8b` at a 4K context and one request. Do not pull
+the other candidates until the first candidate's fit, thermal, and executor
+quality evidence is recorded:
 
 | Role | Candidate | Download size | Purpose |
 | --- | --- | ---: | --- |
-| General implementer | `qwen3:8b` | 5.2 GB Q4_K_M | tools, thinking, general code |
+| General implementer | `qwen3:8b` | 5.2 GB Q4_K_M | pulled; baseline pending repeats |
 | Independent critic | `gemma3:12b` | 8.1 GB | different family; review and synthesis |
 | Code alternative | `deepseek-coder:6.7b` | 3.8 GB | independent code-oriented branch |
 
@@ -123,3 +128,43 @@ small repository tasks before it is admitted to the pool.
 The first prototype does not implement MCTS, autonomous production writes,
 or unrestricted Codex control. It is a bounded beam-search controller whose
 value function is test, build, benchmark, and review evidence.
+
+## Stage-0 implementation and admission gate
+
+The initial controller is deliberately a record-and-evidence plane, not an
+agent launcher. Its loopback-only API can create bounded tasks and branches,
+append immutable evidence, return task state, and apply a gated promotion.
+It returns a conflict for dispatch. This prevents a partially built controller
+from acquiring shell, Git, SSH, or model authority by accident.
+
+The fixed harness profiles are similarly narrow: `git diff --check` and a
+Python unittest profile run inside a detached, per-branch Git worktree. The
+controller never selects arbitrary shell text from a model response.
+
+Stage-0 admission conditions:
+
+1. capacity probe confirms two P40s, temperatures below the run ceiling, and
+   an explicit Ollama inventory;
+2. a candidate completes a deterministic, one-request, 4K-context benchmark
+   with telemetry and observable GPU residency;
+3. the model is unloaded and temperatures return to an idle-safe state;
+4. the candidate then passes tool-schema and fixed repository-task gates
+   before the executor adapter may dispatch it.
+
+The live probe is recorded in
+`research/results/raw/S0-capacity-20260911T051119Z.json`. The first stock
+Ollama candidate run is recorded separately; it is a rate/fit observation,
+not executor-quality acceptance.
+
+## Pascal executor optimization boundary
+
+Ollama 0.30.9 rejects its `cuda_v13` package for `sm_61` and loads its
+`cuda_v12` backend. Its installed CUDA library exposes compute-type controls
+but not the upstream runtime MMQ switch. Therefore a Pascal-optimized
+llama.cpp fork is an isolated A/B candidate, not an Ollama setting.
+
+Any fork test must use the exact `qwen3:8b` GGUF blob, same prompt/context,
+one GPU, fixed completion cap, and the same telemetry contract. Build stock
+and patched `sm_61` binaries separately; never run a fork setup script against
+the production Ollama installation. Admit a sidecar only after a reproducible
+rate improvement with no output-fidelity, fit, or thermal regression.

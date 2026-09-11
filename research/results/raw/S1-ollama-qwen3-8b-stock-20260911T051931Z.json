@@ -1,0 +1,66 @@
+{
+  "completion_limit": 64,
+  "context": 4096,
+  "elapsed_s": 44.4663,
+  "eval_count": 46,
+  "eval_duration_s": 1.059334,
+  "eval_tokens_per_s": 43.42350948803682,
+  "gpu_end": [
+    {
+      "index": 0,
+      "memory_mib": 5713,
+      "power_w": 66.46,
+      "temperature_c": 46,
+      "utilization_pct": 98
+    },
+    {
+      "index": 1,
+      "memory_mib": 0,
+      "power_w": 10.54,
+      "temperature_c": 37,
+      "utilization_pct": 0
+    }
+  ],
+  "gpu_observed": true,
+  "gpu_peak": [
+    {
+      "index": 0,
+      "memory_mib": 5713,
+      "power_w": 184.58,
+      "temperature_c": 46,
+      "utilization_pct": 98
+    },
+    {
+      "index": 1,
+      "memory_mib": 3,
+      "power_w": 50.42,
+      "temperature_c": 38,
+      "utilization_pct": 3
+    }
+  ],
+  "gpu_start": [
+    {
+      "index": 0,
+      "memory_mib": 0,
+      "power_w": 10.64,
+      "temperature_c": 35,
+      "utilization_pct": 0
+    },
+    {
+      "index": 1,
+      "memory_mib": 0,
+      "power_w": 10.35,
+      "temperature_c": 37,
+      "utilization_pct": 0
+    }
+  ],
+  "model": "qwen3:8b",
+  "prompt_eval_count": 33,
+  "prompt_eval_duration_s": 6.824077,
+  "response_sha256": "45b417d365ad94105f38a74d6d5e559c65a9b70f317da4b1d48568932ed2e005",
+  "schema_version": "swarm-ollama-benchmark-v1",
+  "started_at": "2026-09-11T05:19:31+00:00",
+  "status": "pass",
+  "thermal_limit_c": 70,
+  "url": "http://172.17.0.1:11434/api/generate"
+}

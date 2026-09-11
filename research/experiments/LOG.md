@@ -1,5 +1,31 @@
 # Experiment log
 
+## S0/S1 — bounded swarm controller and first small-executor rate observation
+
+- Date: 2026-09-11.
+- Status: Stage 0 pass; first Stage-1 rate observation pass; no executor has
+  dispatch authority.
+- Exact change: added a loopback-only SQLite controller, append-only evidence
+  store, detached-worktree harness with fixed command profiles, capacity probe,
+  and a telemetry-recorded Ollama benchmark. Dispatch deliberately returns 409
+  while the executor-quality and sidecar gates are unproven.
+- Result: seven controller/harness/benchmark acceptance tests passed. A live
+  probe found both P40s empty at 35 C / 37 C with the production Qwen service
+  inactive. Stock Ollama `qwen3:8b` at 4K context produced 46 decode tokens in
+  1.059334 s (43.42 tok/s) on GPU 0; its sampled peak was 5,713 MiB, 184.58 W,
+  46 C. GPU 1 did not perform material inference. Model unload returned both
+  cards to 0 MiB.
+- Confounders: one cold request; 44.4663 s wall time includes load and is not
+  decode latency. Completion ended before the 64-token cap. No tool task,
+  worktree execution by a model, concurrent request, or Pascal-fork comparison
+  ran.
+- Decision: retain Qwen production isolation. Repeat stock measurement and
+  compare an isolated, exact-model `sm_61` stock-vs-Pascal llama.cpp sidecar
+  before admitting a performance alternative.
+- Evidence: [design and result](040-swarm-s0-controller-and-executor-baseline.md),
+  `research/results/raw/S0-capacity-20260911T051119Z.json`, and
+  `research/results/raw/S1-ollama-qwen3-8b-stock-20260911T051931Z.json`.
+
 ## D000 — installed-source and idle-hardware discovery
 
 - Date: 2026-09-07, around 22:59–23:05 UTC.

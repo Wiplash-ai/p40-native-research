@@ -1,0 +1,502 @@
+{
+  "ai_ssd": "/dev/sda1       440G  233G  185G  56% /mnt/ai-ssd",
+  "collected_at": "2026-09-11T05:11:19+00:00",
+  "gpus": [
+    {
+      "index": "0",
+      "memory_total_mib": " 24576",
+      "memory_used_mib": " 0",
+      "name": " Tesla P40",
+      "power_w": " 10.74",
+      "temperature_c": " 35"
+    },
+    {
+      "index": "1",
+      "memory_total_mib": " 24576",
+      "memory_used_mib": " 0",
+      "name": " Tesla P40",
+      "power_w": " 10.35",
+      "temperature_c": " 37"
+    }
+  ],
+  "ollama_models": [
+    {
+      "capabilities": [
+        "completion",
+        "tools",
+        "thinking"
+      ],
+      "details": {
+        "context_length": 262144,
+        "embedding_length": 2048,
+        "families": [
+          "qwen35moe"
+        ],
+        "family": "qwen35moe",
+        "format": "gguf",
+        "parameter_size": "35.5B",
+        "parent_model": "qwen3.6-heretic-35b-a3b-16k:latest",
+        "quantization_level": "Q3_K_M"
+      },
+      "digest": "8b0ef86d4e457533b883828301eef45723d08f11d69aaf3d85eddee2cbbba5b0",
+      "model": "qwen3.6-heretic-35b-a3b-thinking-16k:latest",
+      "modified_at": "2026-06-17T22:34:42.867905372Z",
+      "name": "qwen3.6-heretic-35b-a3b-thinking-16k:latest",
+      "size": 17267457200
+    },
+    {
+      "capabilities": [
+        "completion",
+        "tools",
+        "thinking"
+      ],
+      "details": {
+        "context_length": 262144,
+        "embedding_length": 2048,
+        "families": [
+          "qwen35moe"
+        ],
+        "family": "qwen35moe",
+        "format": "gguf",
+        "parameter_size": "34.7B",
+        "parent_model": "qwen3.6-35b-a3b-16k:latest",
+        "quantization_level": "Q3_K_M"
+      },
+      "digest": "0376e0ff7951cd327c2f97704b1ffcf34a8f049cce6fa47c37792c2b92faa9f9",
+      "model": "qwen3.6-35b-a3b-thinking-16k:latest",
+      "modified_at": "2026-06-17T22:34:42.681905216Z",
+      "name": "qwen3.6-35b-a3b-thinking-16k:latest",
+      "size": 16600712176
+    },
+    {
+      "capabilities": [
+        "completion"
+      ],
+      "details": {
+        "context_length": 262144,
+        "embedding_length": 2048,
+        "families": [
+          "qwen35moe"
+        ],
+        "family": "qwen35moe",
+        "format": "gguf",
+        "parameter_size": "35.5B",
+        "parent_model": "",
+        "quantization_level": "Q3_K_M"
+      },
+      "digest": "c8efb6440b42853bdd10966757129876c4ba85aaac68bbee002bf7c178bcc314",
+      "model": "qwen3.6-heretic-35b-a3b-16k:latest",
+      "modified_at": "2026-06-17T22:33:10.749854769Z",
+      "name": "qwen3.6-heretic-35b-a3b-16k:latest",
+      "size": 17267455502
+    },
+    {
+      "capabilities": [
+        "completion"
+      ],
+      "details": {
+        "context_length": 262144,
+        "embedding_length": 2048,
+        "families": [
+          "qwen35moe"
+        ],
+        "family": "qwen35moe",
+        "format": "gguf",
+        "parameter_size": "34.7B",
+        "parent_model": "",
+        "quantization_level": "Q3_K_M"
+      },
+      "digest": "dae4357fa648cc57db3f1e500cfea919e84246f39d24c2af5627adeb7b2f06a1",
+      "model": "qwen3.6-35b-a3b-16k:latest",
+      "modified_at": "2026-06-17T22:24:36.642079616Z",
+      "name": "qwen3.6-35b-a3b-16k:latest",
+      "size": 16600710478
+    },
+    {
+      "capabilities": [
+        "completion",
+        "tools"
+      ],
+      "details": {
+        "context_length": 262144,
+        "embedding_length": 2048,
+        "families": [
+          "qwen3moe"
+        ],
+        "family": "qwen3moe",
+        "format": "gguf",
+        "parameter_size": "30.5B",
+        "parent_model": "qwen3-coder-30b-a3b-16k:latest",
+        "quantization_level": "Q4_K_M"
+      },
+      "digest": "d286bfc4a99640b9ffc50ad41c98c8da6a30119266f7c6259889725cc7db7526",
+      "model": "qwen3-coder-normal-30b-16k:latest",
+      "modified_at": "2026-06-17T21:20:06.993326661Z",
+      "name": "qwen3-coder-normal-30b-16k:latest",
+      "size": 17665336482
+    },
+    {
+      "capabilities": [
+        "completion"
+      ],
+      "details": {
+        "context_length": 131072,
+        "embedding_length": 5120,
+        "families": [
+          "qwen2"
+        ],
+        "family": "qwen2",
+        "format": "gguf",
+        "parameter_size": "32.8B",
+        "parent_model": "hengwen/DeepSeek-R1-Distill-Qwen-32B:q4_k_m",
+        "quantization_level": "Q4_K_M"
+      },
+      "digest": "9641903fcc109646f19c2a3905ed8e22071d05f4889acb42eb3f1988e1cdf239",
+      "model": "deepseek-r1-qwen-32b-8k:latest",
+      "modified_at": "2026-06-17T20:02:42.098338837Z",
+      "name": "deepseek-r1-qwen-32b-8k:latest",
+      "size": 19851335863
+    },
+    {
+      "capabilities": [
+        "completion"
+      ],
+      "details": {
+        "families": [
+          "gemma3"
+        ],
+        "family": "gemma3",
+        "format": "gguf",
+        "parameter_size": "27.4B",
+        "parent_model": "gemma3:27b",
+        "quantization_level": "Q4_K_M"
+      },
+      "digest": "50bc2152f53ca3127c54f01eb3cc0bdc9046baa93548a7b6dfeb34ec2a702056",
+      "model": "gemma3-27b-8k:latest",
+      "modified_at": "2026-06-17T20:02:42.307339999Z",
+      "name": "gemma3-27b-8k:latest",
+      "size": 17396936976
+    },
+    {
+      "capabilities": [
+        "completion",
+        "tools",
+        "thinking"
+      ],
+      "details": {
+        "context_length": 262144,
+        "embedding_length": 2048,
+        "families": [
+          "qwen3moe"
+        ],
+        "family": "qwen3moe",
+        "format": "gguf",
+        "parameter_size": "30.5B",
+        "parent_model": "huihui_ai/qwen3-abliterated:30b-a3b-thinking-2507-q4_K_M",
+        "quantization_level": "Q4_K_M"
+      },
+      "digest": "b49db0ac52b6467e97e5e853d5fa0312b2bc1dd569a869d27368036c4aeb4d0e",
+      "model": "qwen3-abliterated-30b-8k:latest",
+      "modified_at": "2026-06-17T20:02:41.977338164Z",
+      "name": "qwen3-abliterated-30b-8k:latest",
+      "size": 18556699974
+    },
+    {
+      "capabilities": [
+        "completion",
+        "tools",
+        "thinking"
+      ],
+      "details": {
+        "context_length": 262144,
+        "embedding_length": 2048,
+        "families": [
+          "qwen3moe"
+        ],
+        "family": "qwen3moe",
+        "format": "gguf",
+        "parameter_size": "30.5B",
+        "parent_model": "qwen3:30b",
+        "quantization_level": "Q4_K_M"
+      },
+      "digest": "824aa98025c70ec51daa350918842bc45fd56fbbf4b5dc738a81e7edb89c5daf",
+      "model": "qwen3-30b-8k:latest",
+      "modified_at": "2026-06-17T20:02:41.846337436Z",
+      "name": "qwen3-30b-8k:latest",
+      "size": 18556699347
+    },
+    {
+      "capabilities": [
+        "completion"
+      ],
+      "details": {
+        "families": [
+          "gemma3"
+        ],
+        "family": "gemma3",
+        "format": "gguf",
+        "parameter_size": "27.4B",
+        "parent_model": "gemma3:27b",
+        "quantization_level": "Q4_K_M"
+      },
+      "digest": "02761af5f19bbf11dc41f2df7faf6cefc36384937168405003ab8c716c4924df",
+      "model": "gemma3-27b-16k:latest",
+      "modified_at": "2026-06-17T19:42:12.503019424Z",
+      "name": "gemma3-27b-16k:latest",
+      "size": 17396936958
+    },
+    {
+      "capabilities": [
+        "completion",
+        "tools",
+        "thinking"
+      ],
+      "details": {
+        "context_length": 262144,
+        "embedding_length": 2048,
+        "families": [
+          "qwen3moe"
+        ],
+        "family": "qwen3moe",
+        "format": "gguf",
+        "parameter_size": "30.5B",
+        "parent_model": "qwen3:30b",
+        "quantization_level": "Q4_K_M"
+      },
+      "digest": "b9cf952aea31ab987f8fb0fa5d6c0b041dc6741d1b094b04a2960549ebaacb00",
+      "model": "qwen3-30b-16k:latest",
+      "modified_at": "2026-06-17T19:42:12.080017635Z",
+      "name": "qwen3-30b-16k:latest",
+      "size": 18556699329
+    },
+    {
+      "capabilities": [
+        "completion",
+        "tools",
+        "thinking"
+      ],
+      "details": {
+        "context_length": 262144,
+        "embedding_length": 2048,
+        "families": [
+          "qwen3moe"
+        ],
+        "family": "qwen3moe",
+        "format": "gguf",
+        "parameter_size": "30.5B",
+        "parent_model": "huihui_ai/qwen3-abliterated:30b-a3b-thinking-2507-q4_K_M",
+        "quantization_level": "Q4_K_M"
+      },
+      "digest": "fee4fa87b4a2babfdb333d309f7e4597cade8cce11e4b667c55cc1e85a9ae5e6",
+      "model": "qwen3-abliterated-30b-16k:latest",
+      "modified_at": "2026-06-17T19:42:12.181018062Z",
+      "name": "qwen3-abliterated-30b-16k:latest",
+      "size": 18556699956
+    },
+    {
+      "capabilities": [
+        "completion"
+      ],
+      "details": {
+        "context_length": 131072,
+        "embedding_length": 5120,
+        "families": [
+          "qwen2"
+        ],
+        "family": "qwen2",
+        "format": "gguf",
+        "parameter_size": "32.8B",
+        "parent_model": "hengwen/DeepSeek-R1-Distill-Qwen-32B:q4_k_m",
+        "quantization_level": "Q4_K_M"
+      },
+      "digest": "1dae8ad1eccf7cda9e3710a0792cc3cd13d707dcdc7974ee42f0d66bcccbfcae",
+      "model": "deepseek-r1-qwen-32b-16k:latest",
+      "modified_at": "2026-06-17T19:42:12.306018591Z",
+      "name": "deepseek-r1-qwen-32b-16k:latest",
+      "size": 19851335845
+    },
+    {
+      "capabilities": [
+        "completion",
+        "tools"
+      ],
+      "details": {
+        "context_length": 262144,
+        "embedding_length": 2048,
+        "families": [
+          "qwen3moe"
+        ],
+        "family": "qwen3moe",
+        "format": "gguf",
+        "parameter_size": "30.5B",
+        "parent_model": "brianmatzelle/qwen3-coder-heretic:30b",
+        "quantization_level": "Q4_K_M"
+      },
+      "digest": "484e746cb220d37e82b1a58fd2e4d3b605b9d1892b69d769d2af966ae0f894fe",
+      "model": "qwen3-coder-heretic-30b-16k:latest",
+      "modified_at": "2026-06-17T19:42:11.940017043Z",
+      "name": "qwen3-coder-heretic-30b-16k:latest",
+      "size": 18556689678
+    },
+    {
+      "capabilities": [
+        "completion"
+      ],
+      "details": {
+        "families": [
+          "gemma3"
+        ],
+        "family": "gemma3",
+        "format": "gguf",
+        "parameter_size": "27.4B",
+        "parent_model": "",
+        "quantization_level": "Q4_K_M"
+      },
+      "digest": "a418f5838eaf7fe2cfe0a3046c8384b68ba43a4435542c942f9db00a5f342203",
+      "model": "gemma3:27b",
+      "modified_at": "2026-06-17T19:39:11.172305339Z",
+      "name": "gemma3:27b",
+      "size": 17396936941
+    },
+    {
+      "capabilities": [
+        "completion"
+      ],
+      "details": {
+        "context_length": 131072,
+        "embedding_length": 5120,
+        "families": [
+          "qwen2"
+        ],
+        "family": "qwen2",
+        "format": "gguf",
+        "parameter_size": "32.8B",
+        "parent_model": "/home/test/ollama/models/blobs/sha256-37f465b760d1c68208f1bcc873dff638a60d367844486fabc370bc5a47d7e227",
+        "quantization_level": "Q4_K_M"
+      },
+      "digest": "4376ba0a1404f9677c15c539b1578b554cbd2d06233fa3a58f207b41685035c0",
+      "model": "hengwen/DeepSeek-R1-Distill-Qwen-32B:q4_k_m",
+      "modified_at": "2026-06-17T19:35:24.678609755Z",
+      "name": "hengwen/DeepSeek-R1-Distill-Qwen-32B:q4_k_m",
+      "size": 19851335722
+    },
+    {
+      "capabilities": [
+        "completion",
+        "tools",
+        "thinking"
+      ],
+      "details": {
+        "context_length": 262144,
+        "embedding_length": 2048,
+        "families": [
+          "qwen3moe"
+        ],
+        "family": "qwen3moe",
+        "format": "gguf",
+        "parameter_size": "30.5B",
+        "parent_model": "C:\\Users\\admin\\.ollama\\models\\blobs\\sha256-9f19c5b3cac1c78a0c6ce850762f51d5e8adc9ec120a67458e8886cc925a8c42",
+        "quantization_level": "Q4_K_M"
+      },
+      "digest": "ad6a15d4fe67f44232a414fa451368dee936f457a32b41fa9235ce31c0d07727",
+      "model": "huihui_ai/qwen3-abliterated:30b-a3b-thinking-2507-q4_K_M",
+      "modified_at": "2026-06-17T19:31:00.168904027Z",
+      "name": "huihui_ai/qwen3-abliterated:30b-a3b-thinking-2507-q4_K_M",
+      "size": 18556699941
+    },
+    {
+      "capabilities": [
+        "completion",
+        "tools",
+        "thinking"
+      ],
+      "details": {
+        "context_length": 262144,
+        "embedding_length": 2048,
+        "families": [
+          "qwen3moe"
+        ],
+        "family": "qwen3moe",
+        "format": "gguf",
+        "parameter_size": "30.5B",
+        "parent_model": "",
+        "quantization_level": "Q4_K_M"
+      },
+      "digest": "ad815644918f0eaab341c12b67837cc6dd4562342cdaf118f83d5d554cb37226",
+      "model": "qwen3:30b",
+      "modified_at": "2026-06-17T19:26:55.659380782Z",
+      "name": "qwen3:30b",
+      "size": 18556699314
+    },
+    {
+      "capabilities": [
+        "completion",
+        "tools"
+      ],
+      "details": {
+        "context_length": 262144,
+        "embedding_length": 2048,
+        "families": [
+          "qwen3moe"
+        ],
+        "family": "qwen3moe",
+        "format": "gguf",
+        "parameter_size": "30.5B",
+        "parent_model": "/usr/share/ollama/.ollama/models/blobs/sha256-dc987f85086b7d4fb8b3093ff0d952430ab798958e37c457c20ca2e148d55dda",
+        "quantization_level": "Q4_K_M"
+      },
+      "digest": "4811c363f2e6d8f37146025c78fb26eca8e6e8f8de4516cda3fdf7fe7f6954db",
+      "model": "brianmatzelle/qwen3-coder-heretic:30b",
+      "modified_at": "2026-06-17T19:22:55.11289257Z",
+      "name": "brianmatzelle/qwen3-coder-heretic:30b",
+      "size": 18556689662
+    },
+    {
+      "capabilities": [
+        "completion",
+        "tools"
+      ],
+      "details": {
+        "context_length": 262144,
+        "embedding_length": 2048,
+        "families": [
+          "qwen3moe"
+        ],
+        "family": "qwen3moe",
+        "format": "gguf",
+        "parameter_size": "30.5B",
+        "parent_model": "hf.co/unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF:UD-Q4_K_XL",
+        "quantization_level": "Q4_K_M"
+      },
+      "digest": "96b2073ea203c5f12ae3734a59a2fae9bd654f2337a6ebd6452329d2b0d4507c",
+      "model": "qwen3-coder-30b-a3b-16k:latest",
+      "modified_at": "2026-06-17T18:02:20.477097377Z",
+      "name": "qwen3-coder-30b-a3b-16k:latest",
+      "size": 17665336482
+    },
+    {
+      "capabilities": [
+        "completion",
+        "tools"
+      ],
+      "details": {
+        "context_length": 262144,
+        "embedding_length": 2048,
+        "families": [
+          "qwen3moe"
+        ],
+        "family": "qwen3moe",
+        "format": "gguf",
+        "parameter_size": "30.5B",
+        "parent_model": "",
+        "quantization_level": "unknown"
+      },
+      "digest": "30b7981a1115138fc9d26fed0609360ed23af54e1f84e8bd79d8b970941d68bc",
+      "model": "hf.co/unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF:UD-Q4_K_XL",
+      "modified_at": "2026-06-17T17:38:04.981237287Z",
+      "name": "hf.co/unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF:UD-Q4_K_XL",
+      "size": 17665336653
+    }
+  ],
+  "qwen_service": "inactive"
+}
