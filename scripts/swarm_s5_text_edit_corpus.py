@@ -73,8 +73,11 @@ def main() -> int:
         baseline = harness.run_profile(
             worktree=baseline_worktree, attempt_id=str(uuid.uuid4()), profile="python-unittest",
         )
+        if baseline.exit_code == 0:
+            raise RuntimeError("baseline gate rejected an already-passing task")
         response = OllamaPlanClient(url=args.url, timeout_s=240).request_text_edit(
             model=args.model, objective=task.objective, branch_hypothesis=task.hypothesis, files=task.files,
+            editable_paths={path for path in task.files if not path.startswith("tests/")},
         )
         edit = response.proposal.edit
         proposal = {

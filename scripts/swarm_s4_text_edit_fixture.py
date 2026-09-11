@@ -85,6 +85,8 @@ def main() -> int:
         baseline = harness.run_profile(
             worktree=baseline_worktree, attempt_id=str(uuid.uuid4()), profile="python-unittest",
         )
+        if baseline.exit_code == 0:
+            raise RuntimeError("baseline gate rejected an already-passing task")
         files = {
             "calculator.py": (repo / "calculator.py").read_text(),
             "tests/test_calculator.py": (repo / "tests" / "test_calculator.py").read_text(),
@@ -94,6 +96,7 @@ def main() -> int:
             objective="Correct the parity implementation so the supplied unit tests pass.",
             branch_hypothesis="The modulo equality is inverted.",
             files=files,
+            editable_paths={path for path in files if not path.startswith("tests/")},
         )
         edit = response.proposal.edit
         proposal = {

@@ -163,7 +163,9 @@ def validate_patch_proposal(
     return PatchProposal(summary=summary.strip(), patch=patch, validation_profile=profile)
 
 
-def validate_text_edit_proposal(payload: Any, *, allowed_files: dict[str, str]) -> TextEditProposal:
+def validate_text_edit_proposal(
+    payload: Any, *, allowed_files: dict[str, str], editable_paths: set[str] | None = None,
+) -> TextEditProposal:
     if not isinstance(payload, dict) or set(payload) != set(TEXT_EDIT_FIELDS):
         raise ExecutorPlanError("text edit must contain exactly the fixed edit fields")
     summary = payload["summary"]
@@ -172,6 +174,9 @@ def validate_text_edit_proposal(payload: Any, *, allowed_files: dict[str, str]) 
         raise ExecutorPlanError("text edit summary is invalid")
     if not isinstance(profile, str) or profile not in COMMAND_PROFILES:
         raise ExecutorPlanError("text edit selected a non-allowlisted validation profile")
+    permitted = set(allowed_files) if editable_paths is None else set(editable_paths)
+    if not permitted or not permitted.issubset(allowed_files) or payload["path"] not in permitted:
+        raise ExecutorPlanError("text edit targets a non-editable source path")
     try:
         edit = validate_exact_text_edit(
             path=payload["path"], expected_text=payload["expected_text"],
@@ -233,7 +238,9 @@ def patch_messages(*, objective: str, branch_hypothesis: str, files: dict[str, s
     ]
 
 
-def text_edit_messages(*, objective: str, branch_hypothesis: str, files: dict[str, str]) -> list[dict[str, str]]:
+def text_edit_messages(
+    *, objective: str, branch_hypothesis: str, files: dict[str, str], editable_paths: set[str] | None = None,
+) -> list[dict[str, str]]:
     if not objective.strip() or not branch_hypothesis.strip() or not files:
         raise ExecutorPlanError("objective, branch_hypothesis, and files are required")
     safe_files = []
@@ -243,6 +250,9 @@ def text_edit_messages(*, objective: str, branch_hypothesis: str, files: dict[st
         if len(content) > MAX_FIELD_CHARS * 10:
             raise ExecutorPlanError("individual source context file is too large")
         safe_files.append({"path": path, "content": content})
+    permitted = set(files) if editable_paths is None else set(editable_paths)
+    if not permitted or not permitted.issubset(files):
+        raise ExecutorPlanError("editable source paths are invalid")
     return [
         {
             "role": "system",
@@ -250,14 +260,15 @@ def text_edit_messages(*, objective: str, branch_hypothesis: str, files: dict[st
                 "You are a bounded software-engineering executor. Return only JSON matching the supplied schema. "
                 "Propose exactly one in-file text replacement. expected_text must occur exactly once in the supplied "
                 "file. Do not emit shell commands, a unified diff, credentials, file deletions, renames, symlinks, "
-                "or paths outside the provided worktree."
+                "or paths outside the provided worktree. Only paths listed in editable_paths may be changed."
             ),
         },
         {
             "role": "user",
             "content": json.dumps({
                 "objective": objective.strip(), "branch_hypothesis": branch_hypothesis.strip(),
-                "files": safe_files, "validation_profiles": sorted(COMMAND_PROFILES),
+                "files": safe_files, "editable_paths": sorted(permitted),
+                "validation_profiles": sorted(COMMAND_PROFILES),
             }, sort_keys=True),
         },
     ]
@@ -347,13 +358,14 @@ class OllamaPlanClient:
 
     def request_text_edit(
         self, *, model: str, objective: str, branch_hypothesis: str, files: dict[str, str],
+        editable_paths: set[str] | None = None,
     ) -> TextEditResponse:
         if not model.strip():
             raise ExecutorPlanError("model is required")
         response = post_chat(self.url, {
             "model": model.strip(),
             "messages": text_edit_messages(
-                objective=objective, branch_hypothesis=branch_hypothesis, files=files,
+                objective=objective, branch_hypothesis=branch_hypothesis, files=files, editable_paths=editable_paths,
             ),
             "format": text_edit_schema(),
             "stream": False,
@@ -366,7 +378,9 @@ class OllamaPlanClient:
         if not isinstance(content, str):
             raise ExecutorPlanError("Ollama response lacks message content")
         try:
-            proposal = validate_text_edit_proposal(json.loads(content), allowed_files=files)
+            proposal = validate_text_edit_proposal(
+                json.loads(content), allowed_files=files, editable_paths=editable_paths,
+            )
         except json.JSONDecodeError as exc:
             raise ExecutorPlanError("Ollama text edit is not strict JSON") from exc
         return TextEditResponse(

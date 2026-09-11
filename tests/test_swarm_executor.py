@@ -130,12 +130,15 @@ class ExecutorPlanTests(unittest.TestCase):
         source = {"calculator.py": "def is_even(value):\n    return value % 2 == 1\n"}
         result = OllamaPlanClient().request_text_edit(
             model="qwen3:8b", objective="Fix parity", branch_hypothesis="modulo result is inverted", files=source,
+            editable_paths={"calculator.py"},
         )
         self.assertEqual(result.proposal, validate_text_edit_proposal(TEXT_EDIT, allowed_files=source))
         self.assertFalse(text_edit_schema()["additionalProperties"])
         self.assertNotIn("maxLength", text_edit_schema()["properties"]["expected_text"])
         with self.assertRaises(ExecutorPlanError):
             validate_text_edit_proposal({**TEXT_EDIT, "path": "../outside"}, allowed_files=source)
+        with self.assertRaises(ExecutorPlanError):
+            validate_text_edit_proposal(TEXT_EDIT, allowed_files=source, editable_paths={"tests/test_calculator.py"})
         with tempfile.TemporaryDirectory() as temp:
             worktree = Path(temp)
             target = worktree / "calculator.py"
