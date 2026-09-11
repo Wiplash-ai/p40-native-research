@@ -108,6 +108,8 @@ class ExecutorPlanTests(unittest.TestCase):
                 apply_unified_patch(worktree=str(worktree), patch=PATCH["patch"].replace("calculator.py", "../outside", 2))
             with self.assertRaises(ExecutorPlanError):
                 validate_patch_proposal({**PATCH, "patch": PATCH["patch"] + "new mode 100755\n"})
+            with self.assertRaises(ExecutorPlanError):
+                validate_patch_proposal(PATCH, allowed_paths={"tests/test_calculator.py"})
 
 
 if __name__ == "__main__":

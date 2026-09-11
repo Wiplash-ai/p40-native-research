@@ -106,7 +106,9 @@ def validate_plan(payload: Any) -> ExecutorPlan:
     return ExecutorPlan(**values)
 
 
-def validate_patch_proposal(payload: Any) -> PatchProposal:
+def validate_patch_proposal(
+    payload: Any, *, allowed_paths: set[str] | None = None,
+) -> PatchProposal:
     if not isinstance(payload, dict) or set(payload) != set(PATCH_FIELDS):
         raise ExecutorPlanError("patch proposal must contain exactly summary, patch, and validation_profile")
     summary = payload["summary"]
@@ -116,7 +118,7 @@ def validate_patch_proposal(payload: Any) -> PatchProposal:
     if not isinstance(profile, str) or profile not in COMMAND_PROFILES:
         raise ExecutorPlanError("patch selected a non-allowlisted validation profile")
     try:
-        patch = validate_unified_patch(payload["patch"])
+        patch = validate_unified_patch(payload["patch"], allowed_paths=allowed_paths)
     except (TypeError, ValueError) as exc:
         raise ExecutorPlanError(str(exc)) from exc
     return PatchProposal(summary=summary.strip(), patch=patch, validation_profile=profile)
@@ -244,7 +246,7 @@ class OllamaPlanClient:
         if not isinstance(content, str):
             raise ExecutorPlanError("Ollama response lacks message content")
         try:
-            proposal = validate_patch_proposal(json.loads(content))
+            proposal = validate_patch_proposal(json.loads(content), allowed_paths=set(files))
         except json.JSONDecodeError as exc:
             raise ExecutorPlanError("Ollama patch proposal is not strict JSON") from exc
         return PatchResponse(

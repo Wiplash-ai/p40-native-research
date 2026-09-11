@@ -27,7 +27,7 @@ def _safe_path(path: str) -> bool:
     return bool(path) and not parsed.is_absolute() and ".git" not in parsed.parts and ".." not in parsed.parts
 
 
-def validate_unified_patch(patch: str) -> str:
+def validate_unified_patch(patch: str, *, allowed_paths: set[str] | None = None) -> str:
     if not isinstance(patch, str) or not patch.strip():
         raise PatchError("patch is required")
     if len(patch) > MAX_PATCH_CHARS or "\x00" in patch:
@@ -38,12 +38,19 @@ def validate_unified_patch(patch: str) -> str:
         "GIT binary patch", "120000", "old mode ", "new mode ", "deleted file mode ", "rename from ", "rename to ",
     )):
         raise PatchError("binary, mode, symlink, and rename patches are not allowed")
+    permitted = None
+    if allowed_paths is not None:
+        permitted = set(allowed_paths)
+        if not permitted or not all(_safe_path(path) for path in permitted):
+            raise PatchError("allowed patch paths are invalid")
     headers = 0
     for line in patch.splitlines():
         diff = _DIFF_HEADER.match(line)
         if diff:
             if not all(_safe_path(value) for value in diff.groups()):
                 raise PatchError("patch path escapes the worktree")
+            if permitted is not None and not all(value in permitted for value in diff.groups()):
+                raise PatchError("patch modifies a file outside the supplied source context")
             headers += 1
         file_header = _FILE_HEADER.match(line)
         if file_header and not _safe_path(file_header.group(3)):
@@ -53,8 +60,10 @@ def validate_unified_patch(patch: str) -> str:
     return patch
 
 
-def apply_unified_patch(*, worktree: str, patch: str) -> PatchApplyResult:
-    checked_patch = validate_unified_patch(patch)
+def apply_unified_patch(
+    *, worktree: str, patch: str, allowed_paths: set[str] | None = None,
+) -> PatchApplyResult:
+    checked_patch = validate_unified_patch(patch, allowed_paths=allowed_paths)
     check = subprocess.run(
         ["git", "apply", "--check", "--whitespace=error", "--"], cwd=worktree, input=checked_patch,
         text=True, capture_output=True, check=False, timeout=30,
