@@ -1,0 +1,18 @@
+#!/bin/sh
+# Root-owned fixed command broker for the unprivileged local model router.
+set -eu
+
+if [ "$#" -ne 2 ] || [ "$1" != "qwen35b" ]; then
+  echo "usage: wiplash-model-control qwen35b {start|stop|is-active}" >&2
+  exit 64
+fi
+
+case "$2" in
+  start) exec /usr/bin/systemctl start colibri-qwen36.service ;;
+  stop) exec /usr/bin/systemctl stop colibri-qwen36.service ;;
+  is-active) exec /usr/bin/systemctl is-active --quiet colibri-qwen36.service ;;
+  *)
+    echo "usage: wiplash-model-control qwen35b {start|stop|is-active}" >&2
+    exit 64
+    ;;
+esac

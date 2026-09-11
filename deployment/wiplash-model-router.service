@@ -1,0 +1,23 @@
+[Unit]
+Description=Wiplash loopback-only local model router
+After=network-online.target ollama.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=jordanculver
+Group=jordanculver
+EnvironmentFile=/etc/wiplash-model-router.env
+ExecStart=/usr/bin/python3 /opt/wiplash-model-router/model_router/router.py --config /etc/wiplash-model-router.json
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/wiplash-model-router
+StateDirectory=wiplash-model-router
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

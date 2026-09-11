@@ -1,0 +1,2 @@
+# The router user can control only the fixed Qwen model lifecycle helper.
+jordanculver ALL=(root) NOPASSWD: /usr/local/sbin/wiplash-model-control qwen35b start, /usr/local/sbin/wiplash-model-control qwen35b stop, /usr/local/sbin/wiplash-model-control qwen35b is-active

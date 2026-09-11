@@ -60,3 +60,16 @@ The passive P40s rely on chassis airflow. This BMC's zone command uses a
 100% configuration is correctly sent as `0x64`. The fan guard is not the cause
 of the present 2,000–2,100 RPM readings; sustained production use remains
 blocked on physical airflow diagnosis or a safe thermal policy change.
+
+## Local model router
+
+`wiplash-model-router.service` is a separate, unprivileged, private-LAN
+OpenAI-compatible router. It binds only to `192.168.1.194`, restricts callers
+to `192.168.1.0/24`, and requires a bearer key on every endpoint. The router
+maps three fixed aliases to the accepted Qwen service or known Ollama models,
+prevents Qwen/Ollama co-residency, and releases a model after its short idle
+timer. Its root-owned helper can execute only Qwen start, stop, and status
+operations; it cannot accept arbitrary systemd units or commands.
+
+See [the local model runbook](../docs/LOCAL_MODEL_RUNBOOK.md#install-or-update-the-local-model-router)
+for the reviewed installation procedure and its non-model-loading smoke test.

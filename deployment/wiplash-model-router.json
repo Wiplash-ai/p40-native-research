@@ -1,0 +1,32 @@
+{
+  "host": "192.168.1.194",
+  "port": 8100,
+  "request_max_bytes": 1048576,
+  "qwen_start_max_temp_c": 50,
+  "allowed_cidrs": [
+    "192.168.1.0/24"
+  ],
+  "models": [
+    {
+      "alias": "wiplash/qwen35b",
+      "backend_base_url": "http://127.0.0.1:8000/v1",
+      "backend_model": "qwen3.6-35b-a3b-colibri-i4",
+      "kind": "colibri_qwen",
+      "idle_seconds": 120
+    },
+    {
+      "alias": "wiplash/qwen3-8b",
+      "backend_base_url": "http://172.17.0.1:11434/v1",
+      "backend_model": "qwen3:8b",
+      "kind": "ollama",
+      "idle_seconds": 180
+    },
+    {
+      "alias": "wiplash/qwen3-coder-30b",
+      "backend_base_url": "http://172.17.0.1:11434/v1",
+      "backend_model": "qwen3-coder-normal-30b-16k:latest",
+      "kind": "ollama",
+      "idle_seconds": 180
+    }
+  ]
+}

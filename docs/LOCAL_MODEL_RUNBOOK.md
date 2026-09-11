@@ -7,9 +7,10 @@ not be loaded together without a fresh thermal and VRAM preflight.
 ```text
 OpenCode on this workstation
         |
-        | SSH tunnel only
+        | authenticated private-LAN API (or SSH tunnel)
         v
 192.168.1.194
+  :8100  Wiplash local model router (starts/stops approved backends)
   :8000  Colibri Qwen3.6 35B-A3B, 2x P40 CUDA (existing service)
   :8001  Colibri Kimi K3, one-P40 Vulkan (template only; storage-gated)
   :11434 Ollama workers / executor models (existing service)
@@ -19,6 +20,7 @@ OpenCode on this workstation
 
 | Lane | Endpoint on server | Status | Use now |
 | --- | --- | --- | --- |
+| Wiplash local model router | `192.168.1.194:8100/v1` | installed only after the deployment below | Yes; preferred OpenCode entry point |
 | Colibri Qwen3.6 35B-A3B | `127.0.0.1:8000/v1` | installed, enabled, stopped | Yes, after a cool-start check |
 | Ollama | `172.17.0.1:11434/v1` | installed | Yes, with one model/GPU at a time until cooling is upgraded |
 | Colibri Kimi K3 | `127.0.0.1:8001/v1` | not installed or enabled | No: full checkpoint storage is absent |
@@ -46,8 +48,41 @@ OpenCode `1.18.30` is installed on this workstation. The wrapper below adds
 only local-model providers; it does not overwrite the existing global
 OpenRouter configuration.
 
-Open a tunnel in one terminal. The K3 forward is harmless while K3 is absent;
-it becomes useful only after that service is installed.
+### Preferred: one command
+
+Once the local model router is installed on the server, this one command starts
+OpenCode with the private-LAN router endpoint and its local API-key file:
+
+```sh
+cd /home/jordanculver/Laboratory/p40-native-research
+./scripts/opencode-p40
+```
+
+Use OpenCode's `/models` picker and choose from the `wiplash-router` entries:
+
+- `wiplash-router/wiplash/qwen35b` checks both P40s are cool and empty,
+  starts the accepted Qwen service on demand, and stops it after 120 seconds
+  idle.
+- `wiplash-router/wiplash/qwen3-8b` routes to the existing Ollama service and
+  sends its native unload request after 180 seconds idle.
+- `wiplash-router/wiplash/qwen3-coder-30b` does the same for the coder model.
+
+The router never runs Qwen and an Ollama model together. It refuses a Qwen
+start above 50 C or if either GPU reports more than 256 MiB in use; Colibri's
+own 70 C termination guard remains the final thermal containment layer.
+
+The router binds only to the server's current private IPv4 address
+`192.168.1.194`, accepts callers only from `192.168.1.0/24`, and requires its
+bearer key on every endpoint. It is not a public API: use an SSH tunnel when
+off the trusted LAN. It presents only its three fixed aliases and accepts only
+`/v1/models`, `/v1/chat/completions`, and `/v1/completions`; it does not proxy
+arbitrary URLs, models, or control commands.
+
+### Direct backend mode
+
+Open a tunnel in one terminal when you are off-LAN or need a direct backend for
+diagnosis. The K3 forward is harmless while K3 is absent; it becomes useful
+only after that service is installed.
 
 ```sh
 ssh -N \
@@ -77,6 +112,55 @@ The model definitions live in
 through `OPENCODE_CONFIG`, so the global settings and credentials are not
 rewritten. The first selection must occur only after its backend is healthy;
 OpenCode configuration itself does not start a model.
+
+## Install or update the local model router
+
+The following is the only deployment path. It installs the router code as the
+unprivileged `jordanculver` service, a root-owned fixed Qwen control helper,
+and a sudo rule that permits exactly `qwen35b start`, `stop`, and `is-active`.
+It also creates a private bearer key shared only with this workstation. It does
+not start Qwen, Ollama models, or K3.
+
+```sh
+cd /home/jordanculver/Laboratory/p40-native-research
+install -d -m 0700 ~/.config/wiplash
+test -f ~/.config/wiplash/model-router-api-key || \
+  (umask 077 && openssl rand -hex 32 > ~/.config/wiplash/model-router-api-key)
+ssh jordanculver@192.168.1.194 'mkdir -p /tmp/wiplash-model-router-stage'
+scp -r model_router deployment/wiplash-model-router.json \
+  deployment/wiplash-model-router.service deployment/wiplash-model-control \
+  deployment/wiplash-model-router.sudoers ~/.config/wiplash/model-router-api-key \
+  jordanculver@192.168.1.194:/tmp/wiplash-model-router-stage/
+ssh jordanculver@192.168.1.194 '
+  sudo install -d -o root -g root -m 0755 /opt/wiplash-model-router &&
+  sudo install -o root -g root -m 0644 /tmp/wiplash-model-router-stage/wiplash-model-router.json /etc/wiplash-model-router.json &&
+  sudo sh -c '\''umask 077; IFS= read -r key < /tmp/wiplash-model-router-stage/model-router-api-key; printf "WIPLASH_MODEL_ROUTER_API_KEY=%s\\n" "$key" > /etc/wiplash-model-router.env'\'' &&
+  sudo install -o root -g root -m 0755 /tmp/wiplash-model-router-stage/wiplash-model-control /usr/local/sbin/wiplash-model-control &&
+  sudo install -o root -g root -m 0440 /tmp/wiplash-model-router-stage/wiplash-model-router.sudoers /etc/sudoers.d/wiplash-model-router &&
+  sudo visudo -cf /etc/sudoers.d/wiplash-model-router &&
+  sudo cp -a /tmp/wiplash-model-router-stage/model_router /opt/wiplash-model-router/ &&
+  sudo install -o root -g root -m 0644 /tmp/wiplash-model-router-stage/wiplash-model-router.service /etc/systemd/system/wiplash-model-router.service &&
+  sudo systemctl daemon-reload &&
+  sudo systemctl enable --now wiplash-model-router.service
+'
+curl --fail -H "Authorization: Bearer $(<~/.config/wiplash/model-router-api-key)" \
+  http://192.168.1.194:8100/healthz
+curl --fail -H "Authorization: Bearer $(<~/.config/wiplash/model-router-api-key)" \
+  http://192.168.1.194:8100/v1/models
+```
+
+After changing the source, rerun that procedure. Before the next deployment,
+run the offline test suite below. The service has no model-load side effect:
+the authenticated `GET /healthz` and `GET /v1/models` requests above are the
+post-install smoke tests.
+
+```sh
+python3 -m unittest tests/test_model_router.py -v
+```
+
+Ollama documents its native `keep_alive: 0` API control as an immediate unload.
+The router uses that documented endpoint only after its own idle timer, so it
+does not ask the OpenAI-compatible client to understand an Ollama-only field.
 
 ## Kimi K3: completed preflight and current block
 

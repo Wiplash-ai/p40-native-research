@@ -1,6 +1,47 @@
 {
   "$schema": "https://opencode.ai/config.json",
+  "plugin": [
+    [
+      "opencode-better-hashline@0.9.0",
+      {
+        "enforce": true,
+        "toolSurface": "hashline",
+        "lspDiagnostics": false
+      }
+    ]
+  ],
   "provider": {
+    "wiplash-router": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Wiplash P40 Auto (SSH tunnel)",
+      "options": {
+        "baseURL": "{env:WIPLASH_MODEL_ROUTER_BASE_URL}",
+        "apiKey": "{file:~/.config/wiplash/model-router-api-key}"
+      },
+      "models": {
+        "wiplash/qwen35b": {
+          "name": "Qwen3.6 35B - auto-start / auto-stop",
+          "limit": {
+            "context": 8192,
+            "output": 512
+          }
+        },
+        "wiplash/qwen3-8b": {
+          "name": "Qwen3 8B - auto-unload",
+          "limit": {
+            "context": 4096,
+            "output": 512
+          }
+        },
+        "wiplash/qwen3-coder-30b": {
+          "name": "Qwen3-Coder 30B-A3B - auto-unload",
+          "limit": {
+            "context": 4096,
+            "output": 512
+          }
+        }
+      }
+    },
     "colibri-p40": {
       "npm": "@ai-sdk/openai-compatible",
       "name": "Colibri P40 (SSH tunnel)",
