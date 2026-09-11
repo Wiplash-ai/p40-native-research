@@ -50,12 +50,12 @@ OpenRouter configuration.
 
 ### Preferred: one command
 
-Once the local model router is installed on the server, this one command starts
-OpenCode with the private-LAN router endpoint and its local API-key file:
+The normal workstation `opencode` CLI has the private-LAN router endpoint and
+its local API-key file configured globally. Start it from any project:
 
 ```sh
-cd /home/jordanculver/Laboratory/p40-native-research
-./scripts/opencode-p40
+cd /path/to/project
+opencode
 ```
 
 Use OpenCode's `/models` picker and choose from the `wiplash-router` entries:
@@ -108,14 +108,15 @@ Then use OpenCode's `/models` picker and select one of:
 - `ollama-p40/qwen3-coder-normal-30b-16k:latest`
 
 The model definitions live in
-`opencode/wiplash-local-models.json`. They are a separate configuration merged
-through `OPENCODE_CONFIG`, so the global settings and credentials are not
-rewritten. The first selection must occur only after its backend is healthy;
-OpenCode configuration itself does not start a model.
+`~/.config/opencode/opencode.json`. The default remains the existing OpenRouter
+model; select a local model explicitly with `/models` so a normal OpenCode
+session does not load GPUs unexpectedly. The first selection must occur only
+after its backend is healthy; OpenCode configuration itself does not start a
+model.
 
 ### Better Hashline edit transport
 
-The local-model profile loads `opencode-better-hashline@0.9.0`. Its enforced
+The global OpenCode configuration loads `opencode-better-hashline@0.9.0`. Its enforced
 tool surface replaces the native edit/write/apply-patch tools with exact
 snapshot-based `hashline_*` operations, which is useful for smaller open-weight
 models that are more reliable when edits include stable line anchors. LSP
@@ -129,6 +130,25 @@ declared `>=1.18.3 <2` range. Do not downgrade the working client just to
 satisfy that stale verifier. Treat Hashline as better edit transport—not proof
 that a model's code quality has improved—and keep normal tests/reviews in the
 loop.
+
+### Permissions and Codex skill mirror
+
+The global OpenCode configuration uses `"permission": "allow"`, so normal
+sessions receive read, glob, grep, list, bash, subagent, external-directory,
+web fetch, web search, LSP, questions, and skills without approval prompts.
+Better Hashline deliberately replaces the native edit/write/patch tools with
+its snapshot-bound `hashline_*` mutations. The regular `opencode` launcher
+also opts into its Exa web-search integration.
+
+The compatible user-owned Codex skills are copied to
+`~/.config/opencode/skills` and advertised through OpenCode's native `skill`
+tool. This mirror intentionally excludes the Google/Gemini and Twilio skills;
+it neither installs nor configures any MCP server. Refresh it after changing a
+source skill:
+
+```sh
+/home/jordanculver/Laboratory/p40-native-research/scripts/sync-opencode-skills
+```
 
 ## Install or update the local model router
 

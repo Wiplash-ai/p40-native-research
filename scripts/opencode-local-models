@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-export OPENCODE_CONFIG="$ROOT/opencode/wiplash-local-models.json"
-export WIPLASH_MODEL_ROUTER_BASE_URL="${WIPLASH_MODEL_ROUTER_BASE_URL:-http://192.168.1.194:8100/v1}"
+# Compatibility alias. The local-model provider and Better Hashline are in
+# OpenCode's global configuration, so this invokes normal OpenCode without a
+# separate profile.
 exec opencode "$@"

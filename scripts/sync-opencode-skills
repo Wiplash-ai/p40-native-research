@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# Copy compatible user-owned Codex skills into OpenCode's global skill directory.
+# This deliberately excludes external Google/Gemini and Twilio integration skills;
+# it does not install or configure any MCP server.
+set -euo pipefail
+
+destination="${OPENCODE_SKILL_DIR:-$HOME/.config/opencode/skills}"
+sources=(
+  "$HOME/Laboratory/.codex-home/skills"
+  "$HOME/.agents/skills"
+)
+excluded=(
+  gemini-api-dev
+  gemini-interactions-api
+  iam
+  lookup
+  phone-numbers
+  twilio-cli
+  twilio-communications
+  verify
+  voice
+)
+
+is_excluded() {
+  local candidate="$1" excluded_name
+  for excluded_name in "${excluded[@]}"; do
+    [[ "$candidate" == "$excluded_name" ]] && return 0
+  done
+  return 1
+}
+
+mkdir -p "$destination"
+copied=0
+skipped=0
+for source_root in "${sources[@]}"; do
+  [[ -d "$source_root" ]] || continue
+  for source in "$source_root"/*; do
+    [[ -f "$source/SKILL.md" ]] || continue
+    name="$(basename "$source")"
+    if is_excluded "$name"; then
+      printf 'skip external-integration skill: %s\n' "$name"
+      skipped=$((skipped + 1))
+      continue
+    fi
+    mkdir -p "$destination/$name"
+    rsync -a --exclude '__pycache__/' --exclude '*.pyc' "$source/" "$destination/$name/"
+    printf 'copied: %s\n' "$name"
+    copied=$((copied + 1))
+  done
+done
+
+printf 'OpenCode skill sync complete: copied=%d skipped=%d destination=%s\n' "$copied" "$skipped" "$destination"
