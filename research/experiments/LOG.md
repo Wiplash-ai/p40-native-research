@@ -1,5 +1,18 @@
 # Experiment log
 
+## 2026-09-11 — S9 evidence-only scheduler
+
+- Hypothesis: a controller can allocate the next branch using objective
+  software evidence without trusting model confidence or enabling dispatch.
+- Implementation: read-only task ranking; static/test gates determine
+  prune/expand/promotion-ready; a capped benchmark tie-break applies only
+  after required validation passes.
+- Result: local tests reject confidence as a ranking signal, prune a failed
+  test despite a large reported benchmark gain, and return ranking through the
+  loopback API while `/run` stays `409 dispatch_disabled`.
+- Decision: connect future bounded executor attempts to this evidence schema;
+  do not add autonomous dispatch before the real evidence write path is tested.
+
 ## 2026-09-11 — S8 warm heterogeneous two-worker quality run
 
 - Hypothesis: two independently pinned P40 workers can run useful,

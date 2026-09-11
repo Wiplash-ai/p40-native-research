@@ -5,7 +5,7 @@ Status: Stage 0 pass; Stage 1 rate/plan gates pass; Stage 4 action-protocol
 pass; Stage 5 tiny corpus pass; Stage 6 multi-file pass/rejection evidence.
 Stage 7 heterogeneous-worker single-task pass. Meaningful repository-task
 reliability gates remain pending; Stage 8 warm heterogeneous two-worker
-quality gate passes.
+quality gate passes; Stage 9 evidence-only ranking passes locally.
 
 ## Hypotheses
 
@@ -249,6 +249,23 @@ not establish continuous-batching behavior, a production SLO, or general task
 quality. The sum of rates is not treated as exact aggregate decode throughput
 because the workers' prompt and decode intervals do not perfectly align.
 
+## S9 evidence-only scheduling gate
+
+The controller now exposes a read-only `/v1/tasks/{id}/ranking` endpoint. It
+does not dispatch an agent. It deterministically ranks branches from recorded
+evidence: a required static or test failure recommends pruning; missing either
+required check recommends expansion; passing both makes a branch
+promotion-ready. Positive benchmark evidence can add a small bounded tie-break
+only after the functional gates pass. Model confidence, role name, and prose
+cannot add score.
+
+Local tests prove that a branch with model-reported confidence does not outrank
+a branch with real passing static and test evidence; a failed unit test prunes
+even with a large reported benchmark gain; and the loopback API returns the
+same evidence-only decision while model dispatch remains `409` disabled. This
+is the controller's first search-allocation primitive, not MCTS or automatic
+branch execution.
+
 ## Decision
 
 The first executor candidate clears the P40 fit/rate, schema-plan, exact-edit
@@ -258,8 +275,9 @@ optimized-sidecar gates. Next:
 
 1. add larger, adversarial fixtures and measure accepted versus rejected
    outcomes;
-2. test controller scheduling/evidence scoring before allocating work across
-   the now-validated two-worker topology;
+2. connect bounded real executor outcomes to the evidence store, then use the
+   ranking output to select the next eligible branch on the validated
+   two-worker topology;
 3. keep the Pascal-MMQ fork out of the executor adapter unless a future,
    controlled measurement clears a meaningful reproducible threshold.
 
@@ -289,4 +307,5 @@ optimized-sidecar gates. Next:
 - `research/results/raw/S8-ollama-qwen3-8b-gpu0-currency-20260911T140035Z.json`
 - `research/results/raw/S8-ollama-qwen3-coder-30b-gpu1-timeout-20260911T140035Z.json`
 - `research/results/raw/S8-ollama-heterogeneous-warm-run-20260911T140035Z.json`
-- `swarm/`, `tests/test_swarm_s0.py`, and `tests/test_swarm_ollama_bench.py`
+- `swarm/`, `swarm/scoring.py`, `tests/test_swarm_s0.py`, and
+  `tests/test_swarm_scoring.py`
