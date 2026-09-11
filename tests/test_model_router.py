@@ -30,7 +30,7 @@ CONFIG = {
         },
         {
             "alias": "wiplash/qwen3-8b", "backend_base_url": "http://172.17.0.1:11434/v1",
-            "backend_model": "qwen3:8b", "kind": "ollama", "idle_seconds": 180,
+            "backend_model": "wiplash-qwen3-8b-40k:latest", "kind": "ollama", "idle_seconds": 180,
         },
     ],
 }
@@ -142,7 +142,7 @@ class ModelRouterTests(unittest.TestCase):
         stopped = manager.reap_once(now=1000.0)
         self.assertEqual(stopped, ["wiplash/qwen35b", "wiplash/qwen3-8b"])
         self.assertEqual(control.actions, ["stop"])
-        self.assertIn(("POST", "172.17.0.1", 11434, "/api/generate", {"model": "qwen3:8b", "keep_alive": 0}), http.requests)
+        self.assertIn(("POST", "172.17.0.1", 11434, "/api/generate", {"model": "wiplash-qwen3-8b-40k:latest", "keep_alive": 0}), http.requests)
 
     def test_fixed_control_command_has_no_request_derived_arguments(self):
         control = ServiceControl("/fixed/helper")
@@ -176,7 +176,7 @@ class ModelRouterTests(unittest.TestCase):
         try:
             spec = ModelSpec(
                 alias="wiplash/qwen3-8b", backend_base_url=f"http://127.0.0.1:{backend.server_port}/v1",
-                backend_model="qwen3:8b", kind="ollama", idle_seconds=180,
+                backend_model="wiplash-qwen3-8b-40k:latest", kind="ollama", idle_seconds=180,
             )
             config = RouterConfig(
                 "127.0.0.1", 0, 1024, 50, (ipaddress.ip_network("127.0.0.0/8"),), {spec.alias: spec},
@@ -212,7 +212,7 @@ class ModelRouterTests(unittest.TestCase):
             backend_thread.join(timeout=2)
         path, request = CapturingBackend.requests[-1]
         self.assertEqual(path, "/v1/chat/completions")
-        self.assertEqual(request["model"], "qwen3:8b")
+        self.assertEqual(request["model"], "wiplash-qwen3-8b-40k:latest")
         self.assertNotIn("keep_alive", request)
 
 

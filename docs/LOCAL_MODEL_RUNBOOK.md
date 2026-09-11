@@ -67,6 +67,12 @@ Use OpenCode's `/models` picker and choose from the `wiplash-router` entries:
   sends its native unload request after 180 seconds idle.
 - `wiplash-router/wiplash/qwen3-coder-30b` does the same for the coder model.
 
+The router no longer imposes a 512-token completion ceiling. The configured
+windows are Qwen3.6 35B: 32,768 context / 16,384 output; Qwen3 8B: 40,960
+context / 16,384 output; and Qwen3-Coder 30B: 16,384 context / 16,384 output.
+Prompt and completion tokens share each model's context window, so a long
+conversation naturally leaves fewer tokens available for one reply.
+
 The router never runs Qwen and an Ollama model together. It refuses a Qwen
 start above 50 C or if either GPU reports more than 256 MiB in use; Colibri's
 own 70 C termination guard remains the final thermal containment layer.
@@ -104,7 +110,7 @@ cd /path/to/project
 Then use OpenCode's `/models` picker and select one of:
 
 - `colibri-p40/qwen3.6-35b-a3b-colibri-i4-p40`
-- `ollama-p40/qwen3:8b`
+- `ollama-p40/wiplash-qwen3-8b-40k:latest`
 - `ollama-p40/qwen3-coder-normal-30b-16k:latest`
 
 The model definitions live in
@@ -193,10 +199,12 @@ test -f ~/.config/wiplash/model-router-api-key || \
 ssh jordanculver@192.168.1.194 'mkdir -p /tmp/wiplash-model-router-stage'
 scp -r model_router deployment/wiplash-model-router.json \
   deployment/wiplash-model-router.service deployment/wiplash-model-control \
-  deployment/wiplash-model-router.sudoers ~/.config/wiplash/model-router-api-key \
+  deployment/wiplash-model-router.sudoers deployment/ollama-qwen3-8b-40k.Modelfile \
+  ~/.config/wiplash/model-router-api-key \
   jordanculver@192.168.1.194:/tmp/wiplash-model-router-stage/
 ssh jordanculver@192.168.1.194 '
   sudo install -d -o root -g root -m 0755 /opt/wiplash-model-router &&
+  OLLAMA_HOST=172.17.0.1:11434 /usr/local/bin/ollama create wiplash-qwen3-8b-40k:latest -f /tmp/wiplash-model-router-stage/ollama-qwen3-8b-40k.Modelfile &&
   sudo install -o root -g root -m 0644 /tmp/wiplash-model-router-stage/wiplash-model-router.json /etc/wiplash-model-router.json &&
   sudo sh -c '\''umask 077; IFS= read -r key < /tmp/wiplash-model-router-stage/model-router-api-key; printf "WIPLASH_MODEL_ROUTER_API_KEY=%s\\n" "$key" > /etc/wiplash-model-router.env'\'' &&
   sudo install -o root -g root -m 0755 /tmp/wiplash-model-router-stage/wiplash-model-control /usr/local/sbin/wiplash-model-control &&

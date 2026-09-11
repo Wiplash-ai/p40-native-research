@@ -1,0 +1,6 @@
+FROM qwen3:8b
+
+# The checkpoint advertises a 40,960-token native window.  This derived tag
+# reuses the base weights; it only raises Ollama's otherwise implicit context
+# default so OpenAI-compatible callers can actually use that window.
+PARAMETER num_ctx 40960

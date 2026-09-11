@@ -17,7 +17,7 @@
     {
       "alias": "wiplash/qwen3-8b",
       "backend_base_url": "http://172.17.0.1:11434/v1",
-      "backend_model": "qwen3:8b",
+      "backend_model": "wiplash-qwen3-8b-40k:latest",
       "kind": "ollama",
       "idle_seconds": 180
     },
