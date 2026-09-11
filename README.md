@@ -21,5 +21,6 @@ Start with [the Terra/Luna execution plan](EXECUTION_PLAN.md) and the [delegatio
 5. [Architecture candidates](research/architecture_notes/candidates.md).
 6. [Literature and prior work](research/papers.md).
 7. [Hypotheses](research/hypotheses.md), [experiment log](research/experiments/LOG.md), and [failed/deferred ideas](research/failed_ideas.md).
+8. [Local model and media-model runbook](docs/LOCAL_MODEL_RUNBOOK.md): verified text-model entry points, media-model staging status, and the guarded first-run procedure.
 
 Optimization objective: useful language-model computation per byte moved and joule consumed, at a stated quality level. Report prefill, decode, startup, and queue time separately. No proposed architecture is claimed novel; no unmeasured throughput is presented as a result.

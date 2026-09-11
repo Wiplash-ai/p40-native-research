@@ -292,3 +292,145 @@ The service supervisor refuses a start at 70 C or higher and terminates its
 child if either P40 reaches 70 C. That is a containment threshold, not a
 target operating temperature. With the current cooling, start from a cool,
 empty GPU state and stop the workload if temperatures rise persistently.
+
+## Local media models (staging, not a production service)
+
+Status recorded **2026-09-11**.  Media jobs use a separate lane from the text
+router above.  They are not exposed through `:8100`, they do not have an API
+service yet, and they must never share a P40 with Colibri or an Ollama worker.
+
+The BMC fan guard presently requests 100% PWM for both fan zones, but the
+chassis fans are still only around 2,000 RPM.  Tesla P40 cards are passive.
+That is a physical-airflow problem, not a software setting we can safely tune
+around.  Do not perform the first full model load below until the replacement
+fans/airflow work has been installed and a cool, idle preflight succeeds.
+
+| Model | Intended job | License / source | Local status | Safe to run now? |
+| --- | --- | --- | --- | --- |
+| ARC-Qwen Video 7B Narrator | Video understanding: timestamps, scene narration, ASR and speaker labels | Apache-2.0; `TencentARC/ARC-Qwen-Video-7B-Narrator` | Checkpoint downloaded; isolated FP16/SDPA environment and bounded canary prepared; no full model load has run | **No** — awaiting airflow gate |
+| Qwen-Image-2512 | Image generation / editing | Apache-2.0; `Qwen/Qwen-Image-2512` | Checkpoint transfer is in progress; no P40 execution wrapper or model-load result yet | **No** — transfer and runtime validation pending |
+| Wan2.2 TI2V 5B | Text-to-video and image-to-video | Apache-2.0; `Wan-AI/Wan2.2-TI2V-5B` | Source checkout is staged; weights and P40 runner are not installed yet | **No** — staging and validation pending |
+| FLUX.1-schnell | Image generation candidate | Apache-2.0, but Hugging Face gated access terms apply | Not staged | **No** — needs explicit account/license acceptance first |
+
+The working area is intentionally isolated from Colibri and from any product
+media:
+
+```text
+/mnt/ai-ssd/p40-media-lab/
+  src/ARC-Hunyuan-Video-7B/                         pinned ARC source
+  src/Wan2.2/                                       Wan source staging area
+  venvs/arcqwen-p40/                                isolated ARC Python environment
+  models/TencentARC--ARC-Qwen-Video-7B-Narrator/    downloaded ARC checkpoint
+  models/openai--whisper-large-v3-feature-extractor/  local preprocessing metadata
+  models/Qwen--Qwen-Image-2512/                     image checkpoint transfer target
+  canaries/                                         disposable, short input proxies only
+  artifacts/                                        model results and JSON receipts
+  logs/                                             download and worker logs
+```
+
+### Before any media run
+
+This read-only preflight is required before every job.  It confirms that the
+cards are cool and empty; it does not start or load a model.
+
+```sh
+ssh jordanculver@192.168.1.194 '
+  sudo /usr/local/sbin/wiplash-gpu-fan-guard --status --json
+  nvidia-smi --query-gpu=index,name,temperature.gpu,memory.used,utilization.gpu,power.draw --format=csv,noheader
+  systemctl is-active colibri-qwen36.service || true
+'
+```
+
+Before a media job, explicitly vacate the text-model lane:
+
+```sh
+ssh jordanculver@192.168.1.194 'sudo systemctl stop colibri-qwen36.service'
+```
+
+If Ollama has a resident model, unload it through the already-configured local
+model router or Ollama's native API, then rerun the preflight.  The acceptance
+condition is **0 MiB model memory on both P40s**, with no rising temperature
+trend.  Start on `cuda:0` only; leave GPU 1 empty until a single-GPU job has
+been measured successfully.
+
+### ARC-Qwen Narrator: first bounded canary
+
+ARC-Qwen is an analysis model, not a generator or autonomous video editor. It
+was developed around BF16/FlashAttention on newer GPUs.  The P40 path is a
+deliberate FP16 + PyTorch SDPA fallback, so the first run must remain a
+small, deterministic compatibility test rather than a production job.
+
+Use a **disposable proxy** of 15 seconds or less.  Never send a canonical
+customer or production video to this first test.  Once the physical cooling
+gate has passed, copy that proxy to
+`/mnt/ai-ssd/p40-media-lab/canaries/arc-canary.mp4` and run:
+
+```sh
+ssh jordanculver@192.168.1.194 '
+  set -euo pipefail
+  sudo systemctl stop colibri-qwen36.service
+  run_id=$(date -u +%Y%m%dT%H%M%SZ)
+  CUDA_VISIBLE_DEVICES=0 \
+  COLIBRI_THERMAL_C=60 \
+  COLIBRI_THERMAL_POLL_SECONDS=2 \
+  COLIBRI_THERMAL_STOP_SECONDS=15 \
+  /usr/bin/python3 /opt/colibri-qwen36-t24/colibri-thermal-supervisor.py \
+    /mnt/ai-ssd/p40-media-lab/venvs/arcqwen-p40/bin/python \
+    /mnt/ai-ssd/p40-media-lab/arcqwen_p40_canary.py \
+      --repo /mnt/ai-ssd/p40-media-lab/src/ARC-Hunyuan-Video-7B \
+      --model /mnt/ai-ssd/p40-media-lab/models/TencentARC--ARC-Qwen-Video-7B-Narrator \
+      --whisper-feature-extractor /mnt/ai-ssd/p40-media-lab/models/openai--whisper-large-v3-feature-extractor \
+      --video /mnt/ai-ssd/p40-media-lab/canaries/arc-canary.mp4 \
+      --output /mnt/ai-ssd/p40-media-lab/artifacts/arcqwen-${run_id}.json \
+      --device cuda:0 \
+      --max-duration 15 \
+      --max-new-tokens 128
+'
+```
+
+This invocation has a deliberately lower 60 C containment limit than the
+text service.  The result is written even when loading or inference fails;
+inspect it without re-running the model:
+
+```sh
+ssh jordanculver@192.168.1.194 \
+  'python3 -m json.tool /mnt/ai-ssd/p40-media-lab/artifacts/arcqwen-REPLACE_WITH_RUN_ID.json'
+```
+
+Promote ARC-Qwen beyond the canary only when its receipt says
+`"status": "completed"`, the narration is sensible, peak VRAM is recorded,
+and the temperature/power trace remains comfortably below the 60 C cutoff.
+
+### Image and video generation: current run status
+
+Qwen-Image-2512 and Wan2.2 are being staged because they have local-source,
+locally-runnable Apache-2.0 distributions.  Neither has an approved P40
+launch command yet.  Publishing a generic `python generate.py` line before a
+full checkpoint load would hide the important work: confirming whether its
+normal BF16 path can use a correct FP16/Pascal fallback, measuring VRAM with
+CPU offload, and placing it behind the thermal supervisor.
+
+When each is ready, this document will gain a pinned environment path, a
+bounded first-job command, an artifact format, and an observed runtime result.
+Until then, use the status table above rather than assuming a download means
+the model is runnable.
+
+### Planned local tool interface
+
+After the individual runners pass their first bounded tests, the integration
+point will be a separate authenticated private-LAN **media gateway**.  It will
+not accept arbitrary shell commands or arbitrary model names.  The fixed job
+surface will be:
+
+```text
+POST /v1/media/analyze-video     -> ARC-Qwen Narrator
+POST /v1/media/generate-image    -> Qwen-Image-2512
+POST /v1/media/generate-video    -> Wan2.2 TI2V 5B
+GET  /v1/media/jobs/{job_id}     -> state, immutable artifact paths, JSON receipt
+```
+
+The gateway will keep a one-job queue and acquire a single-GPU lease before
+starting a worker.  It will reject work if Qwen, Ollama, or another media job
+has GPU memory resident.  That makes it suitable as a future fixed tool for
+local coding models, OpenCode, or Codex without exposing raw server control.
+It is a design target, **not implemented yet**.
