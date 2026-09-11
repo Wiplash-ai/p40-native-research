@@ -144,3 +144,10 @@ Shared exact-Q8 work extends GPU-0's local expert tail by about 67 microseconds
 per valid window, but GPU 1 is independent and was slower in prior exact-Qwen
 profiles. Do not sum the interval into total latency or continue shared-MLP
 scheduling work; profile the GPU-1 expert-tail distribution first.
+
+`T47-qwen-speculative-verifier-feasibility.md` ends the P40 Qwen
+optimization program. External speculative decoding is the only remaining
+architecture plausibly capable of a greater-than-20-percent gain, but the
+actual target engine has no candidate verifier, no MTP/draft protocol, and no
+state rollback. Its multi-row prefill is not evidence for a working verifier.
+Do not infer a gain from it or build that subsystem inside the current scope.

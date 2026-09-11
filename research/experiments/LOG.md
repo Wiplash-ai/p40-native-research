@@ -1287,3 +1287,25 @@ ID, status, hypothesis, prediction, exact change, source/binary/model/prompt ide
   patches/0022-qwen36-shared-expert-timeline-profile.patch,
   patches/0023-qwen36-shared-expert-timeline-ineligible.patch, and
   `research/results/raw/T46-qwen-shared-expert-timeline-35f20d59-ba65-4d7f-933f-0ae6667b31a5.*`.
+
+## T47 — Qwen speculative-verifier feasibility gate
+
+- Date: 2026-09-10.
+- Status: complete decision gate; no GPU workload. Production unchanged.
+- Candidate: external draft-model speculative decoding is the one remaining
+  architecture that could plausibly exceed a 20% end-to-end gain. It would
+  require batched target verification, deterministic acceptance/replay, and
+  rollback of attention KV plus DeltaNet recurrent state.
+- Evidence: direct `generate()` and `tf_nll()` advance after prefill through
+  `step(..., 1, ...)`; `step(..., S, ...)` exposes logits only for its final
+  row. The engine and its serving path have no Qwen MTP, draft, acceptance, or
+  state-snapshot protocol. Multi-row MoE still iterates rows through the
+  decode-scale expert issue/take path. T46's 15-token prefill timing does not
+  measure a draft's acceptance or a verifier's net cost.
+- Decision: no evidence supports a >20% end-to-end result without building a
+  substantial new inference subsystem. Stop P40/Qwen kernel and execution-path
+  optimization after T46. Keep only the accepted exact-Q8 T24 configuration
+  as the production-serving candidate.
+- Evidence: [E039](039-qwen-speculative-verifier-feasibility-gate.md),
+  [T47 result](../results/T47-qwen-speculative-verifier-feasibility.md), and
+  `tests/test_t47_qwen_speculative_gate.py`.
