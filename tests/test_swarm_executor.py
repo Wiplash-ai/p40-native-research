@@ -1,5 +1,7 @@
 import json
+import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -8,7 +10,11 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from swarm.executor import ExecutorPlanError, OllamaPlanClient, plan_schema, validate_plan
+from swarm.executor import (
+    ExecutorPlanError, OllamaPlanClient, patch_schema, plan_schema, validate_patch_proposal, validate_plan,
+)
+from swarm.harness import BoundedHarness
+from swarm.patch import PatchError, apply_unified_patch
 
 
 PLAN = {
@@ -17,6 +23,20 @@ PLAN = {
     "validation_profile": "python-unittest",
     "expected_signal": "The parser test stays green with fewer repeated reads.",
     "stop_condition": "Stop if cache invalidation changes parsed output.",
+}
+
+PATCH = {
+    "summary": "Correct the even predicate.",
+    "patch": """diff --git a/calculator.py b/calculator.py
+index 12e10ad..a3212f1 100644
+--- a/calculator.py
++++ b/calculator.py
+@@ -1,2 +1,2 @@
+ def is_even(value):
+-    return value % 2 == 1
++    return value % 2 == 0
+""",
+    "validation_profile": "python-unittest",
 }
 
 
@@ -43,6 +63,51 @@ class ExecutorPlanTests(unittest.TestCase):
         self.assertFalse(body["think"])
         self.assertEqual(body["options"], {"num_ctx": 4096, "seed": 42, "temperature": 0})
         self.assertIn("format", body)
+
+    @patch("swarm.executor.post_chat")
+    def test_patch_client_has_no_command_surface(self, post):
+        post.return_value = {
+            "message": {"content": json.dumps(PATCH)}, "prompt_eval_count": 11, "eval_count": 22,
+        }
+        result = OllamaPlanClient().request_patch(
+            model="qwen3:8b", objective="Fix parity", branch_hypothesis="modulo result is inverted",
+            files={"calculator.py": "def is_even(value):\n    return value % 2 == 1\n"},
+        )
+        self.assertEqual(result.proposal, validate_patch_proposal(PATCH))
+        self.assertEqual(result.proposal.validation_profile, "python-unittest")
+        self.assertFalse(patch_schema()["additionalProperties"])
+
+    def test_patch_is_limited_to_a_disposable_worktree(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            repo = root / "repo"
+            repo.mkdir()
+            (repo / "calculator.py").write_text("def is_even(value):\n    return value % 2 == 1\n")
+            tests = repo / "tests"
+            tests.mkdir()
+            (tests / "test_calculator.py").write_text(
+                "import unittest\nfrom calculator import is_even\n\nclass ParityTest(unittest.TestCase):\n"
+                "    def test_even(self):\n        self.assertTrue(is_even(2))\n"
+            )
+            subprocess.run(["git", "init", str(repo)], check=True, capture_output=True, text=True)
+            subprocess.run(["git", "-C", str(repo), "add", "."], check=True)
+            subprocess.run(
+                ["git", "-C", str(repo), "-c", "user.name=Test", "-c", "user.email=test@example.com",
+                 "commit", "-m", "fixture"], check=True, capture_output=True, text=True,
+            )
+            harness = BoundedHarness(worktree_root=root / "worktrees", artifact_root=root / "artifacts")
+            import uuid
+            worktree = harness.prepare_worktree(
+                repo_path=repo, revision="HEAD", task_id=str(uuid.uuid4()), branch_id=str(uuid.uuid4()),
+            )
+            apply_unified_patch(worktree=str(worktree), patch=PATCH["patch"])
+            self.assertEqual(harness.run_profile(
+                worktree=worktree, attempt_id=str(uuid.uuid4()), profile="python-unittest",
+            ).exit_code, 0)
+            with self.assertRaises(PatchError):
+                apply_unified_patch(worktree=str(worktree), patch=PATCH["patch"].replace("calculator.py", "../outside", 2))
+            with self.assertRaises(ExecutorPlanError):
+                validate_patch_proposal({**PATCH, "patch": PATCH["patch"] + "new mode 100755\n"})
 
 
 if __name__ == "__main__":
