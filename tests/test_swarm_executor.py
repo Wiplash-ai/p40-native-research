@@ -11,8 +11,10 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from swarm.executor import (
-    ExecutorPlanError, OllamaPlanClient, patch_schema, plan_schema, validate_patch_proposal, validate_plan,
+    ExecutorPlanError, OllamaPlanClient, patch_schema, plan_schema, text_edit_schema,
+    validate_patch_proposal, validate_plan, validate_text_edit_proposal,
 )
+from swarm.edit import apply_exact_text_edit
 from swarm.harness import BoundedHarness
 from swarm.patch import PatchError, apply_unified_patch
 
@@ -36,6 +38,14 @@ index 12e10ad..a3212f1 100644
 -    return value % 2 == 1
 +    return value % 2 == 0
 """,
+    "validation_profile": "python-unittest",
+}
+
+TEXT_EDIT = {
+    "summary": "Correct the even predicate.",
+    "path": "calculator.py",
+    "expected_text": "return value % 2 == 1",
+    "replacement_text": "return value % 2 == 0",
     "validation_profile": "python-unittest",
 }
 
@@ -111,6 +121,27 @@ class ExecutorPlanTests(unittest.TestCase):
                 validate_patch_proposal({**PATCH, "patch": PATCH["patch"] + "new mode 100755\n"})
             with self.assertRaises(ExecutorPlanError):
                 validate_patch_proposal(PATCH, allowed_paths={"tests/test_calculator.py"})
+
+    @patch("swarm.executor.post_chat")
+    def test_text_edit_is_exact_and_context_limited(self, post):
+        post.return_value = {
+            "message": {"content": json.dumps(TEXT_EDIT)}, "prompt_eval_count": 11, "eval_count": 22,
+        }
+        source = {"calculator.py": "def is_even(value):\n    return value % 2 == 1\n"}
+        result = OllamaPlanClient().request_text_edit(
+            model="qwen3:8b", objective="Fix parity", branch_hypothesis="modulo result is inverted", files=source,
+        )
+        self.assertEqual(result.proposal, validate_text_edit_proposal(TEXT_EDIT, allowed_files=source))
+        self.assertFalse(text_edit_schema()["additionalProperties"])
+        self.assertNotIn("maxLength", text_edit_schema()["properties"]["expected_text"])
+        with self.assertRaises(ExecutorPlanError):
+            validate_text_edit_proposal({**TEXT_EDIT, "path": "../outside"}, allowed_files=source)
+        with tempfile.TemporaryDirectory() as temp:
+            worktree = Path(temp)
+            target = worktree / "calculator.py"
+            target.write_text(source["calculator.py"])
+            apply_exact_text_edit(worktree=str(worktree), edit=result.proposal.edit)
+            self.assertIn("== 0", target.read_text())
 
 
 if __name__ == "__main__":
