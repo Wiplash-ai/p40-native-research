@@ -23,7 +23,7 @@ class ProductionDeploymentTests(unittest.TestCase):
         self.assertIn("--host 127.0.0.1", UNIT)
         self.assertIn("--kv-slots 1", UNIT)
         self.assertIn("--ctx 262144", UNIT)
-        self.assertIn("--ngen 16384", UNIT)
+        self.assertIn("--ngen 32768", UNIT)
         self.assertNotIn("--gpu", UNIT)
         self.assertIn("colibri-thermal-supervisor.py", UNIT)
 

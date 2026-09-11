@@ -12,7 +12,7 @@ speculative paths. `--kv-slots 1` matches the direct Qwen engine's single-KV
 execution model.
 
 The production Qwen unit reserves the checkpoint's native 262,144-token
-context and permits up to 16,384 completion tokens. Colibri clamps a client's requested output length
+context and permits up to 32,768 completion tokens. Colibri clamps a client's requested output length
 to `--ngen`; it does not generate that many tokens unless the model reaches
 the limit rather than EOS. Long prompts and completions share the same 262K
 window.
