@@ -1,4 +1,7 @@
 import sys
+import json
+import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -12,7 +15,8 @@ from swarm.fixtures import TASKS, get_task
 class FixtureTests(unittest.TestCase):
     def test_fixture_identifiers_and_source_paths_are_stable(self):
         self.assertEqual([task.identifier for task in TASKS], [
-            "parity", "display-name-whitespace", "currency-grouping",
+            "parity", "display-name-whitespace", "currency-grouping", "multifile-timeout",
+            "two-file-required", "already-green",
         ])
         for task in TASKS:
             self.assertTrue(task.objective)
@@ -23,6 +27,20 @@ class FixtureTests(unittest.TestCase):
     def test_unknown_task_is_rejected(self):
         with self.assertRaises(ValueError):
             get_task("not-a-task")
+
+    def test_already_green_fixture_does_not_call_the_model(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            output = root / "result.json"
+            result = subprocess.run([
+                sys.executable, str(ROOT / "scripts" / "swarm_s5_text_edit_corpus.py"),
+                "--url", "http://127.0.0.1:9/api/chat", "--task", "already-green",
+                "--workspace-root", str(root / "worktree"), "--output", str(output),
+            ], capture_output=True, text=True, check=False)
+            self.assertEqual(result.returncode, 2)
+            payload = json.loads(output.read_text())
+            self.assertIsNone(payload["proposal"])
+            self.assertEqual(payload["error"]["message"], "baseline gate rejected an already-passing task")
 
 
 if __name__ == "__main__":
