@@ -5,7 +5,8 @@ Status: Stage 0 pass; Stage 1 rate/plan gates pass; Stage 4 action-protocol
 pass; Stage 5 tiny corpus pass; Stage 6 multi-file pass/rejection evidence.
 Stage 7 heterogeneous-worker single-task pass. Meaningful repository-task
 reliability gates remain pending; Stage 8 warm heterogeneous two-worker
-quality gate passes; Stage 9 evidence-only ranking passes locally.
+quality gate passes; Stage 9 evidence-only ranking passes locally; Stage 10
+trusted-artifact ingestion passes locally.
 
 ## Hypotheses
 
@@ -266,20 +267,31 @@ same evidence-only decision while model dispatch remains `409` disabled. This
 is the controller's first search-allocation primitive, not MCTS or automatic
 branch execution.
 
+## S10 trusted artifact-ingestion gate
+
+S10 connects the controller's evidence-only ranking to a real executor result
+without granting the controller new execution authority. The ingestion CLI
+created a fresh local SQLite store from the measured S8 Qwen3-Coder 30B-A3B
+multi-file artifact. It copied the artifact's controller-owned static and
+unit-test evidence, recomputed the branch decision, and returned
+`promote-ready` with score 100. The accepted evidence kinds were `harness`,
+`model`, `static`, and `test`.
+
+This does **not** promote a patch or change a repository: the source artifact
+was already produced in an isolated disposable worktree, no model was called,
+and dispatch remains disabled. It establishes the minimal handoff needed for a
+future controller to compare completed bounded attempts using evidence rather
+than a model's self-reported confidence.
+
 ## Decision
 
-The first executor candidate clears the P40 fit/rate, schema-plan, exact-edit
-action-protocol, and tiny-corpus gates. It does not yet clear repository-task
-reliability, tool-use, diversity, concurrent-slot quality, or
-optimized-sidecar gates. Next:
-
-1. add larger, adversarial fixtures and measure accepted versus rejected
-   outcomes;
-2. connect bounded real executor outcomes to the evidence store, then use the
-   ranking output to select the next eligible branch on the validated
-   two-worker topology;
-3. keep the Pascal-MMQ fork out of the executor adapter unless a future,
-   controlled measurement clears a meaningful reproducible threshold.
+The prototype now clears the P40 fit/rate, schema-plan, exact-edit action
+protocol, tiny-corpus, two-worker, evidence-ranking, and trusted-artifact
+ingestion gates. It remains a bounded research harness: it does not clear
+real-repository reliability, unrestricted tool use, automatic dispatch,
+continuous batching, or production operation. Pause swarm expansion here;
+the next project should use its evidence model only after defining a concrete
+task corpus and operator approval boundary.
 
 ## Evidence
 
@@ -307,5 +319,6 @@ optimized-sidecar gates. Next:
 - `research/results/raw/S8-ollama-qwen3-8b-gpu0-currency-20260911T140035Z.json`
 - `research/results/raw/S8-ollama-qwen3-coder-30b-gpu1-timeout-20260911T140035Z.json`
 - `research/results/raw/S8-ollama-heterogeneous-warm-run-20260911T140035Z.json`
+- `research/results/raw/S10-ingest-s8-coder-artifact-20260911T142402Z.json`
 - `swarm/`, `swarm/scoring.py`, `tests/test_swarm_s0.py`, and
-  `tests/test_swarm_scoring.py`
+  `tests/test_swarm_scoring.py`; `scripts/swarm_ingest_artifact.py`

@@ -1,0 +1,21 @@
+{
+  "attempt": {
+    "branch_id": "d1703a66-3c0a-442b-8363-e1109985b1dc",
+    "created_at": "2026-09-11T14:24:02+00:00",
+    "finished_at": "2026-09-11T14:24:02+00:00",
+    "id": "cdd24ec8-4664-4187-9810-152ab1b93680",
+    "ordinal": 1,
+    "status": "completed",
+    "worktree_path": "/mnt/ai-ssd/p40-swarm/s8-driver-TELZPDl5/s8-coder30"
+  },
+  "branch_id": "d1703a66-3c0a-442b-8363-e1109985b1dc",
+  "ranking": [{
+    "branch_id": "d1703a66-3c0a-442b-8363-e1109985b1dc",
+    "decision": "promote-ready",
+    "failed_kinds": [],
+    "passed_kinds": ["harness", "model", "static", "test"],
+    "reasons": ["static and test validation passed"],
+    "score": 100
+  }],
+  "task_id": "61237f92-effc-462d-833a-f7acbcf2fd2f"
+}

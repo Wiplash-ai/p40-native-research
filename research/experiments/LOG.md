@@ -1,5 +1,20 @@
 # Experiment log
 
+## 2026-09-11 — S10 trusted executor-artifact ingestion
+
+- Hypothesis: the controller can ingest a completed bounded executor artifact
+  and rank it using validation evidence, without trusting model confidence or
+  enabling another model call.
+- Implementation: added the `scripts/swarm_ingest_artifact.py` CLI and created
+  a fresh local SQLite task from the measured S8 Qwen3-Coder 30B-A3B
+  multi-file artifact.
+- Result: copied `harness`, `model`, `static`, and `test` evidence produced a
+  `promote-ready` ranking with score 100. No patch was promoted, no repository
+  was changed, and dispatch remained disabled.
+- Decision: the requested final swarm iteration is complete. Retain the
+  evidence contract; defer broader swarm automation until it has a defined
+  real-repository corpus and explicit operator controls.
+
 ## 2026-09-11 — S9 evidence-only scheduler
 
 - Hypothesis: a controller can allocate the next branch using objective
