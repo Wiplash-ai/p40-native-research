@@ -114,6 +114,22 @@ session does not load GPUs unexpectedly. The first selection must occur only
 after its backend is healthy; OpenCode configuration itself does not start a
 model.
 
+### Qwen tool calling
+
+The deployed Qwen3.6 gateway accepts OpenAI `tools` requests for the
+`wiplash-router/wiplash/qwen35b` model. Its local Colibri branch
+`wiplash/qwen36-tool-calling` at `2d6011d` renders the checkpoint's official
+Qwen3.5/3.6 tool template, returns OpenAI-shaped tool calls, and renders tool
+results back into the next model turn. A live guarded request produced
+`finish_reason: "tool_calls"` for the declared `get_weather` function with
+`{"city":"Rome"}`.
+
+The i4 checkpoint can omit the outer `<tool_call>` tag while still producing a
+complete `<function=DECLARED_NAME>...</function>` block. The gateway recovers
+only that complete, explicitly declared form; it does not promote an arbitrary
+function-looking string into a tool call. The router already forwards the
+standard `tools` payload unchanged.
+
 ### Better Hashline edit transport
 
 The global OpenCode configuration loads `opencode-better-hashline@0.9.0`. Its enforced
@@ -130,6 +146,17 @@ declared `>=1.18.3 <2` range. Do not downgrade the working client just to
 satisfy that stale verifier. Treat Hashline as better edit transport—not proof
 that a model's code quality has improved—and keep normal tests/reviews in the
 loop.
+
+### Clipboard on this Wayland workstation
+
+OpenCode's selection and message-copy actions require `wl-copy` / `wl-paste`
+on Wayland. A user-local `wl-clipboard` copy lives under
+`~/.local/opt/wl-clipboard`; the normal `opencode` wrapper places it on `PATH`
+before launching the standard CLI. No separate OpenCode launcher is required.
+Select a response or use the configured message-copy shortcut
+(`Ctrl+Shift+C` or leader then `y`); the clipboard bridge receives the copied
+text. A system package installation of `wl-clipboard` is an equivalent future
+replacement.
 
 ### Permissions and Codex skill mirror
 
