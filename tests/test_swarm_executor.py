@@ -73,6 +73,8 @@ class ExecutorPlanTests(unittest.TestCase):
         self.assertFalse(body["think"])
         self.assertEqual(body["options"], {"num_ctx": 4096, "seed": 42, "temperature": 0})
         self.assertIn("format", body)
+        with self.assertRaises(ExecutorPlanError):
+            OllamaPlanClient(keep_alive="forever")
 
     @patch("swarm.executor.post_chat")
     def test_patch_client_has_no_command_surface(self, post):
@@ -128,13 +130,14 @@ class ExecutorPlanTests(unittest.TestCase):
             "message": {"content": json.dumps(TEXT_EDIT)}, "prompt_eval_count": 11, "eval_count": 22,
         }
         source = {"calculator.py": "def is_even(value):\n    return value % 2 == 1\n"}
-        result = OllamaPlanClient().request_text_edit(
+        result = OllamaPlanClient(keep_alive="5m").request_text_edit(
             model="qwen3:8b", objective="Fix parity", branch_hypothesis="modulo result is inverted", files=source,
             editable_paths={"calculator.py"},
         )
         self.assertEqual(result.proposal, validate_text_edit_proposal(TEXT_EDIT, allowed_files=source))
         self.assertFalse(text_edit_schema()["additionalProperties"])
         self.assertNotIn("maxLength", text_edit_schema()["properties"]["expected_text"])
+        self.assertEqual(post.call_args.args[1]["keep_alive"], "5m")
         with self.assertRaises(ExecutorPlanError):
             validate_text_edit_proposal({**TEXT_EDIT, "path": "../outside"}, allowed_files=source)
         with self.assertRaises(ExecutorPlanError):

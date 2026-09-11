@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import urllib.request
 from dataclasses import dataclass
 from typing import Any
@@ -25,6 +26,7 @@ PLAN_FIELDS = ("hypothesis", "proposed_change", "validation_profile", "expected_
 PATCH_FIELDS = ("summary", "patch", "validation_profile")
 TEXT_EDIT_FIELDS = ("summary", "path", "expected_text", "replacement_text", "validation_profile")
 MAX_FIELD_CHARS = 1_200
+KEEP_ALIVE = re.compile(r"^(?:0s|[1-9][0-9]*[smh])$")
 
 
 @dataclass(frozen=True)
@@ -288,9 +290,14 @@ def post_chat(url: str, payload: dict[str, Any], timeout_s: int) -> dict[str, An
 class OllamaPlanClient:
     """A private Ollama client with fixed context and schema-only output."""
 
-    def __init__(self, url: str = "http://172.17.0.1:11434/api/chat", timeout_s: int = 180):
+    def __init__(
+        self, url: str = "http://172.17.0.1:11434/api/chat", timeout_s: int = 180, keep_alive: str = "0s",
+    ):
+        if not KEEP_ALIVE.fullmatch(keep_alive):
+            raise ExecutorPlanError("keep_alive must be 0s or a positive s/m/h duration")
         self.url = url
         self.timeout_s = timeout_s
+        self.keep_alive = keep_alive
 
     def request_plan(
         self, *, model: str, objective: str, branch_hypothesis: str, role: str,
@@ -305,7 +312,7 @@ class OllamaPlanClient:
             "format": plan_schema(),
             "stream": False,
             "think": False,
-            "keep_alive": "0s",
+            "keep_alive": self.keep_alive,
             "options": {"num_ctx": 4096, "seed": 42, "temperature": 0},
         }, self.timeout_s)
         message = response.get("message")
@@ -337,7 +344,7 @@ class OllamaPlanClient:
             "format": patch_schema(),
             "stream": False,
             "think": False,
-            "keep_alive": "0s",
+            "keep_alive": self.keep_alive,
             "options": {"num_ctx": 4096, "seed": 42, "temperature": 0},
         }, self.timeout_s)
         message = response.get("message")
@@ -370,7 +377,7 @@ class OllamaPlanClient:
             "format": text_edit_schema(),
             "stream": False,
             "think": False,
-            "keep_alive": "0s",
+            "keep_alive": self.keep_alive,
             "options": {"num_ctx": 4096, "seed": 42, "temperature": 0},
         }, self.timeout_s)
         message = response.get("message")

@@ -40,6 +40,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--url", required=True)
     parser.add_argument("--model", default="qwen3:8b")
+    parser.add_argument("--keep-alive", default="0s")
     parser.add_argument("--task", choices=[task.identifier for task in TASKS], required=True)
     parser.add_argument("--workspace-root", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
@@ -75,7 +76,7 @@ def main() -> int:
         )
         if baseline.exit_code == 0:
             raise RuntimeError("baseline gate rejected an already-passing task")
-        response = OllamaPlanClient(url=args.url, timeout_s=240).request_text_edit(
+        response = OllamaPlanClient(url=args.url, timeout_s=240, keep_alive=args.keep_alive).request_text_edit(
             model=args.model, objective=task.objective, branch_hypothesis=task.hypothesis, files=task.files,
             editable_paths={path for path in task.files if not path.startswith("tests/")},
         )
