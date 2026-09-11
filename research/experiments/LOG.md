@@ -1328,5 +1328,11 @@ ID, status, hypothesis, prediction, exact change, source/binary/model/prompt ide
   the Qwen binary, yielding a false CPU-only refusal. The unit sets the verified
   `COLI_CUDA` and `COLI_GPUS` environment values directly; no Colibrì source
   was changed.
+- Thermal amendment: a later resident-idle observation reached 70 C on GPU 1
+  at about 56 W. A root-owned supervisor now rejects hot starts and gracefully
+  stops the process at 70 C without automatic hot restart. It worked as
+  designed and released VRAM. The service remains enabled but intentionally
+  inactive until cards cool; physical airflow or a separately justified
+  thermal-policy change is required before a sustained-service claim.
 - Evidence: [T48 result](../results/T48-production-qwen36-api.md),
   `deployment/`, and `tests/test_t48_production_deployment.py`.

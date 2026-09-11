@@ -29,5 +29,9 @@ met by the streamed-decode measurement; it is not met as an end-to-end prompt
 latency claim.
 
 The request peaked at 50 C / 49 C, 104.27 W / 60.96 W, and 9,725 MiB / 7,895
-MiB on GPU 0 / GPU 1. The 70 C safety cutoff was not approached. Service
-configuration and reproducible commands are in `deployment/`.
+MiB on GPU 0 / GPU 1. The 70 C safety cutoff was not approached during that
+request. A later idle-residency observation showed GPU 1 reaching 70 C at
+about 56 W, which correctly stopped the service and released VRAM. The unit
+is enabled but intentionally inactive pending cooldown; this blocks a
+sustained-availability claim. Service configuration and reproducible commands
+are in `deployment/`.

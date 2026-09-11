@@ -1,0 +1,269 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+HIGH="${WIPLASH_GPU_FAN_HIGH:-75}"
+LOW="${WIPLASH_GPU_FAN_LOW:-65}"
+LOAD="${WIPLASH_GPU_FAN_LOAD:-55}"
+COOL="${WIPLASH_GPU_FAN_COOL:-45}"
+INTERVAL="${WIPLASH_GPU_FAN_INTERVAL:-5}"
+STATE="${WIPLASH_GPU_FAN_STATE:-/run/wiplash-gpu-fan-mode}"
+LOCK="${WIPLASH_GPU_FAN_LOCK:-/run/wiplash-gpu-fan-guard.lock}"
+LOCK_TIMEOUT="${WIPLASH_GPU_FAN_LOCK_TIMEOUT:-10}"
+FULL="01"
+OPTIMAL="02"
+CAP_PWM="${WIPLASH_GPU_FAN_CAP_PWM:-}"
+CAP_MODE="${WIPLASH_GPU_FAN_CAP_MODE:-manual}"
+LOAD_PWM="${WIPLASH_GPU_FAN_LOAD_PWM:-60}"
+FULL_PWM="${WIPLASH_GPU_FAN_FULL_PWM:-100}"
+QUIET=0
+MODE="once"
+JSON=0
+
+usage() {
+  cat <<USAGE
+usage: wiplash-gpu-fan-guard [--once|--daemon|--status] [--json] [--quiet] [--interval SECONDS] [--high C] [--low C] [--cap-pwm 0-100]
+
+Environment:
+  WIPLASH_GPU_FAN_HIGH       default 75
+  WIPLASH_GPU_FAN_LOW        default 65
+  WIPLASH_GPU_FAN_LOAD       default 55, enter steady load fan mode at/above this temp
+  WIPLASH_GPU_FAN_COOL       default 45, return to quiet cap at/below this temp
+  WIPLASH_GPU_FAN_INTERVAL   default 5
+  WIPLASH_GPU_FAN_LOCK_TIMEOUT  default 10 seconds for a serialized control check
+  WIPLASH_GPU_FAN_CAP_PWM    optional normal fan PWM cap, 0-100
+  WIPLASH_GPU_FAN_CAP_MODE   default manual, valid values: manual, optimal
+  WIPLASH_GPU_FAN_LOAD_PWM   default 60
+  WIPLASH_GPU_FAN_FULL_PWM   default 100
+USAGE
+}
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --once) MODE="once" ;;
+    --daemon) MODE="daemon" ;;
+    --status) MODE="status" ;;
+    --json) JSON=1 ;;
+    --quiet) QUIET=1 ;;
+    --interval) shift; INTERVAL="${1:?missing interval}" ;;
+    --high) shift; HIGH="${1:?missing high threshold}" ;;
+    --low) shift; LOW="${1:?missing low threshold}" ;;
+    --load) shift; LOAD="${1:?missing load threshold}" ;;
+    --cool) shift; COOL="${1:?missing cool threshold}" ;;
+    --cap-pwm) shift; CAP_PWM="${1:?missing cap pwm}" ;;
+    -h|--help) usage; exit 0 ;;
+    *) echo "unknown argument: $1" >&2; usage >&2; exit 2 ;;
+  esac
+  shift
+done
+
+log() {
+  [ "$QUIET" -eq 1 ] && return 0
+  logger -t wiplash-gpu-fan-guard "$*"
+}
+
+# The daemon and request hooks can both invoke --once.  The BMC's in-band IPMI
+# transport is not reliable under concurrent raw-command traffic, so serialize
+# the complete read/decide/write cycle.  Status stays read-only and is not part
+# of this lock because it may be called by a non-root service account.
+run_check_locked() {
+  if ! command -v flock >/dev/null 2>&1; then
+    check_once
+    return
+  fi
+  (
+    flock -w "$LOCK_TIMEOUT" 9 || {
+      log "skipped fan control check: lock timeout after ${LOCK_TIMEOUT}s"
+      exit 75
+    }
+    check_once
+  ) 9>>"$LOCK"
+}
+
+read_temps() {
+  nvidia-smi --query-gpu=index,temperature.gpu --format=csv,noheader,nounits 2>/dev/null \
+    | awk -F, 'NF >= 2 {gsub(/ /, "", $1); gsub(/ /, "", $2); print $1":"int($2)}'
+}
+
+current_mode() {
+  cat "$STATE" 2>/dev/null || echo optimal
+}
+
+current_bmc_mode() {
+  local value
+  value="$(ipmitool raw 0x30 0x45 0x00 2>/dev/null | awk '{print $1}')"
+  [ -n "$value" ] || return 0
+  printf '%d' "0x${value}"
+}
+
+write_mode() {
+  printf '%s\n' "$1" > "$STATE"
+  chmod 0644 "$STATE" 2>/dev/null || true
+}
+
+pwm_to_hex() {
+  local pwm="$1"
+  if ! [[ "$pwm" =~ ^[0-9]+$ ]] || [ "$pwm" -lt 0 ] || [ "$pwm" -gt 100 ]; then
+    echo "invalid PWM percent: $pwm" >&2
+    exit 2
+  fi
+  printf '%02x' "$pwm"
+}
+
+set_zones_pwm() {
+  local pwm hex
+  pwm="$1"
+  hex="$(pwm_to_hex "$pwm")"
+  ipmitool raw 0x30 0x70 0x66 0x01 0x00 0x${hex} >/dev/null
+  ipmitool raw 0x30 0x70 0x66 0x01 0x01 0x${hex} >/dev/null
+}
+
+read_zone_pwm() {
+  local zone value
+  zone="$1"
+  value="$(ipmitool raw 0x30 0x70 0x66 0x00 0x${zone} 2>/dev/null | awk '{print $1}')"
+  [ -n "$value" ] || return 0
+  printf '%d' "0x${value}"
+}
+
+set_full() {
+  ipmitool raw 0x30 0x45 0x01 0x${FULL} >/dev/null
+  set_zones_pwm "$FULL_PWM" || true
+  write_mode full
+}
+
+set_cap() {
+  if [ -n "$CAP_PWM" ]; then
+    if [ "$CAP_MODE" = "optimal" ]; then
+      ipmitool raw 0x30 0x45 0x01 0x${OPTIMAL} >/dev/null
+    else
+      ipmitool raw 0x30 0x45 0x01 0x${FULL} >/dev/null
+    fi
+    set_zones_pwm "$CAP_PWM"
+    write_mode "cap:${CAP_PWM}"
+  else
+    ipmitool raw 0x30 0x45 0x01 0x${OPTIMAL} >/dev/null
+    write_mode optimal
+  fi
+}
+
+set_load() {
+  ipmitool raw 0x30 0x45 0x01 0x${FULL} >/dev/null
+  set_zones_pwm "$LOAD_PWM"
+  write_mode "load:${LOAD_PWM}"
+}
+
+expected_cap_bmc_mode() {
+  if [ "$CAP_MODE" = "optimal" ]; then
+    printf '2'
+  else
+    printf '1'
+  fi
+}
+
+should_apply_pwm_state() {
+  local expected_mode expected_pwm bmc_mode zone0 zone1
+  expected_mode="$1"
+  expected_pwm="$2"
+  bmc_mode="$3"
+  zone0="$4"
+  zone1="$5"
+  [ "${bmc_mode:-}" != "$expected_mode" ] \
+    || [ "${zone0:-}" != "$expected_pwm" ] \
+    || [ "${zone1:-}" != "$expected_pwm" ]
+}
+
+emit_status() {
+  local temps max mode bmc_mode zone0 zone1
+  temps="$(read_temps || true)"
+  max=0
+  for item in $temps; do
+    t="${item#*:}"
+    [ "$t" -gt "$max" ] && max="$t"
+  done
+  mode="$(current_mode)"
+  bmc_mode="$(current_bmc_mode || true)"
+  zone0="$(read_zone_pwm 00 || true)"
+  zone1="$(read_zone_pwm 01 || true)"
+  if [ "$JSON" -eq 1 ]; then
+    printf '{"max_gpu_temp":%s,"mode":"%s","bmc_mode":' "$max" "$mode"
+    if [ -n "$bmc_mode" ]; then printf '%s' "$bmc_mode"; else printf 'null'; fi
+    printf ',"high":%s,"low":%s,"load":%s,"cool":%s,"cap_mode":"%s","load_pwm":%s,"cap_pwm":' "$HIGH" "$LOW" "$LOAD" "$COOL" "$CAP_MODE" "$LOAD_PWM"
+    if [ -n "$CAP_PWM" ]; then printf '%s' "$CAP_PWM"; else printf 'null'; fi
+    printf ',"zone0_pwm":'
+    if [ -n "$zone0" ]; then printf '%s' "$zone0"; else printf 'null'; fi
+    printf ',"zone1_pwm":'
+    if [ -n "$zone1" ]; then printf '%s' "$zone1"; else printf 'null'; fi
+    printf ',"temps":['
+    first=1
+    for item in $temps; do
+      idx="${item%%:*}"
+      temp="${item#*:}"
+      [ "$first" -eq 0 ] && printf ','
+      first=0
+      printf '{"index":%s,"temp":%s}' "$idx" "$temp"
+    done
+    printf ']}\n'
+  else
+    printf 'max_gpu_temp=%s mode=%s bmc_mode=%s high=%s low=%s load=%s cool=%s cap_mode=%s cap_pwm=%s load_pwm=%s zone0_pwm=%s zone1_pwm=%s temps="%s"\n' "$max" "$mode" "${bmc_mode:-unknown}" "$HIGH" "$LOW" "$LOAD" "$COOL" "$CAP_MODE" "${CAP_PWM:-none}" "$LOAD_PWM" "${zone0:-unknown}" "${zone1:-unknown}" "$temps"
+  fi
+}
+
+check_once() {
+  local temps max mode bmc_mode zone0 zone1
+  temps="$(read_temps || true)"
+  [ -n "$temps" ] || return 0
+  max=0
+  for item in $temps; do
+    t="${item#*:}"
+    [ "$t" -gt "$max" ] && max="$t"
+  done
+  mode="$(current_mode)"
+  bmc_mode="$(current_bmc_mode || true)"
+  zone0="$(read_zone_pwm 00 || true)"
+  zone1="$(read_zone_pwm 01 || true)"
+  log "max_gpu_temp=${max}C mode=${mode} high=${HIGH} low=${LOW} load=${LOAD} cool=${COOL} cap_pwm=${CAP_PWM:-none} load_pwm=${LOAD_PWM}"
+  if [ "$max" -ge "$HIGH" ] && [ "$mode" != full ]; then
+    set_full
+    log "set fan mode FULL: max_gpu_temp=${max}C"
+  elif [ "$max" -le "$LOW" ] && [ "$mode" = full ]; then
+    if [ "$max" -ge "$LOAD" ]; then
+      set_load
+    else
+      set_cap
+    fi
+    log "set fan mode $(current_mode): max_gpu_temp=${max}C"
+  elif [ "$mode" = "load:${LOAD_PWM}" ] && [ "$max" -le "$COOL" ]; then
+    set_cap
+    log "set fan mode $(current_mode): max_gpu_temp=${max}C"
+  elif [ "$mode" = "load:${LOAD_PWM}" ] && should_apply_pwm_state 1 "$LOAD_PWM" "$bmc_mode" "$zone0" "$zone1"; then
+    set_load
+    log "set fan mode $(current_mode): max_gpu_temp=${max}C bmc_mode=${bmc_mode:-unknown} zone0=${zone0:-unknown} zone1=${zone1:-unknown}"
+  elif [ "$mode" != full ] && [ "$max" -ge "$LOAD" ] \
+    && { [ "$mode" != "load:${LOAD_PWM}" ] || should_apply_pwm_state 1 "$LOAD_PWM" "$bmc_mode" "$zone0" "$zone1"; }; then
+    set_load
+    log "set fan mode $(current_mode): max_gpu_temp=${max}C bmc_mode=${bmc_mode:-unknown} zone0=${zone0:-unknown} zone1=${zone1:-unknown}"
+  elif [ -n "$CAP_PWM" ] \
+    && [ "$mode" != full ] \
+    && [ "$mode" != "load:${LOAD_PWM}" ] \
+    && { [ "$mode" != "cap:${CAP_PWM}" ] \
+      || should_apply_pwm_state "$(expected_cap_bmc_mode)" "$CAP_PWM" "$bmc_mode" "$zone0" "$zone1"; }; then
+    set_cap
+    log "set fan mode $(current_mode): max_gpu_temp=${max}C bmc_mode=${bmc_mode:-unknown} zone0=${zone0:-unknown} zone1=${zone1:-unknown}"
+  fi
+}
+
+if [ "$MODE" = status ]; then
+  emit_status
+  exit 0
+fi
+
+if [ "$MODE" = once ]; then
+  run_check_locked
+  exit 0
+fi
+
+log "starting daemon interval=${INTERVAL}s high=${HIGH}C low=${LOW}C load=${LOAD}C cool=${COOL}C cap_pwm=${CAP_PWM:-none} load_pwm=${LOAD_PWM} cap_mode=${CAP_MODE}"
+while true; do
+  run_check_locked || true
+  sleep "$INTERVAL"
+done
