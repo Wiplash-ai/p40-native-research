@@ -63,5 +63,14 @@ def score_branch(*, branch_id: str, evidence: list[dict[str, Any]]) -> BranchSco
 def rank_task(store: Any, task_id: str) -> list[dict[str, Any]]:
     """Rank task branches by hard evidence, with stable UUID tie-breaking."""
     task = store.task(task_id)
-    scored = [score_branch(branch_id=branch["id"], evidence=store.branch_evidence(branch["id"])) for branch in task["branches"]]
+    scored = []
+    for branch in task["branches"]:
+        score = score_branch(branch_id=branch["id"], evidence=store.branch_evidence(branch["id"]))
+        if branch["status"] == "pruned":
+            score = BranchScore(
+                branch_id=score.branch_id, decision="prune", score=-100,
+                passed_kinds=score.passed_kinds, failed_kinds=score.failed_kinds,
+                reasons=[*score.reasons, "branch was pruned after a failed attempt"],
+            )
+        scored.append(score)
     return [item.json() for item in sorted(scored, key=lambda item: (-item.score, item.branch_id))]
