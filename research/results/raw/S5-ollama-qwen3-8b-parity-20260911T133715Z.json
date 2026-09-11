@@ -1,0 +1,19 @@
+{
+  "baseline": {"changed_files": [], "duration_ms": 62, "exit_code": 1, "profile": "python-unittest", "stdout_sha256": "05221a8d5610e8807d1f0b1614b0ab4a99a0711c67365ba1454def0b47509e05"},
+  "endpoint": "http://127.0.0.1:11461/api/chat",
+  "error": null,
+  "finished_unix_s": 1789134235.2115738,
+  "kind": "isolated-controller-rendered-text-edit-corpus",
+  "model": "qwen3:8b",
+  "passed": true,
+  "proposal": {"edit_sha256": "b5be6b2b49b1cf8163fb76f16fd80f9a48331bc21424c11bb89decf29dd162aa", "eval_count": 68, "expected_text": "return value % 2 == 1", "path": "calculator.py", "prompt_eval_count": 256, "replacement_text": "return value % 2 == 0", "response_sha256": "85cb18844a34b71290c5fdebb495eb372af61a03505fa104a350decd8e27996d", "summary": "Fixed the modulo equality to correctly identify even numbers.", "validation_profile": "python-unittest"},
+  "schema_version": 1,
+  "stage": "S5",
+  "started_unix_s": 1789134220.919431,
+  "task": "parity",
+  "validation": {
+    "git-diff-check": {"changed_files": ["calculator.py"], "duration_ms": 3, "exit_code": 0, "profile": "git-diff-check", "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},
+    "python-unittest": {"changed_files": ["calculator.py"], "duration_ms": 70, "exit_code": 0, "profile": "python-unittest", "stdout_sha256": "624a9e974d1e8cef665687b570e7aa277343f48ce71f87dc3b52d64abdec19a8"}
+  },
+  "workspace_root": "/mnt/ai-ssd/p40-swarm/s5-driver-wvGk5LoT/s5-parity"
+}

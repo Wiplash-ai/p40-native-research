@@ -1,5 +1,22 @@
 # Experiment log
 
+## 2026-09-11 — S5 tiny executor corpus
+
+- Hypothesis: the controller-rendered exact-text-edit action surface remains
+  valid across several small, independent one-edit tasks.
+- Control: one temporary loopback Ollama worker on GPU 0, CUDA v12, 4K
+  context, `think=false`, seed 42, temperature 0, `keep_alive=0s`; Colibri
+  inactive; 70 C sampled abort threshold.
+- Result: parity, display-name whitespace, and currency grouping all passed
+  from failing baselines. Controller static and unit-test profiles ran on all
+  three even though two model proposals requested static-only validation.
+- Throughput: 246 decode tokens / 6.42236 s = 38.30 tok/s; per-task range
+  37.40–39.03 tok/s. GPU 0 peak: 5,713 MiB, 199.76 W, 51 C.
+- Decision: advance exact edits, not free-form diffs, to adversarial and
+  multi-file corpus design. Do not infer real repository reliability from this
+  curated three-task sample.
+- Evidence: `research/results/raw/S5-ollama-qwen3-8b-*.json`.
+
 ## 2026-09-11 — S3/S4 executor action protocol
 
 - Hypothesis: a schema-only small executor can produce a safe, testable code

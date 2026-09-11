@@ -1,9 +1,9 @@
 # S0/S1 — bounded swarm controller and first P40 executor baseline
 
 Date: 2026-09-11
-Status: Stage 0 pass; Stage 1 rate/plan gates pass; Stage 4 bounded fixture
-pass. Meaningful repository-task reliability and multi-slot quality gates
-remain pending.
+Status: Stage 0 pass; Stage 1 rate/plan gates pass; Stage 4 action-protocol
+pass; Stage 5 tiny corpus pass. Meaningful repository-task reliability and
+multi-slot quality gates remain pending.
 
 ## Hypotheses
 
@@ -155,18 +155,46 @@ decode tok/s; GPU 0 peaked at 5,713 MiB, 182.94 W, and 46 C, then unloaded to
 0 MiB. This clears one trivial fixture only. It does not establish real-repo
 success rate, safe scope selection, model diversity, or multi-worker quality.
 
+## S5 tiny corpus result
+
+S5 used the same temporary GPU 0 worker to run three independently-created
+fixture repositories sequentially: inverted parity, whitespace normalization,
+and currency grouping. Each baseline unit suite failed. The model saw only the
+files for its current fixture. The controller accepted one exact in-file
+replacement only after its expected text appeared exactly once, then always
+ran static diff validation and the unit suite regardless of the profile the
+model selected.
+
+All **3/3** fixtures passed. The two new tasks both had a model-requested
+`git-diff-check` profile, but controller-owned unit tests still passed. This
+is evidence that the validation policy, rather than the model's declared
+preference, controls promotion. It is not a statistically useful reliability
+estimate: the tasks are curated, small, Python-only, and all permit one
+replacement. The parity run repeats S4 under the same deterministic prompt;
+only the other two add new task content.
+
+| Task | Decode | Generated edit | Controller result |
+| --- | ---: | --- | --- |
+| Parity | 37.40 tok/s | `% 2 == 1` to `% 2 == 0` | pass |
+| Display-name whitespace | 38.31 tok/s | `.split(" ")` to `.split()` | pass |
+| Currency grouping | 39.03 tok/s | `:.2f` to `:,.2f` | pass |
+
+Across 246 decode tokens, the observed aggregate decode rate was 38.30 tok/s.
+GPU 0 peaked at 5,713 MiB, 199.76 W, 51 C, and 100% sampled utilization; it
+released VRAM after teardown. The 70 C abort gate never fired. This clears the
+tiny-corpus gate, not general executor quality.
+
 ## Decision
 
-The first executor candidate clears the P40 fit/rate, schema-plan, and one
-controller-rendered text-edit fixture gate. It does not yet clear repository
-task reliability, tool-use, diversity, concurrent-slot quality, or
+The first executor candidate clears the P40 fit/rate, schema-plan, exact-edit
+action-protocol, and tiny-corpus gates. It does not yet clear repository-task
+reliability, tool-use, diversity, concurrent-slot quality, or
 optimized-sidecar gates. Next:
 
-1. run a fixed multi-task repository corpus through controller-rendered,
-   worktree-isolated text edits, with the controller reviewing evidence before
-   promotion;
+1. add deliberately adversarial and multi-file fixtures that should fail the
+   one-edit contract, then measure accepted versus rejected outcomes;
 2. test corpus throughput and quality against the accepted two-worker topology
-   only after single-worker reliability is measured;
+   only after that single-worker safety/reliability gate;
 3. keep the Pascal-MMQ fork out of the executor adapter unless a future,
    controlled measurement clears a meaningful reproducible threshold.
 
@@ -184,4 +212,8 @@ optimized-sidecar gates. Next:
 - `research/results/raw/S2-dual-ollama-qwen3-8b-warm-20260911T055927Z.json`
 - `research/results/raw/S3-ollama-qwen3-8b-unified-patch-20260911T133112Z.json`
 - `research/results/raw/S4-ollama-qwen3-8b-text-edit-20260911T133204Z.json`
+- `research/results/raw/S5-ollama-qwen3-8b-parity-20260911T133715Z.json`
+- `research/results/raw/S5-ollama-qwen3-8b-display-name-whitespace-20260911T133730Z.json`
+- `research/results/raw/S5-ollama-qwen3-8b-currency-grouping-20260911T133742Z.json`
+- `research/results/raw/S5-ollama-qwen3-8b-run-20260911T133742Z.json`
 - `swarm/`, `tests/test_swarm_s0.py`, and `tests/test_swarm_ollama_bench.py`

@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "stage": "S5",
+  "model": "qwen3:8b",
+  "topology": "one temporary loopback Ollama worker on GPU 0; CUDA v12; 4K context; think=false; seed=42; temperature=0; keep_alive=0s",
+  "colibri_service": "inactive",
+  "thermal_abort": false,
+  "results": {"parity": 0, "display-name-whitespace": 0, "currency-grouping": 0},
+  "gpu0_peak": {"temperature_c": 51, "power_w": 199.76, "memory_mib": 5713, "utilization_pct": 100},
+  "decode": {
+    "parity": {"tokens": 68, "seconds": 1.81805, "tok_s": 37.4},
+    "display-name-whitespace": {"tokens": 92, "seconds": 2.40115, "tok_s": 38.31},
+    "currency-grouping": {"tokens": 86, "seconds": 2.20316, "tok_s": 39.03},
+    "aggregate": {"tokens": 246, "seconds": 6.42236, "tok_s": 38.3}
+  }
+}

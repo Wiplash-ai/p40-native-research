@@ -1,0 +1,19 @@
+{
+  "baseline": {"changed_files": [], "duration_ms": 62, "exit_code": 1, "profile": "python-unittest", "stdout_sha256": "c50b6ff8d88d83442f191ba070e137918b97b212a6943b3de8f81fa5d5e34563"},
+  "endpoint": "http://127.0.0.1:11461/api/chat",
+  "error": null,
+  "finished_unix_s": 1789134250.6751833,
+  "kind": "isolated-controller-rendered-text-edit-corpus",
+  "model": "qwen3:8b",
+  "passed": true,
+  "proposal": {"edit_sha256": "c4e68c2a60ae16ed7b8f523000511a6cb40fc75c2a7b68031524a18970d3e154", "eval_count": 92, "expected_text": "return \" \".join(part.capitalize() for part in value.strip().split(\" \"))", "path": "names.py", "prompt_eval_count": 274, "replacement_text": "return \" \".join(part.capitalize() for part in value.strip().split())", "response_sha256": "aec9155e3145fcd8ed811aeb889a35729b78be339ebbf5caa53f94070ac8534c", "summary": "Replace the split method with a regex split to handle multiple spaces correctly.", "validation_profile": "git-diff-check"},
+  "schema_version": 1,
+  "stage": "S5",
+  "started_unix_s": 1789134235.535527,
+  "task": "display-name-whitespace",
+  "validation": {
+    "git-diff-check": {"changed_files": ["names.py"], "duration_ms": 4, "exit_code": 0, "profile": "git-diff-check", "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},
+    "python-unittest": {"changed_files": ["names.py"], "duration_ms": 72, "exit_code": 0, "profile": "python-unittest", "stdout_sha256": "b3836a9d4e73b09924b7568ec3d9affa937a38875d7225aa52f303a2e94782fb"}
+  },
+  "workspace_root": "/mnt/ai-ssd/p40-swarm/s5-driver-wvGk5LoT/s5-display-name-whitespace"
+}
