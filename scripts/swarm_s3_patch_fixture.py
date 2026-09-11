@@ -69,6 +69,19 @@ def serialise_command(result) -> dict[str, object]:
     }
 
 
+def serialise_proposal(response) -> dict[str, object]:
+    proposal = response.proposal
+    return {
+        "summary": proposal.summary,
+        "validation_profile": proposal.validation_profile,
+        "patch": proposal.patch,
+        "patch_sha256": hashlib.sha256(proposal.patch.encode()).hexdigest(),
+        "response_sha256": response.response_sha256,
+        "prompt_eval_count": response.prompt_eval_count,
+        "eval_count": response.eval_count,
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--url", required=True, help="Private Ollama /api/chat endpoint")
@@ -84,36 +97,43 @@ def main() -> int:
     root.mkdir(parents=True)
     output.parent.mkdir(parents=True, exist_ok=True)
     started = time.time()
-    repo = create_fixture(root)
-    harness = BoundedHarness(
-        worktree_root=root / "worktrees",
-        artifact_root=root / "artifacts",
-    )
-    baseline_worktree = harness.prepare_worktree(
-        repo_path=repo, revision="HEAD", task_id=str(uuid.uuid4()), branch_id=str(uuid.uuid4()),
-    )
-    baseline = harness.run_profile(
-        worktree=baseline_worktree, attempt_id=str(uuid.uuid4()), profile="python-unittest",
-    )
-    files = {
-        "calculator.py": (repo / "calculator.py").read_text(),
-        "tests/test_calculator.py": (repo / "tests" / "test_calculator.py").read_text(),
-    }
-    response = OllamaPlanClient(url=args.url, timeout_s=240).request_patch(
-        model=args.model,
-        objective="Correct the parity implementation so the supplied unit tests pass.",
-        branch_hypothesis="The modulo equality is inverted.",
-        files=files,
-    )
-    proposal = response.proposal
-    candidate_worktree = harness.prepare_worktree(
-        repo_path=repo, revision="HEAD", task_id=str(uuid.uuid4()), branch_id=str(uuid.uuid4()),
-    )
-    apply_unified_patch(worktree=str(candidate_worktree), patch=proposal.patch, allowed_paths=set(files))
-    validation = harness.run_profile(
-        worktree=candidate_worktree,
-        attempt_id=str(uuid.uuid4()), profile=proposal.validation_profile,
-    )
+    baseline = None
+    proposal = None
+    validation = None
+    error = None
+    try:
+        repo = create_fixture(root)
+        harness = BoundedHarness(
+            worktree_root=root / "worktrees",
+            artifact_root=root / "artifacts",
+        )
+        baseline_worktree = harness.prepare_worktree(
+            repo_path=repo, revision="HEAD", task_id=str(uuid.uuid4()), branch_id=str(uuid.uuid4()),
+        )
+        baseline = harness.run_profile(
+            worktree=baseline_worktree, attempt_id=str(uuid.uuid4()), profile="python-unittest",
+        )
+        files = {
+            "calculator.py": (repo / "calculator.py").read_text(),
+            "tests/test_calculator.py": (repo / "tests" / "test_calculator.py").read_text(),
+        }
+        response = OllamaPlanClient(url=args.url, timeout_s=240).request_patch(
+            model=args.model,
+            objective="Correct the parity implementation so the supplied unit tests pass.",
+            branch_hypothesis="The modulo equality is inverted.",
+            files=files,
+        )
+        proposal = serialise_proposal(response)
+        candidate_worktree = harness.prepare_worktree(
+            repo_path=repo, revision="HEAD", task_id=str(uuid.uuid4()), branch_id=str(uuid.uuid4()),
+        )
+        apply_unified_patch(worktree=str(candidate_worktree), patch=response.proposal.patch, allowed_paths=set(files))
+        validation = harness.run_profile(
+            worktree=candidate_worktree, attempt_id=str(uuid.uuid4()),
+            profile=response.proposal.validation_profile,
+        )
+    except Exception as exc:
+        error = {"kind": type(exc).__name__, "message": str(exc)}
     payload = {
         "schema_version": 1,
         "stage": "S3",
@@ -123,24 +143,18 @@ def main() -> int:
         "model": response.model,
         "endpoint": args.url,
         "fixture": "inverted-parity-predicate",
-        "baseline": serialise_command(baseline),
-        "proposal": {
-            "summary": proposal.summary,
-            "validation_profile": proposal.validation_profile,
-            "patch": proposal.patch,
-            "patch_sha256": hashlib.sha256(proposal.patch.encode()).hexdigest(),
-            "response_sha256": response.response_sha256,
-            "prompt_eval_count": response.prompt_eval_count,
-            "eval_count": response.eval_count,
-        },
-        "validation": serialise_command(validation),
-        "passed": baseline.exit_code != 0 and validation.exit_code == 0,
+        "baseline": serialise_command(baseline) if baseline else None,
+        "proposal": proposal,
+        "validation": serialise_command(validation) if validation else None,
+        "error": error,
+        "passed": bool(baseline and validation and baseline.exit_code != 0 and validation.exit_code == 0),
         "workspace_root": str(root),
     }
     output.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
     print(json.dumps({
-        "output": str(output), "passed": payload["passed"],
-        "baseline_exit": baseline.exit_code, "validation_exit": validation.exit_code,
+        "output": str(output), "passed": payload["passed"], "error": error,
+        "baseline_exit": baseline.exit_code if baseline else None,
+        "validation_exit": validation.exit_code if validation else None,
     }, sort_keys=True))
     return 0 if payload["passed"] else 2
 
