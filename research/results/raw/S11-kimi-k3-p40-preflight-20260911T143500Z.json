@@ -1,0 +1,72 @@
+{
+  "stage": "S11",
+  "date": "2026-09-11",
+  "title": "Kimi K3 P40 Vulkan preflight",
+  "scope": "isolated tiny-checkpoint engine and backend validation only",
+  "source": {
+    "server_colibri_commit": "12a5c46",
+    "worktree": "/mnt/ai-ssd/p40-kimi-k3-preflight",
+    "build": "make VK=1 kimi-k3-tiny-check"
+  },
+  "host": {
+    "ram_visible_gib": 503,
+    "ai_ssd_free_gib": 178,
+    "gpus": [
+      "Tesla P40",
+      "Tesla P40"
+    ],
+    "nvidia_driver": "580.173.02",
+    "vulkan_driver": "580.173.02",
+    "vulkan_devices": [
+      "Tesla P40",
+      "Tesla P40",
+      "llvmpipe"
+    ]
+  },
+  "dependencies_added": [
+    "glslc",
+    "libshaderc1",
+    "libvulkan-dev",
+    "vulkan-tools"
+  ],
+  "tests": {
+    "cpu_tiny_oracle": {
+      "passed": true,
+      "checks": [
+        "greedy",
+        "chunked greedy",
+        "teacher forcing",
+        "determinism",
+        "oracle corruption sensitivity",
+        "recurrent-state checkpoint restore"
+      ]
+    },
+    "vulkan_tiny_oracle": {
+      "passed": true,
+      "backend_log": "[VK] ready: Tesla P40, compute qfam 0",
+      "result": "same tiny oracle and checkpoint checks passed"
+    },
+    "tiny_manual_decode": {
+      "input_ids": 4,
+      "generated_tokens": 8,
+      "reported_decode_tok_s": 621.04,
+      "meaning": "toy fixture only; not applicable to full Kimi K3"
+    }
+  },
+  "full_model": {
+    "checkpoint_present": false,
+    "full_model_tokens_per_second": null,
+    "blocker": "The original Kimi K3 source checkpoint is approximately 1.56 TB, while the available AI SSD capacity is approximately 178 GiB."
+  },
+  "architecture_finding": {
+    "path": "Kimi K3 uses Colibri Vulkan, not the Qwen CUDA tier.",
+    "active_device": "The tiny Vulkan run selected physical GPU 0.",
+    "multi_gpu": "The generic backend has a second-device primitive, but the inspected Kimi K3 engine does not wire it."
+  },
+  "thermal_after": {
+    "gpu0_c": 36,
+    "gpu1_c": 37,
+    "vram_used_mib_each": 0
+  },
+  "decision": "Do not download, install, enable, or claim a Kimi K3 service or speed result until a dedicated fast volume with at least 2 TB usable capacity is attached and the complete checkpoint is present."
+}

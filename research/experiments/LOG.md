@@ -1,5 +1,19 @@
 # Experiment log
 
+## 2026-09-11 — S11 Kimi K3 P40 Vulkan preflight
+
+- Hypothesis: the installed driver and P40s can execute Colibri's K3 Vulkan
+  implementation correctly enough to justify future full-checkpoint work.
+- Result: the isolated `VK=1` K3 tiny oracle passed deterministic greedy,
+  chunked, teacher-forced, corruption, and recurrent-state tests. Vulkan
+  initialized physical P40 GPU 0 and generated eight toy-fixture tokens.
+- Constraint: K3's full source checkpoint is about 1.56 TB; only about 178
+  GiB was free and no checkpoint is staged. The generic Vulkan backend has a
+  second-device primitive, but inspected K3 source does not wire it.
+- Decision: no full-model throughput claim and no enabled K3 service. Keep a
+  separate loopback-only service template ready for an at-least-2-TB fast
+  storage preflight.
+
 ## 2026-09-11 — S10 trusted executor-artifact ingestion
 
 - Hypothesis: the controller can ingest a completed bounded executor artifact

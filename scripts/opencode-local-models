@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+export OPENCODE_CONFIG="$ROOT/opencode/wiplash-local-models.json"
+exec opencode "$@"
