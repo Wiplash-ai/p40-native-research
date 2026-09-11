@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "stage": "S8",
+  "topology": {
+    "gpu0": {"model": "qwen3:8b", "port": 11471, "task": "currency-grouping", "forced_backend": "cuda_v12"},
+    "gpu1": {"model": "qwen3-coder-normal-30b-16k:latest", "port": 11472, "task": "multifile-timeout", "forced_backend": "cuda_v12"}
+  },
+  "context": 4096,
+  "think": false,
+  "seed": 42,
+  "temperature": 0,
+  "keep_alive": "5m",
+  "colibri_service": "inactive",
+  "warm": {"qwen8": {"prompt_eval_count": 17, "eval_count": 1}, "coder30": {"prompt_eval_count": 9, "eval_count": 1}},
+  "task_results": {"qwen8": 0, "coder30": 0},
+  "controller_task_wall_s": 4.308604,
+  "per_worker": {
+    "qwen8": {"prompt_tokens": 291, "prompt_seconds": 0.40591, "prompt_tok_s": 716.9, "decode_tokens": 86, "decode_seconds": 2.30159, "decode_tok_s": 37.37},
+    "coder30": {"prompt_tokens": 274, "prompt_seconds": 0.39871, "prompt_tok_s": 687.22, "decode_tokens": 93, "decode_seconds": 1.90507, "decode_tok_s": 48.82}
+  },
+  "sampled_gpu_peaks": {
+    "gpu0": {"temperature_c": 50, "power_w": 186.03, "memory_mib": 5713, "utilization_pct": 100},
+    "gpu1": {"temperature_c": 51, "power_w": 187.59, "memory_mib": 17533, "utilization_pct": 99}
+  },
+  "thermal_abort": false,
+  "note": "Warm-up cold-load time is excluded from controller_task_wall_s. Per-worker decode rates are reported directly by each independent server; their sum is not a precise aggregate wall-clock rate because prompt/decode intervals are not perfectly aligned."
+}

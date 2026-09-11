@@ -4,7 +4,8 @@ Date: 2026-09-11
 Status: Stage 0 pass; Stage 1 rate/plan gates pass; Stage 4 action-protocol
 pass; Stage 5 tiny corpus pass; Stage 6 multi-file pass/rejection evidence.
 Stage 7 heterogeneous-worker single-task pass. Meaningful repository-task
-reliability and multi-slot quality gates remain pending.
+reliability gates remain pending; Stage 8 warm heterogeneous two-worker
+quality gate passes.
 
 ## Hypotheses
 
@@ -225,6 +226,29 @@ and model family differ. Cold loading dominated end-to-end wall time. The next
 measurement must keep both candidates warm and test simultaneous useful tasks
 on separate P40s.
 
+## S8 warm heterogeneous two-worker result
+
+Two separate temporary loopback Ollama workers were pinned one-per-card and
+prewarmed with `keep_alive=5m`: `qwen3:8b` on GPU 0 and Qwen3-Coder 30B-A3B
+on GPU 1. They then received independent controller-rendered text-edit tasks
+at the same time. Both had failing baselines, edited only their listed
+implementation path, and passed controller static plus unit-test profiles.
+
+| Worker | Task | Decode | Prompt | Result |
+| --- | --- | ---: | ---: | --- |
+| GPU 0, Qwen3 8B | Currency grouping | 37.37 tok/s | 716.90 tok/s | pass |
+| GPU 1, Qwen3-Coder 30B-A3B | Multi-file timeout | 48.82 tok/s | 687.22 tok/s | pass |
+
+Both controller task runs returned within **4.309 s** of their common start,
+including fixture Git setup, model API work, patch validation, and tests but
+excluding cold prewarm/loading. Peak sampled temperatures were 50 C and 51 C;
+VRAM peaks were 5,713 MiB and 17,533 MiB. No thermal abort fired. The direct
+per-worker decode rates held near their isolated measurements, so this run
+supports concurrent independent executor streams on two PCIe P40s. It does
+not establish continuous-batching behavior, a production SLO, or general task
+quality. The sum of rates is not treated as exact aggregate decode throughput
+because the workers' prompt and decode intervals do not perfectly align.
+
 ## Decision
 
 The first executor candidate clears the P40 fit/rate, schema-plan, exact-edit
@@ -232,10 +256,10 @@ action-protocol, and tiny-corpus gates. It does not yet clear repository-task
 reliability, tool-use, diversity, concurrent-slot quality, or
 optimized-sidecar gates. Next:
 
-1. test warm, simultaneous `qwen3:8b` GPU 0 and Qwen3-Coder GPU 1 tasks with
-   independent quality evidence and explicit aggregate timing;
-2. add larger, adversarial fixtures and measure accepted versus rejected
+1. add larger, adversarial fixtures and measure accepted versus rejected
    outcomes;
+2. test controller scheduling/evidence scoring before allocating work across
+   the now-validated two-worker topology;
 3. keep the Pascal-MMQ fork out of the executor adapter unless a future,
    controlled measurement clears a meaningful reproducible threshold.
 
@@ -262,4 +286,7 @@ optimized-sidecar gates. Next:
 - `research/results/raw/S6-ollama-qwen3-8b-run-20260911T134304Z.json`
 - `research/results/raw/S7-ollama-qwen3-coder-30b-gpu1-20260911T134600Z.json`
 - `research/results/raw/S7-ollama-qwen3-coder-30b-gpu1-run-20260911T134600Z.json`
+- `research/results/raw/S8-ollama-qwen3-8b-gpu0-currency-20260911T140035Z.json`
+- `research/results/raw/S8-ollama-qwen3-coder-30b-gpu1-timeout-20260911T140035Z.json`
+- `research/results/raw/S8-ollama-heterogeneous-warm-run-20260911T140035Z.json`
 - `swarm/`, `tests/test_swarm_s0.py`, and `tests/test_swarm_ollama_bench.py`

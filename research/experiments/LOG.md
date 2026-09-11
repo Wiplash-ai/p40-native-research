@@ -1,5 +1,25 @@
 # Experiment log
 
+## 2026-09-11 — S8 warm heterogeneous two-worker quality run
+
+- Hypothesis: two independently pinned P40 workers can run useful,
+  heterogeneous bounded executor tasks at the same time without a material
+  single-worker decode regression.
+- Control: temporary loopback Ollama workers; GPU 0 Qwen3 8B / GPU 1
+  Qwen3-Coder 30B-A3B; forced CUDA v12; 4K contexts; `think=false`, seed 42,
+  temperature 0; prewarm and request `keep_alive=5m`; Colibri inactive;
+  70 C abort threshold.
+- Result: both tasks passed controller-owned static and unit-test validation.
+  Qwen3 8B decoded 86 tokens at 37.37 tok/s. Qwen3-Coder decoded 93 at 48.82
+  tok/s. Both controller task runs returned within 4.309 s after the shared
+  warm start, excluding cold load.
+- Thermal: GPU 0 peak 50 C / 5,713 MiB; GPU 1 peak 51 C / 17,533 MiB. No
+  abort. The direct rates stay close to isolated measurements.
+- Decision: use this as the executor-host baseline. Next is controller
+  scheduling and evidence scoring, then broader task corpus—not a production
+  concurrency claim.
+- Evidence: `research/results/raw/S8-ollama-*.json`.
+
 ## 2026-09-11 — S7 Qwen3-Coder heterogenous executor candidate
 
 - Hypothesis: an already-staged Qwen3-Coder 30B-A3B model can fit one P40 and

@@ -1,0 +1,19 @@
+{
+  "baseline": {"changed_files": [], "duration_ms": 68, "exit_code": 1, "profile": "python-unittest", "stdout_sha256": "04636e7edf63130836784d67b67b1d7684668efa3bbedd9f8b248c1c5c4ac06f"},
+  "endpoint": "http://127.0.0.1:11472/api/chat",
+  "error": null,
+  "finished_unix_s": 1789135238.521381,
+  "kind": "isolated-controller-rendered-text-edit-corpus",
+  "model": "qwen3-coder-normal-30b-16k:latest",
+  "passed": true,
+  "proposal": {"edit_sha256": "75886c683abb6fa043d786b722f88253edc7c1402bbcfcb5b9d2bef6d528f773", "eval_count": 93, "expected_text": "def timeout_seconds():\n    return DEFAULT_TIMEOUT_MS // 1000\n", "path": "service.py", "prompt_eval_count": 275, "replacement_text": "def timeout_seconds():\n    return DEFAULT_TIMEOUT_MS / 1000\n", "response_sha256": "e63a23ba647bb8caaece0f2669e4508442ff5f7d676d80ebd7386ee403564dee", "summary": "Fix integer floor division issue in timeout_seconds function to preserve fractional seconds", "validation_profile": "git-diff-check"},
+  "schema_version": 1,
+  "stage": "S5",
+  "started_unix_s": 1789135235.2198517,
+  "task": "multifile-timeout",
+  "validation": {
+    "git-diff-check": {"changed_files": ["service.py"], "duration_ms": 3, "exit_code": 0, "profile": "git-diff-check", "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},
+    "python-unittest": {"changed_files": ["service.py"], "duration_ms": 81, "exit_code": 0, "profile": "python-unittest", "stdout_sha256": "bba0f8300b1d5927d0e7c3154620b037cb34634b2dcda561ecdb128952d6b43f"}
+  },
+  "workspace_root": "/mnt/ai-ssd/p40-swarm/s8-driver-TELZPDl5/s8-coder30"
+}

@@ -1,0 +1,19 @@
+{
+  "baseline": {"changed_files": [], "duration_ms": 69, "exit_code": 1, "profile": "python-unittest", "stdout_sha256": "2e4246e79d346c967e664c7e83c30c0c965ca624126d2f0789c953ed184231c3"},
+  "endpoint": "http://127.0.0.1:11471/api/chat",
+  "error": null,
+  "finished_unix_s": 1789135239.0966246,
+  "kind": "isolated-controller-rendered-text-edit-corpus",
+  "model": "qwen3:8b",
+  "passed": true,
+  "proposal": {"edit_sha256": "5c81752328bb13aaf2a253d98f910a7dda0aaa763ae59f920d73ed92ebe8a39d", "eval_count": 86, "expected_text": "return f\"${cents / 100:.2f}\"\n", "path": "currency.py", "prompt_eval_count": 292, "replacement_text": "return f\"${cents / 100:,.2f}\"\n", "response_sha256": "a4371f4ef3524c71dce84014c9f358d3fea1fa6f49189f162b882507b69469ff", "summary": "Add grouping comma to the numeric format specifier", "validation_profile": "git-diff-check"},
+  "schema_version": 1,
+  "stage": "S5",
+  "started_unix_s": 1789135235.2201324,
+  "task": "currency-grouping",
+  "validation": {
+    "git-diff-check": {"changed_files": ["currency.py"], "duration_ms": 2, "exit_code": 0, "profile": "git-diff-check", "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},
+    "python-unittest": {"changed_files": ["currency.py"], "duration_ms": 70, "exit_code": 0, "profile": "python-unittest", "stdout_sha256": "5ab9b13562c4519907ecf11436d0757e7458396dee95be4f10e5269be876cb66"}
+  },
+  "workspace_root": "/mnt/ai-ssd/p40-swarm/s8-driver-TELZPDl5/s8-qwen8"
+}
