@@ -1,5 +1,22 @@
 # Experiment log
 
+## 2026-09-11 — S7 Qwen3-Coder heterogenous executor candidate
+
+- Hypothesis: an already-staged Qwen3-Coder 30B-A3B model can fit one P40 and
+  produce valid controller-rendered edit evidence, providing a second model
+  family for future heterogeneous executor tests.
+- Control: temporary loopback Ollama worker, physical GPU 1 only,
+  `CUDA_VISIBLE_DEVICES=1`, forced CUDA v12, 4K context, `think=false`, seed
+  42, temperature 0, `keep_alive=0s`; Colibri inactive; 70 C abort threshold.
+- Result: all 49 layers offloaded. The multi-file timeout task passed with the
+  correct implementation-file edit. Decode: 93 / 1.96303 s = 47.38 tok/s;
+  prompt: 275 / 10.83318 s = 25.38 tok/s. Observed allocation/peak temperature:
+  17,533 MiB / 47 C.
+- Decision: candidate is eligible for a warm two-worker quality measurement;
+  do not treat its cold request wall time or a single task as a general
+  performance claim.
+- Evidence: `research/results/raw/S7-ollama-qwen3-coder-30b-gpu1-*.json`.
+
 ## 2026-09-11 — S6 multi-file and rejection controls
 
 - Hypothesis: one exact text edit can safely select the right implementation

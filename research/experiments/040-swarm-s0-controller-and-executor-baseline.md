@@ -3,8 +3,8 @@
 Date: 2026-09-11
 Status: Stage 0 pass; Stage 1 rate/plan gates pass; Stage 4 action-protocol
 pass; Stage 5 tiny corpus pass; Stage 6 multi-file pass/rejection evidence.
-Meaningful repository-task reliability and multi-slot quality gates remain
-pending.
+Stage 7 heterogeneous-worker single-task pass. Meaningful repository-task
+reliability and multi-slot quality gates remain pending.
 
 ## Hypotheses
 
@@ -207,6 +207,24 @@ failure prevents the unit-test profile from promoting it. GPU 0 peaked at
 5,713 MiB, 202.79 W, and 50 C across the two requests; the 70 C gate did not
 fire.
 
+## S7 heterogeneous executor candidate
+
+The server already contained `qwen3-coder-normal-30b-16k:latest`, a 16.45 GiB
+Q4_K_M Qwen3-Coder 30B-A3B GGUF. A temporary loopback Ollama worker was pinned
+to physical GPU 1 with `CUDA_VISIBLE_DEVICES=1` and
+`OLLAMA_LLM_LIBRARY=cuda_v12`. It offloaded all 49 layers and completed the
+same multi-file timeout fixture with the correct `service.py` edit and both
+controller profiles passing.
+
+The observed decode rate was **47.38 tok/s** (93 tokens / 1.96303 s), while
+prompt processing was 25.38 tok/s (275 tokens / 10.83318 s). GPU 1's model
+buffer was 16,674 MiB; observed peak allocation was 17,533 MiB and peak
+temperature was 47 C. This is an encouraging single request, not a general
+speed ranking against `qwen3:8b`: request shape, response length, model load,
+and model family differ. Cold loading dominated end-to-end wall time. The next
+measurement must keep both candidates warm and test simultaneous useful tasks
+on separate P40s.
+
 ## Decision
 
 The first executor candidate clears the P40 fit/rate, schema-plan, exact-edit
@@ -214,10 +232,10 @@ action-protocol, and tiny-corpus gates. It does not yet clear repository-task
 reliability, tool-use, diversity, concurrent-slot quality, or
 optimized-sidecar gates. Next:
 
-1. add larger, adversarial fixtures and measure accepted versus rejected
+1. test warm, simultaneous `qwen3:8b` GPU 0 and Qwen3-Coder GPU 1 tasks with
+   independent quality evidence and explicit aggregate timing;
+2. add larger, adversarial fixtures and measure accepted versus rejected
    outcomes;
-2. test corpus throughput and quality against the accepted two-worker topology
-   only after that single-worker safety/reliability gate;
 3. keep the Pascal-MMQ fork out of the executor adapter unless a future,
    controlled measurement clears a meaningful reproducible threshold.
 
@@ -242,4 +260,6 @@ optimized-sidecar gates. Next:
 - `research/results/raw/S6-ollama-qwen3-8b-multifile-timeout-20260911T134249Z.json`
 - `research/results/raw/S6-ollama-qwen3-8b-two-file-required-20260911T134304Z.json`
 - `research/results/raw/S6-ollama-qwen3-8b-run-20260911T134304Z.json`
+- `research/results/raw/S7-ollama-qwen3-coder-30b-gpu1-20260911T134600Z.json`
+- `research/results/raw/S7-ollama-qwen3-coder-30b-gpu1-run-20260911T134600Z.json`
 - `swarm/`, `tests/test_swarm_s0.py`, and `tests/test_swarm_ollama_bench.py`

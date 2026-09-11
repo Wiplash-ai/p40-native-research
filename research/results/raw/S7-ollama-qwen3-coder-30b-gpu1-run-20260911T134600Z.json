@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "stage": "S7",
+  "model": "qwen3-coder-normal-30b-16k:latest",
+  "topology": "one temporary loopback Ollama worker on physical GPU 1; CUDA_VISIBLE_DEVICES=1; OLLAMA_LLM_LIBRARY=cuda_v12; 4K context; think=false; seed=42; temperature=0; keep_alive=0s",
+  "colibri_service": "inactive",
+  "thermal_abort": false,
+  "result": 0,
+  "gpu1_peak": {"model_mib": 16674.37, "observed_memory_mib": 17533, "temperature_c": 47, "power_w": 134.55, "utilization_pct": 84},
+  "timing": {"prompt_tokens": 275, "prompt_seconds": 10.83318, "prompt_tok_s": 25.38, "decode_tokens": 93, "decode_seconds": 1.96303, "decode_tok_s": 47.38, "total_seconds_excluding_model_load": 12.79621},
+  "note": "End-to-end wall time also includes cold model load; do not compare it with decode throughput."
+}
