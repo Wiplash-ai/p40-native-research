@@ -76,6 +76,7 @@ class ExecutorPlanTests(unittest.TestCase):
         self.assertEqual(result.proposal, validate_patch_proposal(PATCH))
         self.assertEqual(result.proposal.validation_profile, "python-unittest")
         self.assertFalse(patch_schema()["additionalProperties"])
+        self.assertNotIn("maxLength", patch_schema()["properties"]["patch"])
 
     def test_patch_is_limited_to_a_disposable_worktree(self):
         with tempfile.TemporaryDirectory() as temp:

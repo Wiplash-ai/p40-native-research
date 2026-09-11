@@ -81,7 +81,11 @@ def patch_schema() -> dict[str, Any]:
         "required": list(PATCH_FIELDS),
         "properties": {
             "summary": {"type": "string", "minLength": 8, "maxLength": MAX_FIELD_CHARS},
-            "patch": {"type": "string", "minLength": 40, "maxLength": 32 * 1024},
+            # Ollama lowers maxLength into GBNF repetition.  Its parser rejects
+            # the 32K bound before model execution.  The host-side validator
+            # retains MAX_PATCH_CHARS, so omit only the transport-level upper
+            # bound here.
+            "patch": {"type": "string", "minLength": 40},
             "validation_profile": {"type": "string", "enum": sorted(COMMAND_PROFILES)},
         },
     }
