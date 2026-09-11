@@ -1,0 +1,19 @@
+{
+  "baseline": {"changed_files": [], "duration_ms": 72, "exit_code": 1, "profile": "python-unittest", "stdout_sha256": "31d06faf71ec796871588e58885b5e3caf532baa94376e09e12ba71032d1b009"},
+  "endpoint": "http://127.0.0.1:11461/api/chat",
+  "error": null,
+  "finished_unix_s": 1789134569.8121061,
+  "kind": "isolated-controller-rendered-text-edit-corpus",
+  "model": "qwen3:8b",
+  "passed": true,
+  "proposal": {"edit_sha256": "771e3ad168545ac5a4723aff1a02a3b7d62a247c3084562365ac08038b451eb6", "eval_count": 73, "expected_text": "return DEFAULT_TIMEOUT_MS // 1000", "path": "service.py", "prompt_eval_count": 283, "replacement_text": "return DEFAULT_TIMEOUT_MS / 1000", "response_sha256": "ce25e295cdfadda534426e949a3168e9a94ee0d6857d80c47eca9805c4b7878b", "summary": "Fix integer division to preserve fractional seconds in timeout calculation", "validation_profile": "python-unittest"},
+  "schema_version": 1,
+  "stage": "S5",
+  "started_unix_s": 1789134558.8768604,
+  "task": "multifile-timeout",
+  "validation": {
+    "git-diff-check": {"changed_files": ["service.py"], "duration_ms": 3, "exit_code": 0, "profile": "git-diff-check", "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},
+    "python-unittest": {"changed_files": ["service.py"], "duration_ms": 69, "exit_code": 0, "profile": "python-unittest", "stdout_sha256": "bba0f8300b1d5927d0e7c3154620b037cb34634b2dcda561ecdb128952d6b43f"}
+  },
+  "workspace_root": "/mnt/ai-ssd/p40-swarm/s6-driver-nDF9H4yx/s6-multifile-timeout"
+}

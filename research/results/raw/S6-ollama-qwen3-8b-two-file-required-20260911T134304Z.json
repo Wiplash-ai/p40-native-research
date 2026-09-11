@@ -1,0 +1,16 @@
+{
+  "baseline": {"changed_files": [], "duration_ms": 59, "exit_code": 1, "profile": "python-unittest", "stdout_sha256": "e29aa553bf28d16ffb12d605da2946778bca55b4e22eec369c7d5022065cf21f"},
+  "endpoint": "http://127.0.0.1:11461/api/chat",
+  "error": {"kind": "ExecutorPlanError", "message": "edit must replace non-empty, distinct text"},
+  "finished_unix_s": 1789134584.500716,
+  "kind": "isolated-controller-rendered-text-edit-corpus",
+  "model": "qwen3:8b",
+  "passed": false,
+  "proposal": null,
+  "schema_version": 1,
+  "stage": "S5",
+  "started_unix_s": 1789134570.2920492,
+  "task": "two-file-required",
+  "validation": null,
+  "workspace_root": "/mnt/ai-ssd/p40-swarm/s6-driver-nDF9H4yx/s6-two-file-required"
+}

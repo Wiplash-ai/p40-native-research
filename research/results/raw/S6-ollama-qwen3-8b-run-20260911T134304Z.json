@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "stage": "S6",
+  "model": "qwen3:8b",
+  "topology": "one temporary loopback Ollama worker on GPU 0; CUDA v12; 4K context; think=false; seed=42; temperature=0; keep_alive=0s",
+  "colibri_service": "inactive",
+  "thermal_abort": false,
+  "results": {"multifile-timeout": 0, "two-file-required": 2},
+  "gpu0_peak": {"temperature_c": 50, "power_w": 202.79, "memory_mib": 5713, "utilization_pct": 98},
+  "decode": {
+    "multifile-timeout": {"tokens": 73, "seconds": 1.90262, "tok_s": 38.37},
+    "two-file-required": {"tokens": 63, "seconds": 1.71015, "tok_s": 36.84}
+  }
+}

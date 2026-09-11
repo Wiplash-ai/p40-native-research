@@ -1,5 +1,22 @@
 # Experiment log
 
+## 2026-09-11 — S6 multi-file and rejection controls
+
+- Hypothesis: one exact text edit can safely select the right implementation
+  file from multi-file context, while non-compliant proposals do not write or
+  promote.
+- Control: same temporary GPU 0 Ollama worker and sampling policy as S5; test
+  files were supplied as read-only context and excluded from editable paths.
+- Positive result: the multi-file timeout task passed. The model changed
+  `service.py` floor division to true division; controller static and unit
+  profiles passed. Decode: 73 tokens at 38.37 tok/s.
+- Negative result: two-file-required produced a no-op edit rejected by host
+  validation before a write. It did not promote. Decode: 63 tokens at 36.84
+  tok/s. A local synthetic control then applied one valid primary-file edit and
+  confirmed the remaining test failure prevents promotion.
+- GPU 0 peak: 5,713 MiB, 202.79 W, 50 C; no thermal abort.
+- Evidence: `research/results/raw/S6-ollama-qwen3-8b-*.json`.
+
 ## 2026-09-11 — S5 tiny executor corpus
 
 - Hypothesis: the controller-rendered exact-text-edit action surface remains

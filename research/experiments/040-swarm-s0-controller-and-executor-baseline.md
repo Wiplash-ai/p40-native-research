@@ -2,8 +2,9 @@
 
 Date: 2026-09-11
 Status: Stage 0 pass; Stage 1 rate/plan gates pass; Stage 4 action-protocol
-pass; Stage 5 tiny corpus pass. Meaningful repository-task reliability and
-multi-slot quality gates remain pending.
+pass; Stage 5 tiny corpus pass; Stage 6 multi-file pass/rejection evidence.
+Meaningful repository-task reliability and multi-slot quality gates remain
+pending.
 
 ## Hypotheses
 
@@ -184,6 +185,28 @@ GPU 0 peaked at 5,713 MiB, 199.76 W, 51 C, and 100% sampled utilization; it
 released VRAM after teardown. The 70 C abort gate never fired. This clears the
 tiny-corpus gate, not general executor quality.
 
+## S6 multi-file and rejection controls
+
+S6 reused the S5 corpus driver after it was hardened to designate implementation
+paths as editable and test paths as read-only context. A model can therefore
+see test expectations but cannot satisfy them by modifying a test. The payloads
+retain the driver-reported `stage: S5`; S6 is the experiment label for this
+separate run.
+
+The multi-file timeout fixture supplied configuration, implementation, and
+test files. `qwen3:8b` selected the correct editable `service.py` line and
+replaced floor division with true division. Both controller profiles passed.
+It used 283 prompt and 73 decode tokens at 38.37 tok/s.
+
+The two-file-required fixture cannot pass with one text replacement. The model
+returned an invalid no-op edit, rejected by host validation before any file
+write. It used 294 prompt and 63 decode tokens at 36.84 tok/s. This is a safe
+non-promotion result. A local synthetic control also applied one valid primary
+file edit to the same fixture and confirmed that the remaining secondary-file
+failure prevents the unit-test profile from promoting it. GPU 0 peaked at
+5,713 MiB, 202.79 W, and 50 C across the two requests; the 70 C gate did not
+fire.
+
 ## Decision
 
 The first executor candidate clears the P40 fit/rate, schema-plan, exact-edit
@@ -191,8 +214,8 @@ action-protocol, and tiny-corpus gates. It does not yet clear repository-task
 reliability, tool-use, diversity, concurrent-slot quality, or
 optimized-sidecar gates. Next:
 
-1. add deliberately adversarial and multi-file fixtures that should fail the
-   one-edit contract, then measure accepted versus rejected outcomes;
+1. add larger, adversarial fixtures and measure accepted versus rejected
+   outcomes;
 2. test corpus throughput and quality against the accepted two-worker topology
    only after that single-worker safety/reliability gate;
 3. keep the Pascal-MMQ fork out of the executor adapter unless a future,
@@ -216,4 +239,7 @@ optimized-sidecar gates. Next:
 - `research/results/raw/S5-ollama-qwen3-8b-display-name-whitespace-20260911T133730Z.json`
 - `research/results/raw/S5-ollama-qwen3-8b-currency-grouping-20260911T133742Z.json`
 - `research/results/raw/S5-ollama-qwen3-8b-run-20260911T133742Z.json`
+- `research/results/raw/S6-ollama-qwen3-8b-multifile-timeout-20260911T134249Z.json`
+- `research/results/raw/S6-ollama-qwen3-8b-two-file-required-20260911T134304Z.json`
+- `research/results/raw/S6-ollama-qwen3-8b-run-20260911T134304Z.json`
 - `swarm/`, `tests/test_swarm_s0.py`, and `tests/test_swarm_ollama_bench.py`
