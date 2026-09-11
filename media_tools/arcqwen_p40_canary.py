@@ -66,6 +66,11 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo", required=True, help="Pinned ARC-Hunyuan-Video-7B checkout")
     parser.add_argument("--model", required=True, help="Local ARC-Qwen Narrator checkpoint")
+    parser.add_argument(
+        "--whisper-feature-extractor",
+        required=True,
+        help="Local directory containing Whisper preprocessor_config.json only",
+    )
     parser.add_argument("--video", required=True, help="Disposable canary proxy, never canonical media")
     parser.add_argument("--output", required=True, help="JSON result path")
     parser.add_argument("--device", default="cuda:0")
@@ -83,12 +88,17 @@ def main() -> int:
 
     repo = Path(args.repo).resolve()
     model_path = Path(args.model).resolve()
+    whisper_feature_extractor = Path(args.whisper_feature_extractor).resolve()
     video_path = Path(args.video).resolve()
     output_path = Path(args.output).resolve()
     if not (repo / "vision_process.py").is_file():
         raise SystemExit(f"missing ARC source checkout: {repo}")
     if not (model_path / "config.json").is_file():
         raise SystemExit(f"missing ARC model checkpoint: {model_path}")
+    if not (whisper_feature_extractor / "preprocessor_config.json").is_file():
+        raise SystemExit(
+            f"missing Whisper feature-extractor metadata: {whisper_feature_extractor}"
+        )
     if not video_path.is_file():
         raise SystemExit(f"missing canary video: {video_path}")
 
@@ -124,6 +134,7 @@ def main() -> int:
         "precision": "float16",
         "attention": "sdpa",
         "model": str(model_path),
+        "whisper_feature_extractor": str(whisper_feature_extractor),
         "video": str(video_path),
         "video_sha256": sha256_file(video_path),
         "duration_seconds": round(duration, 3),
@@ -144,9 +155,12 @@ def main() -> int:
             local_files_only=True,
         ).eval()
         processor = AutoProcessor.from_pretrained(str(model_path), local_files_only=True)
-        # ARC stores the speech encoder in its own checkpoint.  This downloads
-        # only the feature-extractor metadata when it is not already cached.
-        wav_processor = WhisperFeatureExtractor.from_pretrained("openai/whisper-large-v3")
+        # ARC stores the speech encoder in its own checkpoint.  The separately
+        # stored file below is only Whisper feature-extractor metadata, not the
+        # multi-gigabyte Whisper model.
+        wav_processor = WhisperFeatureExtractor.from_pretrained(
+            str(whisper_feature_extractor), local_files_only=True
+        )
 
         audios, _ = load_audio_from_video(str(video_path))
         sample_rate = 16_000
