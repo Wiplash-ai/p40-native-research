@@ -1309,3 +1309,24 @@ ID, status, hypothesis, prediction, exact change, source/binary/model/prompt ide
 - Evidence: [E039](039-qwen-speculative-verifier-feasibility-gate.md),
   [T47 result](../results/T47-qwen-speculative-verifier-feasibility.md), and
   `tests/test_t47_qwen_speculative_gate.py`.
+
+## T48 — production Qwen3.6 API acceptance
+
+- Date: 2026-09-11.
+- Status: deployed and accepted; local-only system service.
+- Release: root-owned `/opt/colibri-qwen36-t24`, engine SHA-256
+  `009dd7daea34d65aba67aa442b79e7ff0d914642008ebd3b37b26a9f36a2ca64`,
+  sourced from the accepted T24 exact-Q8 path. The service binds only
+  `127.0.0.1:8000`, runs one KV slot, and has no network API exposure.
+- Validation: exact Q8 cache and QKV/Z pair markers, 10,240 VRAM-resident
+  experts, `/health`, `/v1/models`, OpenAI chat completion, and attached
+  `coli chat` all passed. A streamed 64-token request measured 1.630 s TTFT
+  and 16.136 visible tokens/s from first content to DONE; end-to-end was
+  11.436 tokens/s including prefill. Peak observed temperature was 50 C / 49 C
+  and peak observed power 104.27 W / 60.96 W.
+- Note: the launcher's `--gpu` validation queries its GLM artifact rather than
+  the Qwen binary, yielding a false CPU-only refusal. The unit sets the verified
+  `COLI_CUDA` and `COLI_GPUS` environment values directly; no Colibrì source
+  was changed.
+- Evidence: [T48 result](../results/T48-production-qwen36-api.md),
+  `deployment/`, and `tests/test_t48_production_deployment.py`.

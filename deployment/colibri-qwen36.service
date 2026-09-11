@@ -1,0 +1,23 @@
+[Unit]
+Description=Colibri Qwen3.6 35B-A3B local OpenAI-compatible API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=jordanculver
+Group=jordanculver
+WorkingDirectory=/opt/colibri-qwen36-t24
+EnvironmentFile=/etc/colibri/qwen36-t24.env
+ExecStart=/opt/colibri-qwen36-t24/c/coli serve --model /mnt/ai-ssd/huggingface/hub/models--Kreuzzelg--qwen36-35b-a3b-colibri-i4/snapshots/9ccfbfa09bc55410a9c9102558ee63077d8a477d --host 127.0.0.1 --port 8000 --model-id qwen3.6-35b-a3b-colibri-i4-p40 --ctx 8192 --cap 256 --ngen 512 --no-think --kv-slots 1 --max-queue 8 --queue-timeout 300
+Restart=on-failure
+RestartSec=15
+TimeoutStartSec=180
+TimeoutStopSec=45
+KillMode=control-group
+LimitNOFILE=4096
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
