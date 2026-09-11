@@ -1,0 +1,97 @@
+{
+  "aggregate_elapsed_s": 18.3309,
+  "aggregate_tokens": 92,
+  "aggregate_tokens_per_s": 5.018843730487382,
+  "completion_limit": 64,
+  "context": 4096,
+  "gpu_end": [
+    {
+      "index": 0,
+      "memory_mib": 0,
+      "power_w": 61.06,
+      "temperature_c": 49,
+      "utilization_pct": 68
+    },
+    {
+      "index": 1,
+      "memory_mib": 0,
+      "power_w": 61.49,
+      "temperature_c": 52,
+      "utilization_pct": 42
+    }
+  ],
+  "gpu_peak": [
+    {
+      "index": 0,
+      "memory_mib": 5713,
+      "power_w": 186.52,
+      "temperature_c": 50,
+      "utilization_pct": 100
+    },
+    {
+      "index": 1,
+      "memory_mib": 5713,
+      "power_w": 192.45,
+      "temperature_c": 53,
+      "utilization_pct": 100
+    }
+  ],
+  "gpu_start": [
+    {
+      "index": 0,
+      "memory_mib": 0,
+      "power_w": 11.13,
+      "temperature_c": 41,
+      "utilization_pct": 0
+    },
+    {
+      "index": 1,
+      "memory_mib": 0,
+      "power_w": 10.94,
+      "temperature_c": 45,
+      "utilization_pct": 0
+    }
+  ],
+  "model": "qwen3:8b",
+  "responses": [
+    {
+      "elapsed_s": 18.3269,
+      "eval_count": 46,
+      "eval_duration_s": 1.059751,
+      "eval_tokens_per_s": 43.40642282951372,
+      "port": 11441,
+      "response_sha256": "89078296f9fd53fa27888d5aff0b53213078d149ea89e555e2ec3cc262c665fa"
+    },
+    {
+      "elapsed_s": 18.3209,
+      "eval_count": 46,
+      "eval_duration_s": 1.056443,
+      "eval_tokens_per_s": 43.542339719227634,
+      "port": 11442,
+      "response_sha256": "89078296f9fd53fa27888d5aff0b53213078d149ea89e555e2ec3cc262c665fa"
+    }
+  ],
+  "schema_version": "swarm-dual-ollama-v1",
+  "started_at": "2026-09-11T05:56:46+00:00",
+  "status": "pass",
+  "thermal_limit_c": 70,
+  "variant": "two-isolated-ollama-cuda-v12",
+  "workers": [
+    {
+      "cuda_visible_devices": "0",
+      "log": "/tmp/S2-ollama-dual-gpu0.log",
+      "log_sha256": "15ba2861071bd5366fd7ed077ba793ecb4c3beb3c764e66cbc6dc910152fb3a6",
+      "ollama_llm_library": "cuda_v12",
+      "physical_gpu": 0,
+      "port": 11441
+    },
+    {
+      "cuda_visible_devices": "1",
+      "log": "/tmp/S2-ollama-dual-gpu1.log",
+      "log_sha256": "7b475f6f3f8cfb574b229c94499ab0255d760e129fe478f08a49ebf0fe9e1d66",
+      "ollama_llm_library": "cuda_v12",
+      "physical_gpu": 1,
+      "port": 11442
+    }
+  ]
+}\n

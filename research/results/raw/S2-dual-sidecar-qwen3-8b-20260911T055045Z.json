@@ -1,0 +1,107 @@
+{
+  "aggregate_elapsed_s": 1.53,
+  "aggregate_tokens": 128,
+  "aggregate_tokens_per_s": 83.65843146798863,
+  "completion_limit": 64,
+  "context": 4096,
+  "gpu_end": [
+    {
+      "index": 0,
+      "memory_mib": 0,
+      "power_w": 57.72,
+      "temperature_c": 44,
+      "utilization_pct": 3
+    },
+    {
+      "index": 1,
+      "memory_mib": 0,
+      "power_w": 57.06,
+      "temperature_c": 45,
+      "utilization_pct": 87
+    }
+  ],
+  "gpu_peak": [
+    {
+      "index": 0,
+      "memory_mib": 5661,
+      "power_w": 184.98,
+      "temperature_c": 46,
+      "utilization_pct": 98
+    },
+    {
+      "index": 1,
+      "memory_mib": 5661,
+      "power_w": 189.51,
+      "temperature_c": 47,
+      "utilization_pct": 98
+    }
+  ],
+  "gpu_start": [
+    {
+      "index": 0,
+      "memory_mib": 0,
+      "power_w": 11.33,
+      "temperature_c": 40,
+      "utilization_pct": 0
+    },
+    {
+      "index": 1,
+      "memory_mib": 0,
+      "power_w": 10.84,
+      "temperature_c": 40,
+      "utilization_pct": 0
+    }
+  ],
+  "log_sha256": [
+    "afc41941600f011e80293a56c11f4dbe0b32f75943b0d4d73f65461d66dd82ea",
+    "37b62f8aefdf3c1e28e80c61509c82a0deb60a8044a100465720d893cbc58ae4"
+  ],
+  "logs": [
+    "/tmp/S2-llama-dual-retry-gpu0.log",
+    "/tmp/S2-llama-dual-retry-gpu1.log"
+  ],
+  "model_sha256": "a3de86cd1c132c822487ededd47a324c50491393e6565cd14bafa40d0b8e686f",
+  "responses": [
+    {
+      "elapsed_s": 1.5214,
+      "port": 18101,
+      "response_sha256": "002c39100ab7e011d9ae9bd5e86e4bd8de722273040528c63b7ebee970e839f5",
+      "timings": {
+        "cache_n": 0,
+        "predicted_ms": 1412.101,
+        "predicted_n": 64,
+        "predicted_per_second": 45.3225371273018,
+        "predicted_per_token_ms": 22.064078125,
+        "prompt_ms": 104.698,
+        "prompt_n": 17,
+        "prompt_per_second": 162.37177405490078,
+        "prompt_per_token_ms": 6.15870588235294
+      },
+      "tokens_predicted": 64
+    },
+    {
+      "elapsed_s": 1.5249,
+      "port": 18102,
+      "response_sha256": "002c39100ab7e011d9ae9bd5e86e4bd8de722273040528c63b7ebee970e839f5",
+      "timings": {
+        "cache_n": 0,
+        "predicted_ms": 1417.673,
+        "predicted_n": 64,
+        "predicted_per_second": 45.144402129405016,
+        "predicted_per_token_ms": 22.151140625,
+        "prompt_ms": 103.248,
+        "prompt_n": 17,
+        "prompt_per_second": 164.6520997985433,
+        "prompt_per_token_ms": 6.073411764705883
+      },
+      "tokens_predicted": 64
+    }
+  ],
+  "schema_version": "swarm-dual-sidecar-v1",
+  "server_sha256": "6c541e76ab7cc9ad1c66d5699bc1d42b18043e80d9ac9698a2a5c642859389b4",
+  "source_commit": "e920c523e3b8a0163fe498af5bf90df35ff51d25",
+  "started_at": "2026-09-11T05:50:45+00:00",
+  "status": "pass",
+  "thermal_limit_c": 70,
+  "variant": "two-stock-sidecars"
+}\n

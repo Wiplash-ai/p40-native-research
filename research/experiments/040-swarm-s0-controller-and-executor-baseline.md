@@ -73,6 +73,45 @@ optimization. The sidecar's raw completion route is not chat-template
 equivalent to Ollama, so its 45.40 tok/s cannot establish a product-level
 Ollama replacement either.
 
+## S2 two-worker P40 topology
+
+The physical-slot hypothesis is now measured, rather than assumed. Two stock
+llama.cpp sidecars explicitly pinned to separate P40s produced 45.32 and 45.14
+tok/s at the same time; their 128 tokens completed at 83.66 aggregate wall
+tok/s. Both models used 5,661 MiB and peaked at 46 C / 47 C. This establishes
+that PCIe does not materially slow two independent small-model decode streams.
+
+The equivalent Ollama topology required an additional backend constraint. A
+temporary server with only `CUDA_VISIBLE_DEVICES=1` selected Vulkan first and
+ran on physical GPU 0 at 26.27 tok/s. Adding `OLLAMA_LLM_LIBRARY=cuda_v12`
+made the same isolated server enumerate only physical GPU 1 through CUDA and
+produce 43.18 tok/s. `CUDA_VISIBLE_DEVICES` is therefore insufficient by
+itself on this host.
+
+Two temporary, loopback-only Ollama servers with these settings were then
+tested at once:
+
+```text
+worker 0: CUDA_VISIBLE_DEVICES=0, OLLAMA_LLM_LIBRARY=cuda_v12, 127.0.0.1:11441
+worker 1: CUDA_VISIBLE_DEVICES=1, OLLAMA_LLM_LIBRARY=cuda_v12, 127.0.0.1:11442
+OLLAMA_MODELS=/mnt/ai-ssd/ollama/models
+OLLAMA_NUM_PARALLEL=1
+```
+
+Cold model-load wall time was 18.33 s, so its 5.02 wall tok/s figure is not a
+throughput result. Both runners nevertheless decoded at 43.41 / 43.54 tok/s
+on their intended GPUs with identical outputs. After an explicit one-token
+preload, each worker remained resident at 5,713 MiB. A warm concurrent pass
+decoded 38 tokens at 43.73 tok/s and 38 at 44.09 tok/s: 87.46 aggregate decode
+tok/s (`76 / max(0.86894, 0.86187)`). Its end-to-end concurrent request rate
+was 48.36 tok/s because prompt processing and API work remain on the request
+critical path. GPU peaks were 52 C / 54 C, below the 70 C abort ceiling; all
+VRAM was released on teardown.
+
+This is the accepted executor-host topology for later quality tests, not a
+deployed service. Qwen stays stopped while two executor workers occupy the
+cards; no concurrent Qwen-plus-worker fit claim has been made.
+
 ## Schema-only live executor plan
 
 `qwen3:8b` returned valid JSON for the fixed five-field planning schema under
@@ -90,8 +129,7 @@ optimized-sidecar gates. Next:
 
 1. run the fixed small repository corpus through worktree-isolated executor
    attempts, with the controller still reviewing evidence before promotion;
-2. test a long-context prompt path and one concurrency configuration before
-   treating a sidecar or a second GPU as an executor scaling path;
+2. test a long-context prompt path against the accepted two-worker topology;
 3. keep the Pascal-MMQ fork out of the executor adapter unless a future,
    controlled measurement clears a meaningful reproducible threshold.
 
@@ -103,4 +141,8 @@ optimized-sidecar gates. Next:
 - `research/results/raw/S1-llama-base-server-20260911T054131Z.json`
 - `research/results/raw/S1-llama-pascal-server-20260911T054231Z.json`
 - `research/results/raw/S1-ollama-qwen3-8b-schema-plan-20260911T054614Z.json`
+- `research/results/raw/S2-dual-sidecar-qwen3-8b-20260911T055045Z.json`
+- `research/results/raw/S2-ollama-qwen3-8b-cuda-gpu1-20260911T055447Z.json`
+- `research/results/raw/S2-dual-ollama-qwen3-8b-20260911T055646Z.json`
+- `research/results/raw/S2-dual-ollama-qwen3-8b-warm-20260911T055927Z.json`
 - `swarm/`, `tests/test_swarm_s0.py`, and `tests/test_swarm_ollama_bench.py`

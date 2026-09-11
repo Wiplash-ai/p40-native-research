@@ -104,10 +104,21 @@ DeepSeek Coder supplies a code-specialized comparison. References:
 [Gemma 3](https://ollama.com/library/gemma3), and
 [DeepSeek Coder](https://ollama.com/library/deepseek-coder).
 
-Use `OLLAMA_NUM_PARALLEL=1`, small context caps, and no more than two loaded
-executor models while the Qwen planner is resident. Each candidate must pass a
-fit test, a fixed 64-token rate test, a tool-schema compliance test, and three
-small repository tasks before it is admitted to the pool.
+Use `OLLAMA_NUM_PARALLEL=1` and small context caps. The measured executor
+topology is two **independent**, loopback-only Ollama processes, one per P40;
+not two models delegated by a single scheduler. Each worker requires a
+physical-GPU `CUDA_VISIBLE_DEVICES` value and `OLLAMA_LLM_LIBRARY=cuda_v12`.
+Without the backend override, the host's Vulkan discovery can select the wrong
+physical P40 despite CUDA visibility filtering. Each candidate must pass a fit
+test, a fixed rate test, a tool-schema compliance test, and three small
+repository tasks before it is admitted to the pool.
+
+The two-worker warm control held 5,713 MiB per card and measured 43.73 / 44.09
+individual decode tok/s, or 87.46 aggregate decode tok/s. This gives two real
+physical executor slots for the first search waves. It does **not** imply that
+both workers can coexist with the two-GPU Qwen planner. Use the explicit phase
+schedule: planner checkpoint → stop Qwen → executor wave → stop workers →
+planner review.
 
 ## Experiment sequence
 

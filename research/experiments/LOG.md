@@ -52,6 +52,32 @@
   `research/results/raw/S1-llama-pascal-server-20260911T054231Z.json`, and
   `research/results/raw/S1-ollama-qwen3-8b-schema-plan-20260911T054614Z.json`.
 
+## S2 — two independent pinned Ollama executor workers
+
+- Date: 2026-09-11.
+- Status: pass for two-worker decode topology; Qwen coexistence and repository
+  task quality remain untested.
+- Discovery: `CUDA_VISIBLE_DEVICES=1` alone let a temporary Ollama select
+  Vulkan on physical GPU 0 (26.27 tok/s). Adding `OLLAMA_LLM_LIBRARY=cuda_v12`
+  constrained it to CUDA on physical GPU 1, where it produced 43.18 tok/s.
+- Warm control: two temporary, loopback-only workers using the exact same
+  `qwen3:8b` model were pinned to GPU 0 and GPU 1. After preload, both held
+  5,713 MiB. A concurrent request measured 43.73 / 44.09 decode tok/s and
+  87.46 aggregate decode tok/s. Peak temperatures were 52 C / 54 C, below the
+  70 C monitor abort; teardown released all VRAM.
+- Confounders: the second worker began at 47 C after prior short controls;
+  repetitions, long-context prefill, tool use, actual repository quality, and
+  Qwen phase switching still need evidence. Cold endpoint time includes 15–18
+  seconds of model loading and is not throughput.
+- Decision: retain two isolated Ollama worker endpoints as the S2 candidate
+  topology. Do not alter the existing Ollama service, deploy persistent units,
+  or run Qwen concurrently yet.
+- Evidence: [S2 detail](040-swarm-s0-controller-and-executor-baseline.md),
+  `research/results/raw/S2-dual-sidecar-qwen3-8b-20260911T055045Z.json`,
+  `research/results/raw/S2-ollama-qwen3-8b-cuda-gpu1-20260911T055447Z.json`,
+  `research/results/raw/S2-dual-ollama-qwen3-8b-20260911T055646Z.json`, and
+  `research/results/raw/S2-dual-ollama-qwen3-8b-warm-20260911T055927Z.json`.
+
 ## D000 — installed-source and idle-hardware discovery
 
 - Date: 2026-09-07, around 22:59–23:05 UTC.

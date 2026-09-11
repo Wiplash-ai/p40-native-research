@@ -1,0 +1,132 @@
+{
+  "aggregate_decode_timing_tokens_per_s": 87.46288581490091,
+  "aggregate_elapsed_s": 1.5716,
+  "aggregate_tokens": 76,
+  "aggregate_wall_tokens_per_s": 48.3568576774961,
+  "completion_limit": 64,
+  "context": 4096,
+  "gpu_end": [
+    {
+      "index": 0,
+      "memory_mib": 0,
+      "power_w": 59.5,
+      "temperature_c": 50,
+      "utilization_pct": 88
+    },
+    {
+      "index": 1,
+      "memory_mib": 0,
+      "power_w": 60.8,
+      "temperature_c": 53,
+      "utilization_pct": 0
+    }
+  ],
+  "gpu_peak": [
+    {
+      "index": 0,
+      "memory_mib": 5713,
+      "power_w": 185.37,
+      "temperature_c": 52,
+      "utilization_pct": 98
+    },
+    {
+      "index": 1,
+      "memory_mib": 5713,
+      "power_w": 193.03,
+      "temperature_c": 54,
+      "utilization_pct": 98
+    }
+  ],
+  "gpu_resident_before_measurement": [
+    {
+      "index": 0,
+      "memory_mib": 5713,
+      "power_w": 58.35,
+      "temperature_c": 48,
+      "utilization_pct": 0
+    },
+    {
+      "index": 1,
+      "memory_mib": 5713,
+      "power_w": 64.11,
+      "temperature_c": 52,
+      "utilization_pct": 60
+    }
+  ],
+  "gpu_start": [
+    {
+      "index": 0,
+      "memory_mib": 0,
+      "power_w": 11.53,
+      "temperature_c": 44,
+      "utilization_pct": 0
+    },
+    {
+      "index": 1,
+      "memory_mib": 0,
+      "power_w": 11.23,
+      "temperature_c": 47,
+      "utilization_pct": 0
+    }
+  ],
+  "model": "qwen3:8b",
+  "responses": [
+    {
+      "elapsed_s": 1.571,
+      "eval_count": 38,
+      "eval_duration_s": 0.86894,
+      "eval_tokens_per_s": 43.73144290745046,
+      "port": 11451,
+      "response_sha256": "a5f9223379a2583459923fd47c023dccc0bfe5c318214b09d917aefdd1e403ea"
+    },
+    {
+      "elapsed_s": 1.4707,
+      "eval_count": 38,
+      "eval_duration_s": 0.86187,
+      "eval_tokens_per_s": 44.090176012623715,
+      "port": 11452,
+      "response_sha256": "a5f9223379a2583459923fd47c023dccc0bfe5c318214b09d917aefdd1e403ea"
+    }
+  ],
+  "schema_version": "swarm-dual-ollama-warm-v1",
+  "started_at": "2026-09-11T05:59:27+00:00",
+  "status": "pass",
+  "thermal_limit_c": 70,
+  "variant": "two-persistent-ollama-cuda-v12",
+  "warmup": [
+    {
+      "elapsed_s": 15.4967,
+      "eval_count": 1,
+      "eval_duration_s": 1e-06,
+      "eval_tokens_per_s": 1000000.0,
+      "port": 11451,
+      "response_sha256": "b9776d7ddf459c9ad5b0e1d6ac61e27befb5e99fd62446677600d7cacef544d0"
+    },
+    {
+      "elapsed_s": 16.697,
+      "eval_count": 1,
+      "eval_duration_s": 1e-06,
+      "eval_tokens_per_s": 1000000.0,
+      "port": 11452,
+      "response_sha256": "b9776d7ddf459c9ad5b0e1d6ac61e27befb5e99fd62446677600d7cacef544d0"
+    }
+  ],
+  "workers": [
+    {
+      "cuda_visible_devices": "0",
+      "log": "/tmp/S2-ollama-warm-gpu0.log",
+      "log_sha256": "7d63ada07d10a70f8bf2db7538b4aec125b6b5bc4bf88cf77529d6541d220998",
+      "ollama_llm_library": "cuda_v12",
+      "physical_gpu": 0,
+      "port": 11451
+    },
+    {
+      "cuda_visible_devices": "1",
+      "log": "/tmp/S2-ollama-warm-gpu1.log",
+      "log_sha256": "37a2a642c2721f3b69000060a776f87bb24320a4f3763ee08fc2cb4ff0ca9cac",
+      "ollama_llm_library": "cuda_v12",
+      "physical_gpu": 1,
+      "port": 11452
+    }
+  ]
+}\n

@@ -1,0 +1,68 @@
+{
+  "completion_limit": 64,
+  "context": 4096,
+  "cuda_visible_devices": "1",
+  "elapsed_s": 44.0954,
+  "eval_count": 46,
+  "eval_duration_s": 1.065251,
+  "eval_tokens_per_s": 43.18231102341139,
+  "gpu_end": [
+    {
+      "index": 0,
+      "memory_mib": 0,
+      "power_w": 11.43,
+      "temperature_c": 43,
+      "utilization_pct": 0
+    },
+    {
+      "index": 1,
+      "memory_mib": 0,
+      "power_w": 61.0,
+      "temperature_c": 50,
+      "utilization_pct": 40
+    }
+  ],
+  "gpu_peak": [
+    {
+      "index": 0,
+      "memory_mib": 125,
+      "power_w": 51.67,
+      "temperature_c": 45,
+      "utilization_pct": 0
+    },
+    {
+      "index": 1,
+      "memory_mib": 5713,
+      "power_w": 189.82,
+      "temperature_c": 51,
+      "utilization_pct": 98
+    }
+  ],
+  "gpu_start": [
+    {
+      "index": 0,
+      "memory_mib": 0,
+      "power_w": 11.63,
+      "temperature_c": 44,
+      "utilization_pct": 0
+    },
+    {
+      "index": 1,
+      "memory_mib": 0,
+      "power_w": 11.43,
+      "temperature_c": 41,
+      "utilization_pct": 0
+    }
+  ],
+  "log": "/tmp/S2-ollama-cuda-gpu1.log",
+  "log_sha256": "505a66c364d88c46f43c614aea9bd39fdc42beac609b42149ef4057c70a1134a",
+  "model": "qwen3:8b",
+  "ollama_llm_library": "cuda_v12",
+  "physical_gpu_requested": 1,
+  "port": 11437,
+  "response_sha256": "89078296f9fd53fa27888d5aff0b53213078d149ea89e555e2ec3cc262c665fa",
+  "schema_version": "swarm-ollama-isolated-v1",
+  "started_at": "2026-09-11T05:54:47+00:00",
+  "status": "pass",
+  "thermal_limit_c": 70
+}\n
