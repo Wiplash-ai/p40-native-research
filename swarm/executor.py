@@ -1,0 +1,148 @@
+"""Schema-bounded planner requests for an executor candidate.
+
+This module gives a small model only a planning surface. It cannot emit a
+shell command or select an executable; the later controller may map its
+``validation_profile`` only to a harness-owned fixed command profile.
+"""
+from __future__ import annotations
+
+import hashlib
+import json
+import urllib.request
+from dataclasses import dataclass
+from typing import Any
+
+from .harness import COMMAND_PROFILES
+
+
+class ExecutorPlanError(ValueError):
+    """A model response does not satisfy the executor planning contract."""
+
+
+PLAN_FIELDS = ("hypothesis", "proposed_change", "validation_profile", "expected_signal", "stop_condition")
+MAX_FIELD_CHARS = 1_200
+
+
+@dataclass(frozen=True)
+class ExecutorPlan:
+    hypothesis: str
+    proposed_change: str
+    validation_profile: str
+    expected_signal: str
+    stop_condition: str
+
+
+@dataclass(frozen=True)
+class PlanResponse:
+    plan: ExecutorPlan
+    model: str
+    response_sha256: str
+    prompt_eval_count: int
+    eval_count: int
+
+
+def plan_schema() -> dict[str, Any]:
+    return {
+        "type": "object",
+        "additionalProperties": False,
+        "required": list(PLAN_FIELDS),
+        "properties": {
+            "hypothesis": {"type": "string", "minLength": 8, "maxLength": MAX_FIELD_CHARS},
+            "proposed_change": {"type": "string", "minLength": 8, "maxLength": MAX_FIELD_CHARS},
+            "validation_profile": {"type": "string", "enum": sorted(COMMAND_PROFILES)},
+            "expected_signal": {"type": "string", "minLength": 8, "maxLength": MAX_FIELD_CHARS},
+            "stop_condition": {"type": "string", "minLength": 8, "maxLength": MAX_FIELD_CHARS},
+        },
+    }
+
+
+def validate_plan(payload: Any) -> ExecutorPlan:
+    if not isinstance(payload, dict) or set(payload) != set(PLAN_FIELDS):
+        raise ExecutorPlanError("plan must contain exactly the fixed planning fields")
+    values: dict[str, str] = {}
+    for field in PLAN_FIELDS:
+        value = payload[field]
+        if not isinstance(value, str):
+            raise ExecutorPlanError(f"{field} must be a string")
+        cleaned = value.strip()
+        if not cleaned or len(cleaned) > MAX_FIELD_CHARS:
+            raise ExecutorPlanError(f"{field} is empty or too long")
+        if any(ord(char) < 32 and char not in "\n\t" for char in cleaned):
+            raise ExecutorPlanError(f"{field} contains a control character")
+        values[field] = cleaned
+    if values["validation_profile"] not in COMMAND_PROFILES:
+        raise ExecutorPlanError("plan selected a non-allowlisted validation profile")
+    return ExecutorPlan(**values)
+
+
+def executor_messages(*, objective: str, branch_hypothesis: str, role: str) -> list[dict[str, str]]:
+    if not objective.strip() or not branch_hypothesis.strip() or not role.strip():
+        raise ExecutorPlanError("objective, branch_hypothesis, and role are required")
+    return [
+        {
+            "role": "system",
+            "content": (
+                "You are a bounded software-engineering search executor. Return only JSON matching the supplied "
+                "schema. Plan one small falsifiable change. Never include shell commands, code, credentials, or "
+                "claims that work was executed. The controller owns all execution."
+            ),
+        },
+        {
+            "role": "user",
+            "content": json.dumps({
+                "objective": objective.strip(), "branch_hypothesis": branch_hypothesis.strip(), "role": role.strip(),
+                "available_validation_profiles": sorted(COMMAND_PROFILES),
+            }, sort_keys=True),
+        },
+    ]
+
+
+def post_chat(url: str, payload: dict[str, Any], timeout_s: int) -> dict[str, Any]:
+    request = urllib.request.Request(
+        url, data=json.dumps(payload).encode(), headers={"Content-Type": "application/json"}, method="POST",
+    )
+    with urllib.request.urlopen(request, timeout=timeout_s) as response:  # noqa: S310 -- configured private endpoint
+        decoded = json.loads(response.read())
+    if not isinstance(decoded, dict):
+        raise ExecutorPlanError("Ollama returned a non-object response")
+    return decoded
+
+
+class OllamaPlanClient:
+    """A private Ollama client with fixed context and schema-only output."""
+
+    def __init__(self, url: str = "http://172.17.0.1:11434/api/chat", timeout_s: int = 180):
+        self.url = url
+        self.timeout_s = timeout_s
+
+    def request_plan(
+        self, *, model: str, objective: str, branch_hypothesis: str, role: str,
+    ) -> PlanResponse:
+        if not model.strip():
+            raise ExecutorPlanError("model is required")
+        response = post_chat(self.url, {
+            "model": model.strip(),
+            "messages": executor_messages(
+                objective=objective, branch_hypothesis=branch_hypothesis, role=role,
+            ),
+            "format": plan_schema(),
+            "stream": False,
+            "think": False,
+            "keep_alive": "0s",
+            "options": {"num_ctx": 4096, "seed": 42, "temperature": 0},
+        }, self.timeout_s)
+        message = response.get("message")
+        content = message.get("content") if isinstance(message, dict) else None
+        if not isinstance(content, str):
+            raise ExecutorPlanError("Ollama response lacks message content")
+        try:
+            plan = validate_plan(json.loads(content))
+        except json.JSONDecodeError as exc:
+            raise ExecutorPlanError("Ollama plan is not strict JSON") from exc
+        return PlanResponse(
+            plan=plan,
+            model=model.strip(),
+            response_sha256=hashlib.sha256(content.encode()).hexdigest(),
+            prompt_eval_count=int(response.get("prompt_eval_count", 0)),
+            eval_count=int(response.get("eval_count", 0)),
+        )

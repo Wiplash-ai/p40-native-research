@@ -1,0 +1,65 @@
+{
+  "eval_count": 87,
+  "gpu_end": [
+    {
+      "index": 0,
+      "memory_mib": 5713,
+      "power_w": 70.25,
+      "temperature_c": 47,
+      "utilization_pct": 94
+    },
+    {
+      "index": 1,
+      "memory_mib": 0,
+      "power_w": 10.64,
+      "temperature_c": 40,
+      "utilization_pct": 0
+    }
+  ],
+  "gpu_peak": [
+    {
+      "index": 0,
+      "memory_mib": 5713,
+      "power_w": 185.45,
+      "temperature_c": 47,
+      "utilization_pct": 98
+    },
+    {
+      "index": 1,
+      "memory_mib": 11,
+      "power_w": 50.91,
+      "temperature_c": 41,
+      "utilization_pct": 5
+    }
+  ],
+  "gpu_start": [
+    {
+      "index": 0,
+      "memory_mib": 0,
+      "power_w": 10.84,
+      "temperature_c": 39,
+      "utilization_pct": 0
+    },
+    {
+      "index": 1,
+      "memory_mib": 0,
+      "power_w": 10.44,
+      "temperature_c": 40,
+      "utilization_pct": 0
+    }
+  ],
+  "model": "qwen3:8b",
+  "plan": {
+    "expected_signal": "Reduced test execution time for repeated parsing scenarios.",
+    "hypothesis": "A small cache may avoid repeated parsing.",
+    "proposed_change": "Implement a small in-memory cache for parsed results in the parser test.",
+    "stop_condition": "If test execution time does not improve, revert the change.",
+    "validation_profile": "python-unittest"
+  },
+  "prompt_eval_count": 120,
+  "response_sha256": "8c55815abb42ba0c9ffe9dcc2696582f0d2feabb36ef77afede146948bc1216e",
+  "schema_version": "swarm-executor-plan-v1",
+  "started_at": "2026-09-11T05:46:14+00:00",
+  "status": "pass",
+  "thermal_limit_c": 70
+}\n

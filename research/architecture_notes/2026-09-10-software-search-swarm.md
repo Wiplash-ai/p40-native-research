@@ -93,7 +93,7 @@ quality evidence is recorded:
 
 | Role | Candidate | Download size | Purpose |
 | --- | --- | ---: | --- |
-| General implementer | `qwen3:8b` | 5.2 GB Q4_K_M | pulled; baseline pending repeats |
+| General implementer | `qwen3:8b` | 5.2 GB Q4_K_M | rate + schema-plan gates pass; task gate pending |
 | Independent critic | `gemma3:12b` | 8.1 GB | different family; review and synthesis |
 | Code alternative | `deepseek-coder:6.7b` | 3.8 GB | independent code-oriented branch |
 
@@ -168,3 +168,8 @@ one GPU, fixed completion cap, and the same telemetry contract. Build stock
 and patched `sm_61` binaries separately; never run a fork setup script against
 the production Ollama installation. Admit a sidecar only after a reproducible
 rate improvement with no output-fidelity, fit, or thermal regression.
+
+The first matched pair is complete: the archived Pascal patch produced 45.52
+tok/s versus 45.40 tok/s stock with an identical 64-token output. Treat its
+0.27% difference as noise. This closes the patch as an easy-win candidate; it
+does not justify replacing Ollama or changing a production executor route.

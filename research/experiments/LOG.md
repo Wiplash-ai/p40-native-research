@@ -26,6 +26,32 @@
   `research/results/raw/S0-capacity-20260911T051119Z.json`, and
   `research/results/raw/S1-ollama-qwen3-8b-stock-20260911T051931Z.json`.
 
+## S1 — `qwen3:8b` repeat, sidecar A/B, and schema-plan gate
+
+- Date: 2026-09-11.
+- Status: rate/fit and schema-plan pass; Pascal-MMQ fork rejected; task and
+  concurrency evaluation pending.
+- Repeat: the same stock Ollama profile reported 43.76 tok/s for 46 decode
+  tokens versus 43.42 tok/s first run, a 0.8% difference. GPU 0 was the only
+  materially active card and unloaded after each run.
+- Pascal A/B: the cited patch cannot apply to current llama.cpp. On the exact
+  pre-refactor source and identical `sm_61` MMQ build flags, stock predicted
+  64 tokens at 45.40 tok/s and the patched binary 45.52 tok/s. Output hashes
+  matched. The 0.27% difference is not a candidate win. Peak GPU0 temperature
+  was 45 C and no VRAM remained after exit.
+- Plan gate: the schema-only adapter sent an Ollama format schema, fixed 4K
+  context, deterministic options, `think=false`, and zero keep-alive. The real
+  model returned a five-field JSON plan using only `python-unittest`; it had no
+  command, worktree, repository, or dispatch capability. Peak was 47 C and
+  model unload completed.
+- Decision: do not alter Ollama or use the Pascal fork. Advance to bounded
+  repository-task evidence, then long-context and concurrency tests.
+- Evidence: [S1 result](040-swarm-s0-controller-and-executor-baseline.md),
+  `research/results/raw/S1-ollama-qwen3-8b-stock-repeat1-20260911T052457Z.json`,
+  `research/results/raw/S1-llama-base-server-20260911T054131Z.json`,
+  `research/results/raw/S1-llama-pascal-server-20260911T054231Z.json`, and
+  `research/results/raw/S1-ollama-qwen3-8b-schema-plan-20260911T054614Z.json`.
+
 ## D000 — installed-source and idle-hardware discovery
 
 - Date: 2026-09-07, around 22:59–23:05 UTC.

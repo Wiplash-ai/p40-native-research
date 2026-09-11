@@ -1,0 +1,79 @@
+{
+  "completion_limit": 64,
+  "context": 4096,
+  "elapsed_s": 1.5776,
+  "gpu_end": [
+    {
+      "index": 0,
+      "memory_mib": 0,
+      "power_w": 57.82,
+      "temperature_c": 43,
+      "utilization_pct": 94
+    },
+    {
+      "index": 1,
+      "memory_mib": 0,
+      "power_w": 50.97,
+      "temperature_c": 41,
+      "utilization_pct": 3
+    }
+  ],
+  "gpu_peak": [
+    {
+      "index": 0,
+      "memory_mib": 5513,
+      "power_w": 184.07,
+      "temperature_c": 44,
+      "utilization_pct": 98
+    },
+    {
+      "index": 1,
+      "memory_mib": 151,
+      "power_w": 50.97,
+      "temperature_c": 41,
+      "utilization_pct": 3
+    }
+  ],
+  "gpu_start": [
+    {
+      "index": 0,
+      "memory_mib": 0,
+      "power_w": 10.84,
+      "temperature_c": 37,
+      "utilization_pct": 0
+    },
+    {
+      "index": 1,
+      "memory_mib": 0,
+      "power_w": 10.44,
+      "temperature_c": 39,
+      "utilization_pct": 0
+    }
+  ],
+  "model_sha256": "a3de86cd1c132c822487ededd47a324c50491393e6565cd14bafa40d0b8e686f",
+  "patch_sha256": null,
+  "response_sha256": "002c39100ab7e011d9ae9bd5e86e4bd8de722273040528c63b7ebee970e839f5",
+  "response_text": " No line breaks. No markdown. No numbers. No special characters. No uppercase letters. No hyphens. No underscores. No emojis. No URLs. No abbreviations. No contractions. No possessive forms. No plural forms. No articles. No prepositions. No conjunctions. No verbs. No",
+  "schema_version": "llama-server-sidecar-v1",
+  "server_log": "/tmp/S1-llama-base-server.log",
+  "server_log_sha256": "a1ea690d1ed0d2c8db4b1ddcb11069318fb655381722860df8a7505b3a8591fc",
+  "server_sha256": "6c541e76ab7cc9ad1c66d5699bc1d42b18043e80d9ac9698a2a5c642859389b4",
+  "source_commit": "e920c523e3b8a0163fe498af5bf90df35ff51d25",
+  "started_at": "2026-09-11T05:41:31+00:00",
+  "status": "pass",
+  "thermal_limit_c": 70,
+  "timings": {
+    "cache_n": 0,
+    "predicted_ms": 1409.776,
+    "predicted_n": 64,
+    "predicted_per_second": 45.397282972614086,
+    "predicted_per_token_ms": 22.02775,
+    "prompt_ms": 163.797,
+    "prompt_n": 17,
+    "prompt_per_second": 103.78700464599473,
+    "prompt_per_token_ms": 9.635117647058824
+  },
+  "tokens_evaluated": 17,
+  "tokens_predicted": 64,
+  "variant": "base"
+}\n

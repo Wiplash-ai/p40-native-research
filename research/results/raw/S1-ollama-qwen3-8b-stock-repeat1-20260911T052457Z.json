@@ -1,0 +1,67 @@
+{
+  "completion_limit": 64,
+  "context": 4096,
+  "elapsed_s": 13.72,
+  "eval_count": 46,
+  "eval_duration_s": 1.051219,
+  "eval_tokens_per_s": 43.75872201701073,
+  "gpu_end": [
+    {
+      "index": 0,
+      "memory_mib": 5713,
+      "power_w": 71.53,
+      "temperature_c": 46,
+      "utilization_pct": 98
+    },
+    {
+      "index": 1,
+      "memory_mib": 0,
+      "power_w": 10.25,
+      "temperature_c": 37,
+      "utilization_pct": 0
+    }
+  ],
+  "gpu_observed": true,
+  "gpu_peak": [
+    {
+      "index": 0,
+      "memory_mib": 5713,
+      "power_w": 185.17,
+      "temperature_c": 46,
+      "utilization_pct": 98
+    },
+    {
+      "index": 1,
+      "memory_mib": 3,
+      "power_w": 50.51,
+      "temperature_c": 38,
+      "utilization_pct": 5
+    }
+  ],
+  "gpu_start": [
+    {
+      "index": 0,
+      "memory_mib": 0,
+      "power_w": 10.94,
+      "temperature_c": 38,
+      "utilization_pct": 0
+    },
+    {
+      "index": 1,
+      "memory_mib": 0,
+      "power_w": 10.35,
+      "temperature_c": 37,
+      "utilization_pct": 0
+    }
+  ],
+  "model": "qwen3:8b",
+  "prompt_eval_count": 33,
+  "prompt_eval_duration_s": 0.157328,
+  "response_sha256": "89078296f9fd53fa27888d5aff0b53213078d149ea89e555e2ec3cc262c665fa",
+  "response_text": "the quick brown fox jumps over the lazy dog this is a test of the english language and punctuation is not allowed here the words must be in lowercase and separated by single spaces only sixty four words in total and no punctuation at all",
+  "schema_version": "swarm-ollama-benchmark-v1",
+  "started_at": "2026-09-11T05:24:57+00:00",
+  "status": "pass",
+  "thermal_limit_c": 70,
+  "url": "http://172.17.0.1:11434/api/generate"
+}
