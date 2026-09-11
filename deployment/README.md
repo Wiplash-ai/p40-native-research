@@ -11,10 +11,10 @@ not enable rejected W4A8, shared-pair, NUMA, recurrence-fusion, profiling, or
 speculative paths. `--kv-slots 1` matches the direct Qwen engine's single-KV
 execution model.
 
-The production Qwen unit reserves a 32,768-token context and permits up to
-16,384 completion tokens. Colibri clamps a client's requested output length
+The production Qwen unit reserves the checkpoint's native 262,144-token
+context and permits up to 16,384 completion tokens. Colibri clamps a client's requested output length
 to `--ngen`; it does not generate that many tokens unless the model reaches
-the limit rather than EOS. Long prompts and completions share the same 32K
+the limit rather than EOS. Long prompts and completions share the same 262K
 window.
 
 The copied launcher's `--gpu` check interrogates its unrelated GLM binary, so

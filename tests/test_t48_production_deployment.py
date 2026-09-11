@@ -22,7 +22,7 @@ class ProductionDeploymentTests(unittest.TestCase):
     def test_listener_is_loopback_and_has_one_kv_slot(self):
         self.assertIn("--host 127.0.0.1", UNIT)
         self.assertIn("--kv-slots 1", UNIT)
-        self.assertIn("--ctx 32768", UNIT)
+        self.assertIn("--ctx 262144", UNIT)
         self.assertIn("--ngen 16384", UNIT)
         self.assertNotIn("--gpu", UNIT)
         self.assertIn("colibri-thermal-supervisor.py", UNIT)

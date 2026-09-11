@@ -68,7 +68,7 @@ Use OpenCode's `/models` picker and choose from the `wiplash-router` entries:
 - `wiplash-router/wiplash/qwen3-coder-30b` does the same for the coder model.
 
 The router no longer imposes a 512-token completion ceiling. The configured
-windows are Qwen3.6 35B: 32,768 context / 16,384 output; Qwen3 8B: 40,960
+windows are Qwen3.6 35B: 262,144 context / 16,384 output; Qwen3 8B: 40,960
 context / 16,384 output; and Qwen3-Coder 30B: 16,384 context / 16,384 output.
 Prompt and completion tokens share each model's context window, so a long
 conversation naturally leaves fewer tokens available for one reply.
