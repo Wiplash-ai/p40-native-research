@@ -29,7 +29,7 @@ MAX_IDLE_SECONDS = 3600
 MIN_IDLE_SECONDS = 15
 CONTROL_HELPER = "/usr/local/sbin/wiplash-model-control"
 QWEN_ALIAS = "wiplash/qwen35b"
-QWEN_BACKEND_MODEL = "qwen3.6-35b-a3b-colibri-i4"
+QWEN_BACKEND_MODEL = "qwen3.6-35b-a3b-colibri-i4-p40"
 PRIVATE_OR_LOOPBACK_NETWORKS = (
     ipaddress.ip_network("127.0.0.0/8"),
     ipaddress.ip_network("10.0.0.0/8"),
@@ -214,7 +214,7 @@ class LeaseManager:
     def begin(self, spec: ModelSpec) -> None:
         with self._lock:
             if spec.kind == "colibri_qwen":
-                self._prepare_qwen()
+                self._prepare_qwen(spec)
             else:
                 self._prepare_ollama()
             self._active[spec.alias] += 1
@@ -247,21 +247,34 @@ class LeaseManager:
                 stopped.append(spec.alias)
         return stopped
 
-    def _prepare_qwen(self) -> None:
-        if self.control.qwen_is_active():
-            return
-        ollama_specs = [spec for spec in self.config.models.values() if spec.kind == "ollama"]
-        for spec in ollama_specs:
-            host, port, _ = spec.backend
-            status, payload = self.http.get_json(host, port, "/api/ps")
-            if status == 200 and payload.get("models"):
-                raise RouterError("an Ollama model is resident; wait for its idle unload before starting Qwen")
-        temperatures, memory_used = self._gpu_state()
-        if any(temp >= self.config.qwen_start_max_temp_c for temp in temperatures):
-            raise RouterError("P40 temperature is above the cool-start threshold")
-        if any(mib > 256 for mib in memory_used):
-            raise RouterError("GPU memory is in use; refusing to start Qwen beside another workload")
-        self.control.qwen_start()
+    def _prepare_qwen(self, spec: ModelSpec) -> None:
+        if not self.control.qwen_is_active():
+            ollama_specs = [candidate for candidate in self.config.models.values() if candidate.kind == "ollama"]
+            for ollama_spec in ollama_specs:
+                host, port, _ = ollama_spec.backend
+                status, payload = self.http.get_json(host, port, "/api/ps")
+                if status == 200 and payload.get("models"):
+                    raise RouterError("an Ollama model is resident; wait for its idle unload before starting Qwen")
+            temperatures, memory_used = self._gpu_state()
+            if any(temp >= self.config.qwen_start_max_temp_c for temp in temperatures):
+                raise RouterError("P40 temperature is above the cool-start threshold")
+            if any(mib > 256 for mib in memory_used):
+                raise RouterError("GPU memory is in use; refusing to start Qwen beside another workload")
+            self.control.qwen_start()
+        self._wait_for_qwen_health(spec)
+
+    def _wait_for_qwen_health(self, spec: ModelSpec) -> None:
+        host, port, _ = spec.backend
+        deadline = time.monotonic() + 180
+        while time.monotonic() < deadline:
+            try:
+                status, _ = self.http.get_json(host, port, "/health", timeout=3)
+                if status == 200:
+                    return
+            except (OSError, RouterError):
+                pass
+            time.sleep(0.5)
+        raise RouterError("Qwen service did not become healthy within 180 seconds")
 
     def _prepare_ollama(self) -> None:
         if self.control.qwen_is_active():
@@ -402,8 +415,9 @@ class RouterHandler(BaseHTTPRequestHandler):
         host, port, base_path = spec.backend
         payload = json.dumps(body, separators=(",", ":")).encode()
         conn = HTTPConnection(host, port, timeout=600)
+        upstream_path = self.path if self.path.startswith(f"{base_path}/") else f"{base_path}{self.path}"
         try:
-            conn.request("POST", f"{base_path}{self.path}", payload, {
+            conn.request("POST", upstream_path, payload, {
                 "Content-Type": "application/json", "Content-Length": str(len(payload)),
                 "Accept": self.headers.get("Accept", "application/json"),
             })

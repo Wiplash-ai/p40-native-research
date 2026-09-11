@@ -113,6 +113,23 @@ through `OPENCODE_CONFIG`, so the global settings and credentials are not
 rewritten. The first selection must occur only after its backend is healthy;
 OpenCode configuration itself does not start a model.
 
+### Better Hashline edit transport
+
+The local-model profile loads `opencode-better-hashline@0.9.0`. Its enforced
+tool surface replaces the native edit/write/apply-patch tools with exact
+snapshot-based `hashline_*` operations, which is useful for smaller open-weight
+models that are more reliable when edits include stable line anchors. LSP
+diagnostics are intentionally disabled, so enabling the plugin does not start
+language servers from repository configuration.
+
+The plugin has been loaded successfully with this workstation's OpenCode
+`1.18.30`; a direct `hashline_read` returned a snapshot ID. Its optional
+bundled verifier still pins itself to OpenCode `1.18.4`, despite the plugin's
+declared `>=1.18.3 <2` range. Do not downgrade the working client just to
+satisfy that stale verifier. Treat Hashline as better edit transport—not proof
+that a model's code quality has improved—and keep normal tests/reviews in the
+loop.
+
 ## Install or update the local model router
 
 The following is the only deployment path. It installs the router code as the

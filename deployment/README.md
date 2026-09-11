@@ -71,5 +71,10 @@ prevents Qwen/Ollama co-residency, and releases a model after its short idle
 timer. Its root-owned helper can execute only Qwen start, stop, and status
 operations; it cannot accept arbitrary systemd units or commands.
 
+`NoNewPrivileges` is intentionally not set on this unit: it would prevent the
+router from invoking that fixed, sudoers-limited helper. The router process
+still runs as `jordanculver`; the helper is the only intended privilege
+transition.
+
 See [the local model runbook](../docs/LOCAL_MODEL_RUNBOOK.md#install-or-update-the-local-model-router)
 for the reviewed installation procedure and its non-model-loading smoke test.

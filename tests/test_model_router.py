@@ -26,7 +26,7 @@ CONFIG = {
     "models": [
         {
             "alias": "wiplash/qwen35b", "backend_base_url": "http://127.0.0.1:8000/v1",
-            "backend_model": "qwen3.6-35b-a3b-colibri-i4", "kind": "colibri_qwen", "idle_seconds": 120,
+            "backend_model": "qwen3.6-35b-a3b-colibri-i4-p40", "kind": "colibri_qwen", "idle_seconds": 120,
         },
         {
             "alias": "wiplash/qwen3-8b", "backend_base_url": "http://172.17.0.1:11434/v1",
@@ -60,6 +60,8 @@ class RecordingHttp:
 
     def get_json(self, host, port, path, timeout=5):
         self.requests.append(("GET", host, port, path))
+        if path == "/health":
+            return 200, {"ok": True}
         return 200, self.ps
 
     def request_json(self, host, port, path, body, timeout=10):
@@ -112,6 +114,7 @@ class ModelRouterTests(unittest.TestCase):
         with patch.object(LeaseManager, "_gpu_state", return_value=([36, 37], [0, 0])):
             manager.begin(config.models["wiplash/qwen35b"])
         self.assertEqual(control.actions, ["start"])
+        self.assertIn(("GET", "127.0.0.1", 8000, "/health"), http.requests)
         manager.end(config.models["wiplash/qwen35b"])
 
         resident = LeaseManager(config, RecordingControl(), RecordingHttp({"models": [{"name": "qwen3:8b"}]}))
@@ -157,9 +160,9 @@ class ModelRouterTests(unittest.TestCase):
         helper = (ROOT / "deployment/wiplash-model-control").read_text()
         sudoers = (ROOT / "deployment/wiplash-model-router.sudoers").read_text()
         config = (ROOT / "deployment/wiplash-model-router.json").read_text()
-        self.assertIn("NoNewPrivileges=true", unit)
         self.assertIn("ProtectSystem=strict", unit)
         self.assertIn("EnvironmentFile=/etc/wiplash-model-router.env", unit)
+        self.assertNotIn("NoNewPrivileges=true", unit)
         self.assertIn('"host": "192.168.1.194"', config)
         self.assertIn('"192.168.1.0/24"', config)
         self.assertNotIn("restart", helper)
@@ -184,7 +187,9 @@ class ModelRouterTests(unittest.TestCase):
             try:
                 unauthenticated = HTTPConnection("127.0.0.1", router.server_port, timeout=3)
                 unauthenticated.request("GET", "/v1/models")
-                self.assertEqual(unauthenticated.getresponse().status, 401)
+                unauthenticated_response = unauthenticated.getresponse()
+                self.assertEqual(unauthenticated_response.status, 401)
+                unauthenticated_response.read()
                 unauthenticated.close()
                 conn = HTTPConnection("127.0.0.1", router.server_port, timeout=3)
                 body = {"model": "wiplash/qwen3-8b", "messages": [], "keep_alive": -1}
@@ -206,7 +211,7 @@ class ModelRouterTests(unittest.TestCase):
             backend.server_close()
             backend_thread.join(timeout=2)
         path, request = CapturingBackend.requests[-1]
-        self.assertEqual(path, "/v1/v1/chat/completions")
+        self.assertEqual(path, "/v1/chat/completions")
         self.assertEqual(request["model"], "qwen3:8b")
         self.assertNotIn("keep_alive", request)
 

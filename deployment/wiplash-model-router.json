@@ -10,7 +10,7 @@
     {
       "alias": "wiplash/qwen35b",
       "backend_base_url": "http://127.0.0.1:8000/v1",
-      "backend_model": "qwen3.6-35b-a3b-colibri-i4",
+      "backend_model": "qwen3.6-35b-a3b-colibri-i4-p40",
       "kind": "colibri_qwen",
       "idle_seconds": 120
     },

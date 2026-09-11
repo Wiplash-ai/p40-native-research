@@ -1,5 +1,5 @@
 [Unit]
-Description=Wiplash loopback-only local model router
+Description=Wiplash private-LAN local model router
 After=network-online.target ollama.service
 Wants=network-online.target
 
@@ -11,7 +11,6 @@ EnvironmentFile=/etc/wiplash-model-router.env
 ExecStart=/usr/bin/python3 /opt/wiplash-model-router/model_router/router.py --config /etc/wiplash-model-router.json
 Restart=on-failure
 RestartSec=3
-NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true

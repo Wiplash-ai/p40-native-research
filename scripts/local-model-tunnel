@@ -2,7 +2,7 @@
 set -euo pipefail
 
 server="${WIPLASH_P40_HOST:-jordanculver@192.168.1.194}"
-ssh -o ExitOnForwardFailure=yes -N -L 8100:127.0.0.1:8100 "$server" &
+ssh -o ExitOnForwardFailure=yes -N -L 8100:192.168.1.194:8100 "$server" &
 tunnel_pid=$!
 cleanup() {
   kill "$tunnel_pid" 2>/dev/null || true

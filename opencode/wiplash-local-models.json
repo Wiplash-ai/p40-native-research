@@ -13,7 +13,7 @@
   "provider": {
     "wiplash-router": {
       "npm": "@ai-sdk/openai-compatible",
-      "name": "Wiplash P40 Auto (SSH tunnel)",
+      "name": "Wiplash P40 Auto (private LAN)",
       "options": {
         "baseURL": "{env:WIPLASH_MODEL_ROUTER_BASE_URL}",
         "apiKey": "{file:~/.config/wiplash/model-router-api-key}"
