@@ -151,3 +151,9 @@ architecture plausibly capable of a greater-than-20-percent gain, but the
 actual target engine has no candidate verifier, no MTP/draft protocol, and no
 state rollback. Its multi-row prefill is not evidence for a working verifier.
 Do not infer a gain from it or build that subsystem inside the current scope.
+
+`T48-production-qwen36-api.md` records the accepted exact-Q8 deployment. The
+local-only OpenAI API and attached chat client passed. A 64-token stream
+measured 16.136 visible completion tokens/s from first content through DONE;
+end-to-end including prefill was 11.436 completion tokens/s. Do not conflate
+the two measurements.
