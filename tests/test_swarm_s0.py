@@ -157,6 +157,8 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(status, 201)
         status, payload = self.request("POST", f"/v1/branches/{branch['id']}/run", {})
         self.assertEqual((status, payload["error"]["code"]), (409, "dispatch_disabled"))
+        status, ranking = self.request("GET", f"/v1/tasks/{task['id']}/ranking")
+        self.assertEqual((status, ranking[0]["decision"]), (200, "expand"))
 
 
 if __name__ == "__main__":

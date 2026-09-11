@@ -7,6 +7,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import Any
 
+from .scoring import rank_task
 from .store import SwarmStateError, SwarmStore
 
 
@@ -60,6 +61,9 @@ class ControllerHandler(BaseHTTPRequestHandler):
                 for branch in task["branches"]:
                     body.extend(self.store.branch_evidence(branch["id"]))
                 self._json(HTTPStatus.OK, body)
+                return
+            if len(parts) == 4 and parts[:2] == ["v1", "tasks"] and parts[3] == "ranking":
+                self._json(HTTPStatus.OK, rank_task(self.store, parts[2]))
                 return
             self._json(HTTPStatus.NOT_FOUND, error("not_found", "route not found"))
         except KeyError:
