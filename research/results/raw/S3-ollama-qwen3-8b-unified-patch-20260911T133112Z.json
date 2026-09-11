@@ -1,0 +1,33 @@
+{
+  "baseline": {
+    "changed_files": [],
+    "duration_ms": 58,
+    "exit_code": 1,
+    "profile": "python-unittest",
+    "stdout_sha256": "7e67d686ea73004a65ee18611aff3871c397e4c7f5516da694aad2bb4014cfcc"
+  },
+  "endpoint": "http://127.0.0.1:11461/api/chat",
+  "error": {
+    "kind": "PatchError",
+    "message": "git apply --check failed: error: corrupt patch at line 10"
+  },
+  "finished_unix_s": 1789133672.3455606,
+  "fixture": "inverted-parity-predicate",
+  "kind": "isolated-schema-bound-executor-patch",
+  "model": "qwen3:8b",
+  "passed": false,
+  "proposal": {
+    "eval_count": 128,
+    "patch": "diff --git a/calculator.py b/calculator.py\nindex 1234567..89abcde 100644\n--- a/calculator.py\n+++ b/calculator.py\n@@ -1,4 +1,4 @@\n-def is_even(value):\n-    return value % 2 == 1\n+def is_even(value):\n+    return value % 2 == 0\n",
+    "patch_sha256": "e7bb251fd1f2e269b0ca78870dc9b2de6d1b4f922dc752866869ca05f2f262c6",
+    "prompt_eval_count": 247,
+    "response_sha256": "4fc39e9f271dd63c5cbd7cdf516fbc4f9786b053609bbdd4f321918cfe8aff58",
+    "summary": "Fix the modulo equality to correctly identify even numbers.",
+    "validation_profile": "git-diff-check"
+  },
+  "schema_version": 1,
+  "stage": "S3",
+  "started_unix_s": 1789133660.311116,
+  "validation": null,
+  "workspace_root": "/mnt/ai-ssd/p40-swarm/s3-driver-SQtno3lX/s3-fixture"
+}

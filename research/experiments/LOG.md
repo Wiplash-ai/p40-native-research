@@ -1,5 +1,24 @@
 # Experiment log
 
+## 2026-09-11 — S3/S4 executor action protocol
+
+- Hypothesis: a schema-only small executor can produce a safe, testable code
+  action when its output is confined to a detached worktree.
+- Control: `qwen3:8b`, temporary loopback Ollama worker, GPU 0 only,
+  CUDA v12 backend, 4K context, `think=false`, seed 42, temperature 0;
+  Colibri service inactive; sampled 70 C abort threshold.
+- S3 result: unified-diff protocol failed. The model selected the correct
+  parity replacement but wrote a false hunk count; `git apply --check`
+  rejected it as corrupt. Peak: 5,713 MiB, 186.53 W, 49 C.
+- S4 result: controller-rendered exact-text-edit protocol passed. Baseline
+  unit test failed; generated replacement was constrained to one supplied
+  file; controller `git diff --check` and unit tests both passed. Peak:
+  5,713 MiB, 182.94 W, 46 C; 68 decode tokens at 38.53 tok/s.
+- Decision: keep a unified diff as a rejected experimental action surface;
+  advance only the exact-text-edit protocol to a multi-task fixture corpus.
+- Evidence: `research/results/raw/S3-ollama-qwen3-8b-unified-patch-20260911T133112Z.json`,
+  `research/results/raw/S4-ollama-qwen3-8b-text-edit-20260911T133204Z.json`.
+
 ## S0/S1 — bounded swarm controller and first small-executor rate observation
 
 - Date: 2026-09-11.

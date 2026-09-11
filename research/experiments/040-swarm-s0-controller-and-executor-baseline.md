@@ -1,8 +1,9 @@
 # S0/S1 — bounded swarm controller and first P40 executor baseline
 
 Date: 2026-09-11
-Status: Stage 0 pass; Stage 1 rate/plan gates pass; repository-task and
-multi-slot gates pending.
+Status: Stage 0 pass; Stage 1 rate/plan gates pass; Stage 4 bounded fixture
+pass. Meaningful repository-task reliability and multi-slot quality gates
+remain pending.
 
 ## Hypotheses
 
@@ -10,6 +11,8 @@ multi-slot gates pending.
    possessing autonomous execution authority.
 2. A small Q4 8B executor fits and decodes quickly on one P40 at a 4K context,
    leaving the other P40 untouched.
+3. A controller-rendered exact text replacement is a more reliable small-model
+   action surface than a model-authored unified diff.
 
 ## Fixed conditions
 
@@ -121,15 +124,49 @@ tokens, peaked at 5,713 MiB / 185.45 W / 47 C on GPU 0, then unloaded to 0 MiB.
 This validates structured planning only: it did not receive a repository,
 worktree, shell, SSH credential, or dispatch capability.
 
+## S3/S4 bounded patch-quality result
+
+The first real executor-quality fixture was an isolated Git repository with an
+inverted `is_even` predicate and four unit assertions. Its baseline
+`python-unittest` profile failed. The model received only the two supplied
+source files. It could not choose a shell command, access the repository, or
+write outside a controller-created detached worktree. GPU start was 41 C;
+the 70 C sampled abort threshold was never approached. Colibri remained
+inactive throughout.
+
+S3 asked `qwen3:8b` for a schema-constrained unified patch. It selected the
+correct semantic replacement, but emitted `@@ -1,4 +1,4 @@` for a two-line
+file. `git apply --check` correctly rejected the patch as corrupt. The model
+used 247 prompt and 128 decode tokens at 40.07 decode tok/s, and GPU 0 peaked
+at 5,713 MiB, 186.53 W, and 49 C. This is a failed action-protocol result, not
+a model-correctness pass. The patch route stays experimental.
+
+S4 replaced the free-form diff with one schema-constrained exact text
+replacement. Host validation requires a relative supplied-file path, distinct
+non-empty strings, and exactly one occurrence of `expected_text` before any
+worktree write. The controller renders that replacement and independently
+runs `git-diff-check` and `python-unittest`; the model's requested validation
+profile is not authority to skip either check.
+
+`qwen3:8b` proposed the correct single replacement in `calculator.py`. The
+baseline failed, `git-diff-check` passed in 4 ms, and all unit assertions
+passed in 69 ms. This request used 256 prompt and 68 decode tokens at 38.53
+decode tok/s; GPU 0 peaked at 5,713 MiB, 182.94 W, and 46 C, then unloaded to
+0 MiB. This clears one trivial fixture only. It does not establish real-repo
+success rate, safe scope selection, model diversity, or multi-worker quality.
+
 ## Decision
 
-The first executor candidate clears the P40 fit/rate and schema-plan gates. It
-does not yet clear repository-task, tool-use, diversity, concurrent-slot, or
+The first executor candidate clears the P40 fit/rate, schema-plan, and one
+controller-rendered text-edit fixture gate. It does not yet clear repository
+task reliability, tool-use, diversity, concurrent-slot quality, or
 optimized-sidecar gates. Next:
 
-1. run the fixed small repository corpus through worktree-isolated executor
-   attempts, with the controller still reviewing evidence before promotion;
-2. test a long-context prompt path against the accepted two-worker topology;
+1. run a fixed multi-task repository corpus through controller-rendered,
+   worktree-isolated text edits, with the controller reviewing evidence before
+   promotion;
+2. test corpus throughput and quality against the accepted two-worker topology
+   only after single-worker reliability is measured;
 3. keep the Pascal-MMQ fork out of the executor adapter unless a future,
    controlled measurement clears a meaningful reproducible threshold.
 
@@ -145,4 +182,6 @@ optimized-sidecar gates. Next:
 - `research/results/raw/S2-ollama-qwen3-8b-cuda-gpu1-20260911T055447Z.json`
 - `research/results/raw/S2-dual-ollama-qwen3-8b-20260911T055646Z.json`
 - `research/results/raw/S2-dual-ollama-qwen3-8b-warm-20260911T055927Z.json`
+- `research/results/raw/S3-ollama-qwen3-8b-unified-patch-20260911T133112Z.json`
+- `research/results/raw/S4-ollama-qwen3-8b-text-edit-20260911T133204Z.json`
 - `swarm/`, `tests/test_swarm_s0.py`, and `tests/test_swarm_ollama_bench.py`
